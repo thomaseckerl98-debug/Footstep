@@ -1,5 +1,7 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
-import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, heroSprite, HERO_W, HERO_H, WORLD_VERSION, depthScale } from './world.js?v=1';
+import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=1';
+import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=1';
+import { VILLAGERS } from './villagers.js?v=1';
 import * as CORE from './core.js?v=1';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
@@ -91,7 +93,8 @@ export class Scene {
     { const d = v.back; this.root.style.background = `rgb(${d[0]},${d[1]},${d[2]})`; }
     put(this.cv.back, v.back); put(this.cv.mid, v.mid); put(this.cv.roads, v.roads); put(this.cv.front, v.front);
     this.rebuildSprites();
-    this.heroFrames = [heroSprite(this.pal, 0), heroSprite(this.pal, 1)];
+    this.heroFrames = [heroSprite(HERO_PLAN, 0), heroSprite(HERO_PLAN, 1)];
+    this.makeWalkers();
     this.drawHero(0, true);
     this.makeGrass();
     this.drawShade();
@@ -135,7 +138,9 @@ export class Scene {
     this.world.style.transition = instant ? 'none' : 'transform 3.2s cubic-bezier(.45,.05,.25,1)';
     this.world.style.transform = `translate(${-vx * scale}px, ${-vy * scale}px) scale(${scale})`;
     // Held: passt sich der Bildschirmhöhe an (bleibt beim Zoomen gleich groß)
-    const hs = portrait ? (rw / HERO_W) * 1.9 : Math.max(rw / HERO_W, rh / HERO_H);
+    // Held im selben Pixelmaßstab wie die Welt (ein Heldenpixel = ein Weltpixel)
+    const hs = scale;
+    this.heroWrap.style.transition = instant ? 'none' : 'width 3.2s cubic-bezier(.45,.05,.25,1), height 3.2s cubic-bezier(.45,.05,.25,1)';
     this.heroWrap.style.width = `${HERO_W * hs}px`; this.heroWrap.style.height = `${HERO_H * hs}px`;
     // Tiefenunschärfe: Berge weich, Vordergrund am Weltrand leicht weich
     this.cv.back.style.filter = `blur(${(0.9 / scale) * (this.zoom === 'stadt' ? 1.2 : 1.6)}px)`;
@@ -161,6 +166,8 @@ export class Scene {
     this.mouse = [((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1];
     if (!this.ready) return;
     const [wx, wy, sx, sy] = this.toWorld(e.clientX, e.clientY);
+    const v = this.walkerAt(wx, wy);
+    if (v) { this.hooks.onHover?.({ kind: 'villager', plan: v.plan, x: sx, y: sy }); this.root.style.cursor = 'pointer'; return; }
     const s = this.spriteAt(wx, wy);
     const p = !s && this.showPlots ? this.plotAt(wx, wy) : null;
     this.hooks.onHover?.(s ? { kind: 'building', sprite: s, building: BUILDINGS[s.type], plot: PLOTS.find((q) => q.id === s.plotId), x: sx, y: sy } : p ? { kind: 'plot', plot: p, x: sx, y: sy } : null);
@@ -197,6 +204,61 @@ export class Scene {
     }
   }
   setWeather(kind) { this.weather.target = kind; this.weather.forced = kind !== 'auto'; if (kind === 'auto') { this.weather.forced = false; this.weather.target = 'klar'; } this.hooks.onWeather?.(this.weather.target); }
+
+  /* ---------- Dorfbewohner (kleine Figuren) ---------- */
+  makeWalkers() {
+    setMood(this.mood.time, this.mood.season);
+    if (!this.walkers) {
+      const pool = VILLAGERS.slice().sort(() => Math.random() - 0.5).slice(0, 10);
+      this.walkers = pool.map((plan) => { const [x, y] = this.randomSpot(); return { plan, x, y, path: [], wait: 1 + Math.random() * 10, dir: 'down', dist: 0, ph: Math.random() * 10 }; });
+    }
+    for (const w of this.walkers) {
+      const sh = sheetData(w.plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
+      cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0); w.cv = cv;
+    }
+  }
+  randomSpot() {
+    const r = Math.random(), built = this.layout.map(([, id]) => PLOTS.find((p) => p.id === id)).filter(Boolean);
+    if (r < 0.55 && built.length) { const p = built[Math.floor(Math.random() * built.length)]; return [p.x + (Math.random() - 0.5) * 14, p.y + 4 + Math.random() * 3]; }
+    if (r < 0.85) return [PLAZA.x + (Math.random() - 0.5) * 30, PLAZA.y + 2 + (Math.random() - 0.5) * 8];
+    const u = Math.random(); return [478 + (500 - 478) * u + (Math.random() - 0.5) * 4, 532 - (532 - 452) * u];
+  }
+  activeWalkers() {
+    const n = this.mood.time === 'nacht' ? 2 : (this.weather.kind === 'regen' || this.weather.kind === 'schnee') ? 4 : this.walkers.length;
+    return this.walkers.slice(0, n);
+  }
+  walkerAt(wx, wy) {
+    if (!this.walkers) return null;
+    for (const w of this.activeWalkers()) if (Math.abs(wx - w.x) <= 6 && wy <= w.y + 1 && wy >= w.y - 16) return w;
+    return null;
+  }
+  updateWalkers(dt) {
+    for (const w of this.activeWalkers()) {
+      if (!w.path.length) {
+        w.wait -= dt;
+        if (w.wait <= 0) { const t = this.randomSpot(); w.path = Math.hypot(t[0] - w.x, t[1] - w.y) > 60 ? [[PLAZA.x + (Math.random() - 0.5) * 24, PLAZA.y + 3 + (Math.random() - 0.5) * 6], t] : [t]; }
+        continue;
+      }
+      const [tx, ty] = w.path[0], dx = tx - w.x, dy = ty - w.y, d = Math.hypot(dx, dy), sp = 6.5 * dt;
+      if (d <= sp) { w.x = tx; w.y = ty; w.path.shift(); if (!w.path.length) { w.wait = 5 + Math.random() * 14; if (Math.random() < 0.5) w.dir = 'down'; } continue; }
+      w.x += (dx / d) * sp; w.y += (dy / d) * sp; w.dist += sp;
+      w.dir = Math.abs(dx) > Math.abs(dy) * 1.3 ? (dx > 0 ? 'right' : 'left') : dy < 0 ? 'up' : 'down';
+    }
+  }
+  drawWalkers(c, t) {
+    const list = this.activeWalkers().slice().sort((a, b) => a.y - b.y);
+    for (const w of list) {
+      c.fillStyle = 'rgba(15,18,28,.28)'; c.fillRect(Math.round(w.x) - 4, Math.round(w.y), 8, 1); c.fillRect(Math.round(w.x) - 3, Math.round(w.y) + 1, 6, 1);
+      const moving = w.path.length && w.wait <= 0;
+      const col = moving ? Math.floor(w.dist / 2.6) % 4 : 4 + ((((t / 1000) + w.ph) % 5.2) > 3.2 ? 1 : 0);
+      c.drawImage(w.cv, col * SW, DIRS.indexOf(w.dir) * SH, SW, SH, Math.round(w.x) - 7, Math.round(w.y) - FOOT, SW, SH);
+    }
+    // Häuser vor Figuren, die dahinter stehen, wieder darüberlegen
+    for (const s of this.sprites) {
+      const base = s.y + s.h - 3;
+      if (list.some((w) => w.y < base && w.x + 7 > s.x && w.x - 7 < s.x + s.w && w.y > s.y && w.y - FOOT < s.y + s.h)) c.drawImage(s.canvas, s.x, s.y);
+    }
+  }
 
   /* ---------- Held ---------- */
   drawHero(frame, force = false) {
@@ -305,6 +367,8 @@ export class Scene {
       const f = Math.max(0, Math.min(4, Math.round(2 + s * 1.6 * Math.min(1.4, wind))));
       c.drawImage(this.grassVariants[g.v][f], Math.round(g.x - 8), Math.round(g.y - 15));
     }
+    // Dorfbewohner
+    this.updateWalkers(dt); this.drawWalkers(c, t);
     // Rauch aus Schornsteinen und Esse
     const night = this.mood.time === 'nacht';
     for (const s of this.sprites) for (const ch of s.info.chimneys) for (let i = 0; i < 7; i++) {
@@ -331,13 +395,6 @@ export class Scene {
         const x = b.dir > 0 ? -30 + ph * (W + 60) - i * 9 : W + 30 - ph * (W + 60) + i * 9, y = b.y + (i % 2) * 5 + Math.sin(ph * 14 + i) * 2, f = Math.floor(t / 420 + i) % 2;
         c.fillStyle = 'rgba(35,35,48,.75)'; c.fillRect(x | 0, y | 0, 1, 1); c.fillRect((x - 1) | 0, (y - f) | 0, 1, 1); c.fillRect((x + 1) | 0, (y - f) | 0, 1, 1); c.fillRect((x - 2) | 0, (y - 1 + f) | 0, 1, 1); c.fillRect((x + 2) | 0, (y - 1 + f) | 0, 1, 1);
       }
-    }
-    // zwei Bewohner auf dem Hauptweg
-    for (let i = 0; i < 2; i++) {
-      const ph = ((t / 60000) + i * 0.5) % 1, u = ph < 0.5 ? ph * 2 : 2 - ph * 2;
-      const x = 478 + (500 - 478) * u + (i ? 3 : -3), y = 532 - (532 - 452) * u, s = depthScale(y);
-      c.fillStyle = i ? '#6a3a2a' : '#3f5a74'; c.fillRect(Math.round(x), Math.round(y - 4 * s), 2, Math.round(4 * s));
-      c.fillStyle = '#d9a27a'; c.fillRect(Math.round(x), Math.round(y - 6 * s), 2, 2);
     }
   }
   drawGlow(t) {

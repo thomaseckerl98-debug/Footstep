@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=1';
+import { Scene, realMood } from './game/scene.js?v=2';
 import { drawIcon } from './game/icons.js?v=1';
 import { PLOTS } from './game/world.js?v=1';
 
@@ -163,6 +163,7 @@ async function startGame() {
       onWeather: (w) => { weatherNow = w; updateChip(); },
       onHover: (h) => {
         if (!h) return hideTip();
+        if (h.kind === 'villager') return showTip(`<b>${h.plan.name}</b><br>${h.plan.beruf}`, { x: h.x, y: h.y });
         if (h.kind === 'building') showTip(`<b>${h.building.name}</b><br>${h.building.desc}<br><span class="muted">Gebäudegröße ${h.building.size} · Bauplatz ${h.plot.id} (Platz bis ${h.plot.size})${h.plot.shadow ? ' · im Bergschatten' : ''}</span><div class="tt-actions">Stufe 1 · fertig<br>Ausbauen · Bewohner zuweisen (bald)</div>`, { x: h.x, y: h.y });
         else showTip(`<b>Bauplatz ${h.plot.id}</b><br>Platz bis Größe ${h.plot.size}${h.plot.shadow ? ' · im Bergschatten' : ''}<div class="tt-actions">frei</div>`, { x: h.x, y: h.y });
       },

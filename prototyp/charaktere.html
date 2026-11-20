@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mossheart – Charakter-Probebogen</title>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #14110e; color: #f1e6cc; font-family: 'Pixelify Sans', monospace; }
+  header { padding: 18px 20px 6px; }
+  h1 { margin: 0; color: #e8c25a; font-size: 1.8rem; }
+  h2 { color: #e8c25a; font-size: 1.25rem; margin: 26px 20px 8px; }
+  p { margin: 6px 20px; color: #b9ab90; max-width: 900px; line-height: 1.4; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 20px; }
+  button { font-family: inherit; font-size: 1rem; color: #f1e6cc; background: #3a2a1c; border: 3px solid #140d09; box-shadow: inset 0 0 0 2px #6b4a2e; padding: 6px 14px; cursor: pointer; }
+  button.on { background: #a8842e; color: #1c140a; box-shadow: inset 0 0 0 2px #e8c25a; }
+  canvas { image-rendering: pixelated; display: block; }
+  #hero { margin: 0 20px; border: 3px solid #2a1f17; max-width: calc(100vw - 46px); height: auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin: 10px 20px 40px; }
+  .card { background: #241b14; border: 3px solid #140d09; box-shadow: inset 0 0 0 2px #4a3522; padding: 8px; text-align: center; }
+  .card canvas { margin: 0 auto 6px; width: 70px; height: 100px; }
+  .card b { display: block; color: #e8c25a; font-size: .95rem; }
+  .card span { font-size: .8rem; color: #b9ab90; }
+</style>
+</head>
+<body>
+<header><h1>Charakter-Probebogen</h1></header>
+<p>Alle Figuren entstehen aus einem Bauplan (Farben, Frisur, Kleidung, Werkzeug). Groß und klein nutzen dieselben Farben und dieselbe Lichtberechnung. Die Tageszeit oben ändert das Licht für alle Figuren gleichzeitig.</p>
+<div class="row" id="times"></div>
+<h2>Dein Waldläufer – groß und klein im selben Pixelmaßstab</h2>
+<p>So stehen die Größen im Spiel zueinander: der große Held sitzt im Vordergrund, die kleine Figur läuft im Dorf.</p>
+<canvas id="hero" width="800" height="600"></canvas>
+<h2>50 Dorfbewohner</h2>
+<p>Jede Figur läuft nacheinander in alle vier Richtungen und steht dann kurz still (ruhiges Atmen).</p>
+<div class="grid" id="grid"></div>
+<script type="module">
+  import { setMood } from '../game/core.js?v=1';
+  import * as CORE from '../game/core.js?v=1';
+  import { heroSprite, HERO_PLAN, HERO_W, sheetData, smallSprite, SW, SH } from '../game/chars.js?v=1';
+  import { VILLAGERS } from '../game/villagers.js?v=1';
+  const TIMES = [['morgen', 'Morgen'], ['mittag', 'Mittag'], ['abend', 'Abend'], ['nacht', 'Nacht']];
+  const month = new Date().getMonth(), season = month >= 2 && month <= 4 ? 'fruehling' : month >= 5 && month <= 7 ? 'sommer' : month >= 8 && month <= 10 ? 'herbst' : 'winter';
+  let time = 'mittag', sheets = [], heroF = [], grassCol = '#4a5a34';
+  const all = [HERO_PLAN, ...VILLAGERS];
+  const grid = document.getElementById('grid');
+  const cards = all.map((p, i) => {
+    const d = document.createElement('div'); d.className = 'card';
+    const cv = document.createElement('canvas'); cv.width = SW; cv.height = SH;
+    const b = document.createElement('b'); b.textContent = i === 0 ? 'Du' : p.name;
+    const s = document.createElement('span'); s.textContent = p.beruf;
+    d.append(cv, b, s); grid.append(d); return cv;
+  });
+  const toCanvas = (data, w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0); return c; };
+  function build() {
+    setMood(time, season);
+    const g = CORE.S.grass[1], m = CORE.mul(CORE.hex(g), CORE.add(CORE.AMB, CORE.sc(CORE.LIGHT, 0.7)));
+    grassCol = `rgb(${Math.min(255, m[0] * 255) | 0},${Math.min(255, m[1] * 255) | 0},${Math.min(255, m[2] * 255) | 0})`;
+    sheets = all.map((p) => { const s = sheetData(p); return toCanvas(s.data, s.w, s.h); });
+    heroF = [0, 1].map((b) => toCanvas(heroSprite(HERO_PLAN, b).data, HERO_W, 270));
+    document.querySelectorAll('#times button').forEach((b) => b.classList.toggle('on', b.dataset.t === time));
+  }
+  const tb = document.getElementById('times');
+  for (const [k, n] of TIMES) { const b = document.createElement('button'); b.textContent = n; b.dataset.t = k; b.onclick = () => { time = k; build(); }; tb.append(b); }
+  build();
+  const seq = [['down', 3], ['right', 3], ['up', 3], ['left', 3], ['idle', 3]], DIR = { down: 0, up: 1, right: 2, left: 3 };
+  function frameFor(t, off) {
+    const cyc = 15000, u = ((t + off) % cyc) / 1000; let acc = 0;
+    for (const [d, dur] of seq) { if (u < acc + dur) { if (d === 'idle') return [4 + (((u - acc) % 3) > 1.8 ? 1 : 0), 0]; return [Math.floor((u - acc) * 4.5) % 4, DIR[d]]; } acc += dur; }
+    return [4, 0];
+  }
+  const hc = document.getElementById('hero').getContext('2d'); hc.imageSmoothingEnabled = false;
+  function loop(t) {
+    // großer + kleiner Held, Maßstab 4 (Ausschnitt 200×150 Weltpixel)
+    hc.fillStyle = grassCol; hc.fillRect(0, 0, 800, 600);
+    const ph = (t % 6400) / 6400, bf = ph > 0.08 && ph < 0.45 ? 1 : 0;
+    hc.drawImage(heroF[bf], 0, 120, 200, 150, 0, 0, 800, 600);
+    // kleiner Held läuft im Hintergrund hin und her
+    const u = (t / 14000) % 1, x = 120 + (u < 0.5 ? u * 2 : 2 - u * 2) * 60, dir = u < 0.5 ? 2 : 3, col = Math.floor(t / 230) % 4;
+    hc.fillStyle = 'rgba(15,18,28,.28)'; hc.fillRect((x - 4) * 4, 60 * 4, 32, 4);
+    hc.drawImage(sheets[0], col * SW, dir * SH, SW, SH, (x - 7) * 4, (60 - 17) * 4, SW * 4, SH * 4);
+    cards.forEach((cv, i) => { const c = cv.getContext('2d'); c.clearRect(0, 0, SW, SH); const [fc, fr] = frameFor(t, i * 700); c.drawImage(sheets[i], fc * SW, fr * SH, SW, SH, 0, 0, SW, SH); cv.style.background = grassCol; });
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>
