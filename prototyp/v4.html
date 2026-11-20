@@ -21,6 +21,8 @@
     button { background: transparent; color: #efe6cf; border: 1px solid rgba(239,230,207,.3); border-radius: 8px; padding: 6px 12px; font-family: inherit; cursor: pointer; }
     button.on { background: #e0b955; color: #1f1a0e; border-color: #e0b955; }
     #busy { font-style: italic; }
+    body.clean #back, body.clean #mid, body.clean #near { filter: none; transform: none; }
+    body.clean #grain { opacity: .035; }
   </style>
 </head>
 <body>
@@ -35,15 +37,18 @@
     </div>
   </main>
   <script type="module">
-    import { renderAll, drawAnim, drawGlow, drawShade, drawGrain } from './v4.js?v=2';
+    import { renderAll, drawAnim, drawGlow, drawShade, drawGrain } from './v4.js?v=3';
     const $ = (id) => document.getElementById(id);
-    let mood = new URLSearchParams(location.search).get('mood') === 'day' ? 'day' : 'golden';
+    const qp = new URLSearchParams(location.search);
+    let mood = qp.get('mood') === 'day' ? 'day' : 'golden';
+    const style = qp.get('style') === 'clean' ? 'clean' : 'raw';
+    if (style === 'clean') document.body.classList.add('clean');
     const cvs = { back: $('back'), mid: $('mid'), front: $('front'), near: $('near') };
     function render() {
       $('busy').textContent = 'zeichne …';
       setTimeout(() => {
         const t0 = performance.now();
-        const n = renderAll(mood, cvs); drawShade($('shade'), mood);
+        const n = renderAll(mood, cvs, style); drawShade($('shade'), mood);
         $('busy').textContent = `${n} Farben · ${Math.round(performance.now() - t0)} ms`;
         $('golden').classList.toggle('on', mood === 'golden'); $('day').classList.toggle('on', mood === 'day');
         window.__rendered = true;

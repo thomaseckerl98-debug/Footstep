@@ -421,26 +421,54 @@ export function buildPalette(layers, k = 72) {
   for (const h of ['#2a2420', '#4a4540', '#6b6660', '#8d877e', '#aba496', '#c9a07c', '#e0b18a', '#f2c4b4']) cent.push(hex(h));
   return cent;
 }
-export function toCanvas(L, pal, cv, dither = 0.045) {
+export function toCanvas(L, pal, cv, dither = 0.045, cleanPasses = 0) {
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+  let idx = new Int16Array(W * H).fill(-1);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x; if (!L.a[i]) continue;
     const off = (BAYER[y % 4][x % 4] / 16 - 0.5) * dither;
     const c = [L.c[i * 3] + off, L.c[i * 3 + 1] + off, L.c[i * 3 + 2] + off];
-    let best = pal[0], bd = 9;
-    for (const q of pal) { const dd = (c[0] - q[0]) ** 2 + (c[1] - q[1]) ** 2 + (c[2] - q[2]) ** 2; if (dd < bd) { bd = dd; best = q; } }
-    d[i * 4] = clamp(best[0]) * 255; d[i * 4 + 1] = clamp(best[1]) * 255; d[i * 4 + 2] = clamp(best[2]) * 255; d[i * 4 + 3] = 255;
+    let best = 0, bd = 9;
+    for (let j = 0; j < pal.length; j++) { const q = pal[j], dd = 0.3 * (c[0] - q[0]) ** 2 + 0.59 * (c[1] - q[1]) ** 2 + 0.11 * (c[2] - q[2]) ** 2 + 0.25 * (((c[0] - c[1]) - (q[0] - q[1])) ** 2 + ((c[1] - c[2]) - (q[1] - q[2])) ** 2); if (dd < bd) { bd = dd; best = j; } }
+    idx[i] = best;
   }
+  // Aufräumen: einzelne verstreute Pixel bekommen die Farbe ihrer Nachbarschaft (saubere Farbflächen)
+  for (let pass = 0; pass < cleanPasses; pass++) {
+    const nxt = idx.slice();
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x, me = idx[i]; if (me < 0) continue;
+      const cnt = new Map(); let same = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const v = idx[i + dy * W + dx]; if (v < 0) continue; if (v === me) same++; cnt.set(v, (cnt.get(v) || 0) + 1); }
+      if (same <= 1) { let bv = me, bc = 0; for (const [v, c] of cnt) if (c > bc) { bc = c; bv = v; } if (bc >= 4) nxt[i] = bv; }
+    }
+    idx = nxt;
+  }
+  for (let i = 0; i < W * H; i++) { const j = idx[i]; if (j < 0) continue; const q = pal[j]; d[i * 4] = clamp(q[0]) * 255; d[i * 4 + 1] = clamp(q[1]) * 255; d[i * 4 + 2] = clamp(q[2]) * 255; d[i * 4 + 3] = 255; }
   ctx.putImageData(img, 0, 0);
 }
 
-export function renderAll(mood, cvs) {
+// Fester, handverlesener Farbvorrat mit farbverschobenen Abstufungen (für ALLE Spielgrafiken)
+export const MASTER_PALETTE = [
+  '#120d0c', '#f4ecd8', '#fffaf0',
+  '#13201a', '#1e3324', '#2b4a2c', '#3d6133', '#557b3a', '#719443', '#92ad52', '#b9c66a',
+  '#24170f', '#3d2717', '#5a3b22', '#7a5232', '#9a6c44', '#bb8d5c', '#d9b37f',
+  '#8a6a33', '#b08d45', '#cfb060', '#ead08a',
+  '#2c2a2a', '#4a4644', '#6d6762', '#948c82', '#bbb2a3',
+  '#6e4232', '#a46a4c', '#d29a73', '#f0c9a2',
+  '#2f3a5e', '#46557f', '#6a6f93', '#9b7f92', '#c98f7e', '#e8a77c', '#f7c793', '#ffe6bd',
+  '#1d3546', '#2c4f62', '#44738a', '#6f9db3', '#a5c7d4', '#dbe9ea',
+  '#6b2a22', '#a8432f', '#d9704a', '#ff9a42',
+  '#3a4a2a', '#56653a', '#4b3a2c', '#7d6a55',
+].map(hex);
+export function renderAll(mood, cvs, style = 'raw') {
   M = MOODS[mood];
+  const clean = style === 'clean';
   const back = new Layer(), mid = new Layer(), front = new Layer(), near = new Layer();
   renderBack(back); renderMid(mid); renderGrass(front, false); renderFront(front); renderGrass(near, true);
-  const pal = buildPalette([back, mid, front, near]);
-  toCanvas(back, pal, cvs.back); toCanvas(mid, pal, cvs.mid); toCanvas(front, pal, cvs.front); toCanvas(near, pal, cvs.near);
+  const pal = clean ? MASTER_PALETTE : buildPalette([back, mid, front, near], 72);
+  const dith = clean ? 0.02 : 0.045, passes = clean ? 2 : 0;
+  toCanvas(back, pal, cvs.back, dith, passes); toCanvas(mid, pal, cvs.mid, dith, passes); toCanvas(front, pal, cvs.front, dith, clean ? 2 : 0); toCanvas(near, pal, cvs.near, dith, 0);
   return pal.length;
 }
 
