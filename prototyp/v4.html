@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mossheart – Prototyp 4</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Spectral:wght@400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #12201a; color: #efe6cf; font-family: 'Spectral', Georgia, serif; }
+    main { max-width: 1280px; margin: 0 auto; padding: 14px 12px 40px; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; color: #e0b955; margin: 0 0 10px; font-size: 1.5rem; }
+    .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #000; }
+    .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    #back { filter: blur(1.3px); transform: scale(1.01); }
+    #mid { filter: blur(0.35px); }
+    #near { filter: blur(2px); }
+    #glow { mix-blend-mode: screen; image-rendering: auto; }
+    #shade { mix-blend-mode: multiply; image-rendering: auto; }
+    #grain { mix-blend-mode: overlay; opacity: .06; image-rendering: auto; }
+    .controls { display: flex; gap: 10px; margin-top: 10px; align-items: center; color: #a9bba9; }
+    button { background: transparent; color: #efe6cf; border: 1px solid rgba(239,230,207,.3); border-radius: 8px; padding: 6px 12px; font-family: inherit; cursor: pointer; }
+    button.on { background: #e0b955; color: #1f1a0e; border-color: #e0b955; }
+    #busy { font-style: italic; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Prototyp 4: Blick auf das Dorf (640×360 Pixel, unbearbeitet)</h1>
+    <div class="frame">
+      <canvas id="back"></canvas><canvas id="mid"></canvas><canvas id="front"></canvas><canvas id="anim"></canvas>
+      <canvas id="near"></canvas><canvas id="glow"></canvas><canvas id="shade"></canvas><canvas id="grain"></canvas>
+    </div>
+    <div class="controls">
+      <button id="golden" class="on" type="button">Späte Sonne</button><button id="day" type="button">Mittag</button><span id="busy"></span>
+    </div>
+  </main>
+  <script type="module">
+    import { renderAll, drawAnim, drawGlow, drawShade, drawGrain } from './v4.js?v=2';
+    const $ = (id) => document.getElementById(id);
+    let mood = new URLSearchParams(location.search).get('mood') === 'day' ? 'day' : 'golden';
+    const cvs = { back: $('back'), mid: $('mid'), front: $('front'), near: $('near') };
+    function render() {
+      $('busy').textContent = 'zeichne …';
+      setTimeout(() => {
+        const t0 = performance.now();
+        const n = renderAll(mood, cvs); drawShade($('shade'), mood);
+        $('busy').textContent = `${n} Farben · ${Math.round(performance.now() - t0)} ms`;
+        $('golden').classList.toggle('on', mood === 'golden'); $('day').classList.toggle('on', mood === 'day');
+        window.__rendered = true;
+      }, 20);
+    }
+    $('golden').onclick = () => { mood = 'golden'; render(); };
+    $('day').onclick = () => { mood = 'day'; render(); };
+    render();
+    let lg = 0;
+    const loop = (t) => { drawAnim($('anim'), t, mood); drawGlow($('glow'), t, mood); if (t - lg > 90) { drawGrain($('grain')); lg = t; } requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
