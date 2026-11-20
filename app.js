@@ -1,7 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=3';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=4';
+import { renderPanorama } from './scene.js?v=4';
+import { WorldMap } from './map.js?v=4';
 
 const $ = (id) => document.getElementById(id);
+
+// Hintergrund der Anmeldung sofort zeichnen
+renderPanorama($('auth-scene'), { village: true, huts: 4, seed: 11 });
 
 const configured =
   SUPABASE_URL.startsWith('https://') && !SUPABASE_ANON_KEY.startsWith('HIER_');
@@ -83,19 +88,76 @@ function translateError(err) {
 
 $('logout-btn').onclick = () => db.auth.signOut();
 
-/* ───────────── Spielansicht ───────────── */
+/* ───────────── Menüs ───────────── */
+const VIEWS = ['dorf', 'karte', 'diplomatie'];
+
+function showView() {
+  const name = location.hash.slice(1);
+  const view = VIEWS.includes(name) ? name : 'dorf';
+  for (const v of VIEWS) $('view-' + v).hidden = v !== view;
+  document.querySelectorAll('.nav a').forEach((a) => {
+    const active = a.dataset.view === view;
+    a.classList.toggle('active', active);
+    if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  if (view === 'karte') worldMap.resize();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', showView);
+
+/* ───────────── Weltkarte & Diplomatie ───────────── */
+const worldMap = new WorldMap($('world-map'), (v) => {
+  const info = $('map-info');
+  info.textContent = '';
+  if (!v) { info.textContent = 'Kein Dorf ausgewählt.'; return; }
+  const strong = document.createElement('strong');
+  strong.textContent = v.village_name;
+  info.append(strong, ` · Häuptling ${v.character_name} · (${v.x} | ${v.y})${v.is_me ? ' · dein Dorf' : ''}`);
+});
+
+function renderChiefs(villages) {
+  const list = $('chief-list');
+  list.textContent = '';
+  if (!villages.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Noch keine anderen Häuptlinge.';
+    list.append(li);
+    return;
+  }
+  for (const v of villages) {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = v.character_name + (v.is_me ? ' (du)' : '');
+    if (v.is_me) name.className = 'me';
+    const coords = document.createElement('span');
+    coords.className = 'coords';
+    coords.textContent = `${v.village_name} · (${v.x} | ${v.y})`;
+    li.append(name, coords);
+    list.append(li);
+  }
+}
+
+async function loadWorld() {
+  const { data, error } = await db.rpc('get_world_map');
+  if (error) return console.warn('Weltkarte:', error.message);
+  worldMap.setData(data);
+  renderChiefs(data);
+}
+
+/* ───────────── Dorf ───────────── */
 let village = null;
-let serverOffsetMs = 0;   // Serverzeit minus Geräteuhr
+let serverOffsetMs = 0;    // Serverzeit minus Geräteuhr
 let fetchedAtServerMs = 0; // Serverzeit zum Abrufzeitpunkt
 let tickTimer = null;
 let syncTimer = null;
+let sceneDrawn = false;
 
 async function loadVillage() {
   const { data, error } = await db.rpc('get_my_village');
   if (error) return showMsg('game-msg', translateError(error), 'error');
   if (!data) {
-    return showMsg('game-msg',
-      'Kein Dorf gefunden. Wurde schema.sql vor der Registrierung ausgeführt?', 'error');
+    return showMsg('game-msg', 'Kein Dorf gefunden. Bitte melde dich bei Claude.', 'error');
   }
   village = data;
   fetchedAtServerMs = Date.parse(data.server_now);
@@ -105,6 +167,10 @@ async function loadVillage() {
   $('village-name').textContent = data.village_name;
   $('village-pos').textContent = `(${data.x} | ${data.y})`;
   $('wood-rate').textContent = Number(data.wood_per_hour).toLocaleString('de-DE');
+  if (!sceneDrawn) {
+    renderPanorama($('village-scene'), { village: true, huts: 3, seed: data.x * 100 + data.y });
+    sceneDrawn = true;
+  }
   showMsg('game-msg', '');
   tick();
 }
@@ -121,27 +187,30 @@ function tick() {
 }
 
 function startGame() {
-  $('auth-view').hidden = true;
-  $('game-view').hidden = false;
+  $('auth-screen').hidden = true;
+  $('app').hidden = false;
+  showView();
   loadVillage();
+  loadWorld();
   clearInterval(tickTimer);
   clearInterval(syncTimer);
   tickTimer = setInterval(tick, 1000);
-  syncTimer = setInterval(loadVillage, 60_000); // regelmäßig mit dem Server abgleichen
+  syncTimer = setInterval(() => { loadVillage(); loadWorld(); }, 60_000);
 }
 
 function stopGame() {
   clearInterval(tickTimer);
   clearInterval(syncTimer);
   village = null;
-  $('game-view').hidden = true;
-  $('auth-view').hidden = false;
+  sceneDrawn = false;
+  $('app').hidden = true;
+  $('auth-screen').hidden = false;
   $('password').value = '';
 }
 
 db.auth.onAuthStateChange((_event, session) => {
   if (session) {
-    if ($('game-view').hidden) startGame(); // Token-Refresh o. Ä. nicht neu starten
+    if ($('app').hidden) startGame(); // Token-Refresh o. Ä. nicht neu starten
   } else {
     stopGame();
   }
