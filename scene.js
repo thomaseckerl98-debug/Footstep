@@ -83,7 +83,7 @@ export function renderPanorama(el, opts = {}) {
   }
 
   el.innerHTML = `
-<svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Gemaltes Panorama mit Wald, See und Dorf">
+<svg viewBox="0 0 1200 520" preserveAspectRatio="xMaxYMid slice" role="img" aria-label="Gemaltes Panorama mit Wald, See und Dorf">
   <defs>
     <linearGradient id="${p}sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#6fa6bf"/><stop offset=".5" stop-color="#bcd6d2"/><stop offset="1" stop-color="#f0e4c0"/>

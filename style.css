@@ -100,7 +100,7 @@ button:disabled { opacity: .5; cursor: wait; }
 .nav a.active { color: var(--gold); }
 
 .content { padding: 14px 14px calc(var(--nav-h) + env(safe-area-inset-bottom) + 18px); max-width: 980px; margin: 0 auto; }
-.panorama { height: clamp(200px, 42vw, 380px); border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+.panorama { height: clamp(230px, 56vw, 380px); border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 14px; }
 .view > .panel:first-child { margin-top: 0; }
 

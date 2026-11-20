@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=5';
-import { renderPanorama } from './scene.js?v=5';
-import { WorldMap } from './map.js?v=5';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=6';
+import { renderPanorama } from './scene.js?v=6';
+import { WorldMap } from './map.js?v=6';
 
 const $ = (id) => document.getElementById(id);
 
