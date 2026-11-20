@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mossheart – Grund-Layer 1</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Spectral:wght@400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #10161c; color: #efe6cf; font-family: 'Spectral', Georgia, serif; }
+    main { max-width: 1280px; margin: 0 auto; padding: 14px 12px 40px; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; color: #e0b955; margin: 0 0 10px; font-size: 1.5rem; }
+    .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #000; }
+    .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    #glow { mix-blend-mode: screen; image-rendering: auto; }
+    #shade { mix-blend-mode: multiply; image-rendering: auto; }
+    #grain { mix-blend-mode: overlay; opacity: .035; image-rendering: auto; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; color: #a9bba9; }
+    .row span.l { min-width: 90px; }
+    button { background: transparent; color: #efe6cf; border: 1px solid rgba(239,230,207,.3); border-radius: 8px; padding: 6px 12px; font-family: inherit; cursor: pointer; }
+    button.on { background: #e0b955; color: #1f1a0e; border-color: #e0b955; }
+    p.note { color: #a9bba9; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Grund-Layer Nr. 1 + Haus-Bausatz (640×360 Pixel, unbearbeitet)</h1>
+    <div class="frame">
+      <canvas id="back"></canvas><canvas id="mid"></canvas><canvas id="houses"></canvas><canvas id="front"></canvas>
+      <canvas id="anim"></canvas><canvas id="glow"></canvas><canvas id="shade"></canvas><canvas id="grain"></canvas>
+    </div>
+    <div class="row"><span class="l">Tageszeit</span>
+      <button data-time="morgen">Morgen</button><button data-time="mittag">Mittag</button><button data-time="abend">Abend</button><button data-time="nacht">Nacht</button></div>
+    <div class="row"><span class="l">Jahreszeit</span>
+      <button data-season="fruehling">Frühling</button><button data-season="sommer">Sommer</button><button data-season="herbst">Herbst</button><button data-season="winter">Winter</button>
+      <span id="busy"></span></div>
+    <p class="note">Beide Häuser sind derselbe Bausatz. Links: Bauplatz in der Sonne. Rechts: Bauplatz im Bergschatten, mit Moos-Zusatz.</p>
+  </main>
+  <script type="module">
+    import { renderScene, drawAnim, drawGlow, drawShade, drawGrain, W, H } from './v5.js?v=1';
+    const $ = (id) => document.getElementById(id);
+    const qp = new URLSearchParams(location.search);
+    let time = qp.get('time') || 'mittag', season = qp.get('season') || 'sommer', info = [];
+    const paint = (cv, data) => { cv.width = W; cv.height = H; const ctx = cv.getContext('2d'); ctx.putImageData(new ImageData(data, W, H), 0, 0); };
+    function render() {
+      document.querySelectorAll('[data-time]').forEach((b) => b.classList.toggle('on', b.dataset.time === time));
+      document.querySelectorAll('[data-season]').forEach((b) => b.classList.toggle('on', b.dataset.season === season));
+      $('busy').textContent = 'zeichne …';
+      setTimeout(() => {
+        const t0 = performance.now();
+        const res = renderScene(time, season); info = res.info;
+        for (const k of ['back', 'mid', 'houses', 'front']) paint($(k), res.imgs[k]);
+        drawShade($('shade'), time);
+        $('busy').textContent = `${res.pal.length} Farben · ${Math.round(performance.now() - t0)} ms`;
+        window.__rendered = true;
+      }, 20);
+    }
+    document.querySelectorAll('[data-time]').forEach((b) => b.onclick = () => { time = b.dataset.time; render(); });
+    document.querySelectorAll('[data-season]').forEach((b) => b.onclick = () => { season = b.dataset.season; render(); });
+    render();
+    let lg = 0;
+    const loop = (t) => { drawAnim($('anim'), t, time, season, info); drawGlow($('glow'), t, time, info); if (t - lg > 100) { drawGrain($('grain')); lg = t; } requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
