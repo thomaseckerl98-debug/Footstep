@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mossheart – Stil-Prototypen</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Spectral:wght@400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #16261c; color: #efe6cf; font-family: 'Spectral', Georgia, serif; }
+    main { max-width: 1100px; margin: 0 auto; padding: 20px 14px 40px; }
+    h1, h2 { font-family: 'Cormorant Garamond', Georgia, serif; }
+    h1 { color: #e0b955; margin: 0 0 4px; }
+    h2 { margin: 28px 0 8px; }
+    p { color: #a9bba9; margin: 4px 0; }
+    .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; border: 1px solid rgba(239,230,207,.15); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+    .frame canvas, .frame svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #pixel-base { image-rendering: pixelated; }
+    #pixel-light { mix-blend-mode: normal; pointer-events: none; }
+    .p-smoke { animation: psmoke 6s ease-in-out infinite alternate; }
+    .p-ember { animation: ember 1.4s ease-in-out infinite alternate; }
+    @keyframes psmoke { from { transform: translate(0, 6px); opacity: .5; } to { transform: translate(8px, -10px); opacity: .8; } }
+    @keyframes ember { from { opacity: .6; } to { opacity: 1; } }
+    body.solo main > :not(.show) { display: none; }
+    body.solo main { max-width: none; padding: 0; }
+    body.solo .frame { border-radius: 0; border: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="intro"><h1>Mossheart – Stil-Prototypen</h1>
+      <p>Beide Bilder werden live im Browser erzeugt, mit genau dem Code-Werkzeug, das später das Spiel nutzt. Nichts ist nachbearbeitet.</p></header>
+
+    <section id="pixel" class="block"><h2>Stil 1: Pixelart (320×180 Pixel, hochskaliert, mit Lichtebene)</h2>
+      <div class="frame"><canvas id="pixel-base"></canvas><canvas id="pixel-light"></canvas></div></section>
+
+    <section id="ghibli" class="block"><h2>Stil 2: gemalter Stil (SVG-Zeichnung im Code)</h2>
+      <div class="frame" id="painted"></div></section>
+  </main>
+  <script type="module">
+    import { drawPixelScene } from './pixel.js?v=1';
+    import { drawPaintedScene } from './painted.js?v=1';
+    const solo = location.hash.slice(1);
+    if (solo === 'pixel' || solo === 'ghibli') {
+      document.body.classList.add('solo');
+      document.getElementById(solo).classList.add('show');
+    }
+    const base = document.getElementById('pixel-base'), light = document.getElementById('pixel-light');
+    const loop = (t) => { drawPixelScene(base, light, t); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+    drawPaintedScene(document.getElementById('painted'));
+  </script>
+</body>
+</html>
