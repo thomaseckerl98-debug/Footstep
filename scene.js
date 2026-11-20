@@ -58,8 +58,11 @@ function palisade(x0, x1, yAt) {
   return s;
 }
 
+let sceneCount = 0;
+
 export function renderPanorama(el, opts = {}) {
   const { village = true, huts = 3, seed = 7 } = opts;
+  const p = 'pn' + (++sceneCount) + '-'; // eindeutige IDs je Szene
   const r = rng(seed);
   const hillY = (x) => 420 - 120 * Math.sin(Math.min(1, Math.max(0, (x - 560) / 640)) * Math.PI * 0.62);
   const leftHillY = (x) => 300 + Math.pow(Math.max(0, x) / 600, 1.6) * 160;
@@ -82,29 +85,29 @@ export function renderPanorama(el, opts = {}) {
   el.innerHTML = `
 <svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Gemaltes Panorama mit Wald, See und Dorf">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="${p}sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#6fa6bf"/><stop offset=".5" stop-color="#bcd6d2"/><stop offset="1" stop-color="#f0e4c0"/>
     </linearGradient>
-    <radialGradient id="sun" cx=".75" cy=".18" r=".45">
+    <radialGradient id="${p}sun" cx=".75" cy=".18" r=".45">
       <stop offset="0" stop-color="#fff6d8" stop-opacity=".9"/><stop offset="1" stop-color="#fff6d8" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="${p}lake" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#5aa3ad"/><stop offset="1" stop-color="#245563"/>
     </linearGradient>
-    <linearGradient id="ray" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="${p}ray" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff8dc" stop-opacity=".55"/><stop offset="1" stop-color="#fff8dc" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="${p}hill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#86ad55"/><stop offset="1" stop-color="#4f7a3a"/>
     </linearGradient>
-    <filter id="soft"><feGaussianBlur stdDeviation="5"/></filter>
-    <filter id="mist"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="${p}soft"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="${p}mist"><feGaussianBlur stdDeviation="16"/></filter>
   </defs>
 
-  <rect width="1200" height="520" fill="url(#sky)"/>
-  <rect width="1200" height="520" fill="url(#sun)"/>
+  <rect width="1200" height="520" fill="url(#${p}sky)"/>
+  <rect width="1200" height="520" fill="url(#${p}sun)"/>
 
-  <g class="clouds" filter="url(#soft)" fill="#fffaf0" opacity=".75">
+  <g class="clouds" filter="url(#${p}soft)" fill="#fffaf0" opacity=".75">
     <ellipse cx="220" cy="90" rx="120" ry="22"/><ellipse cx="300" cy="80" rx="70" ry="20"/>
     <ellipse cx="760" cy="60" rx="150" ry="18"/><ellipse cx="1080" cy="110" rx="110" ry="16"/>
   </g>
@@ -113,7 +116,7 @@ export function renderPanorama(el, opts = {}) {
   <path d="${ridge(r, 300, 60, 45)} L1200 370 L0 370Z" fill="#6b9387"/>
   <path d="${ridge(r, 325, 40, 35)} L1200 380 L0 380Z" fill="#4f7a64"/>
 
-  <rect y="335" width="1200" height="120" fill="url(#lake)"/>
+  <rect y="335" width="1200" height="120" fill="url(#${p}lake)"/>
   <g class="shimmer" stroke="#e8f4f0" stroke-width="2" opacity=".35">
     <line x1="420" y1="360" x2="520" y2="360"/><line x1="610" y1="378" x2="690" y2="378"/>
     <line x1="300" y1="395" x2="360" y2="395"/><line x1="720" y1="352" x2="800" y2="352"/>
@@ -122,18 +125,18 @@ export function renderPanorama(el, opts = {}) {
   <path d="M0 290 ${Array.from({ length: 13 }, (_, i) => `L${i * 50} ${leftHillY(i * 50).toFixed(1)}`).join(' ')} L600 520 L0 520Z" fill="#2c4f33"/>
   <g>${canopy(r, -20, 560, leftHillY, 90, 14, 30, ['#24432b', '#2f5a38', '#3a6b40', '#1e3a25'])}</g>
 
-  <path d="M540 520 ${Array.from({ length: 34 }, (_, i) => { const x = 540 + i * 20; return `L${x} ${hillY(x).toFixed(1)}`; }).join(' ')} L1200 520Z" fill="url(#hill)"/>
+  <path d="M540 520 ${Array.from({ length: 34 }, (_, i) => { const x = 540 + i * 20; return `L${x} ${hillY(x).toFixed(1)}`; }).join(' ')} L1200 520Z" fill="url(#${p}hill)"/>
   <g>${canopy(r, 1040, 1220, (x) => hillY(x) - 6, 26, 12, 24, ['#3a6b40', '#2f5a38', '#4b7c45'])}</g>
 
   ${village ? `<g class="village">${palisade(770, 1010, (x) => hillY(x) + 14)}${hutsSvg}</g>` : ''}
-  <g class="smokes" fill="#f4efe4" filter="url(#soft)" opacity=".55">${smoke}</g>
+  <g class="smokes" fill="#f4efe4" filter="url(#${p}soft)" opacity=".55">${smoke}</g>
 
   <g class="rays" style="mix-blend-mode:screen">
-    <polygon points="760,0 860,0 640,520 470,520" fill="url(#ray)" opacity=".35"/>
-    <polygon points="900,0 960,0 860,520 760,520" fill="url(#ray)" opacity=".25"/>
+    <polygon points="760,0 860,0 640,520 470,520" fill="url(#${p}ray)" opacity=".35"/>
+    <polygon points="900,0 960,0 860,520 760,520" fill="url(#${p}ray)" opacity=".25"/>
   </g>
 
-  <g class="mist" filter="url(#mist)" fill="#ffffff">
+  <g class="mist" filter="url(#${p}mist)" fill="#ffffff">
     <ellipse cx="300" cy="345" rx="260" ry="22" opacity=".45"/>
     <ellipse cx="800" cy="350" rx="300" ry="18" opacity=".35"/>
   </g>
