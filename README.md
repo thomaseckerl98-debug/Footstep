@@ -1,6 +1,6 @@
 # Mossheart – Schritt 1: Login + Startdorf
 
-Spiele-Link: https://thomaseckerl98-debug.github.io/Footstep/
+Spiele-Link: https://mossheart.onrender.com (Ersatz: https://thomaseckerl98-debug.github.io/Footstep/)
 
 Statische Website (kein eigener Server) + Supabase (Login & Datenbank, Gratis-Tarif).
 
