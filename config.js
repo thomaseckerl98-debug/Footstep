@@ -1,4 +1,3 @@
-js
 // Supabase-Zugangsdaten (Project Settings > API).
 // Der "publishable"/"anon" Key darf öffentlich im Browser stehen.
 // NIEMALS den "service_role"/"secret" Key hier eintragen!
