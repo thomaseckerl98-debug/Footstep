@@ -3,8 +3,8 @@
 export const W = 640, H = 360;
 
 /* ---------- Werkzeuge ---------- */
-function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-function makeNoise(seed) {
+export function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+export function makeNoise(seed) {
   const r = rng(seed), perm = new Uint8Array(512), val = new Float32Array(256), p = [...Array(256).keys()];
   for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; }
   for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
@@ -15,16 +15,16 @@ function makeNoise(seed) {
   const ridged = (x, y, o = 5) => { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { const v = 1 - Math.abs(noise(x * f, y * f) * 2 - 1); s += a * v * v; n += a; f *= 2.1; a *= 0.5; } return s / n; };
   return { noise, fbm, ridged };
 }
-const N1 = makeNoise(4), N2 = makeNoise(17), N3 = makeNoise(31), N4 = makeNoise(77);
-const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
-const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const mul = (a, b) => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sc = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
-const hex = (h) => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
-const step = (v, n) => Math.round(clamp(v) * n) / n; // Licht in Stufen
+export const N1 = makeNoise(4), N2 = makeNoise(17), N3 = makeNoise(31), N4 = makeNoise(77);
+export const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+export const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+export const mul = (a, b) => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
+export const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+export const sc = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+export const hex = (h) => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
+export const step = (v, n) => Math.round(clamp(v) * n) / n; // Licht in Stufen
 
-class Layer {
+export class Layer {
   constructor() { this.c = new Float32Array(W * H * 3); this.a = new Uint8Array(W * H); }
   set(x, y, col) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return; const i = y * W + x; this.c[i * 3] = col[0]; this.c[i * 3 + 1] = col[1]; this.c[i * 3 + 2] = col[2]; this.a[i] = 1; }
   get(x, y) { const i = y * W + x; return [this.c[i * 3], this.c[i * 3 + 1], this.c[i * 3 + 2]]; }
@@ -32,20 +32,20 @@ class Layer {
 }
 
 /* ---------- Tageszeiten & Jahreszeiten ---------- */
-const TIMES = {
+export const TIMES = {
   morgen: { sky: ['#6f93bd', '#a9bfd6', '#f2dcc0'], sun: [110, 120], body: 'sun', light: [1.05, 0.92, 0.78], amb: [0.42, 0.48, 0.62], haze: '#c7d2de', rays: 0.14 },
   mittag: { sky: ['#4e86c0', '#8fb9dc', '#d9e8ee'], sun: [520, 26], body: 'sun', light: [1.05, 1.02, 0.94], amb: [0.46, 0.52, 0.64], haze: '#bfd0dc', rays: 0.1 },
   abend: { sky: ['#4b4c7c', '#c9879a', '#ffcf94'], sun: [565, 168], body: 'sun', light: [1.1, 0.74, 0.5], amb: [0.42, 0.38, 0.58], haze: '#c99aa6', rays: 0.16 },
   nacht: { sky: ['#0b1128', '#1d2a50', '#34446e'], sun: [470, 58], body: 'moon', light: [0.42, 0.5, 0.75], amb: [0.16, 0.2, 0.34], haze: '#2c3a5e', rays: 0 },
 };
-const SEASONS = {
+export const SEASONS = {
   fruehling: { grass: ['#46703a', '#6a9450', '#9cbc68'], dry: '#b8b26a', leaf: ['#b5617a', '#e49aab', '#f6cdd2'], heather: '#d488b0', snowline: 120, groundSnow: 0, particles: 'petals' },
   sommer: { grass: ['#3b5a35', '#577a43', '#83a058'], dry: '#a8955a', leaf: ['#2f5a34', '#4f7f3c', '#7fa652'], heather: '#8a5a8e', snowline: 85, groundSnow: 0, particles: 'none' },
   herbst: { grass: ['#6a6a35', '#9a8a45', '#c9a95a'], dry: '#c78a45', leaf: ['#8a3a26', '#cf6a35', '#f2a75a'], heather: '#8a4a5a', snowline: 150, groundSnow: 0, particles: 'leaves' },
   winter: { grass: ['#8a9ab5', '#c9d4e6', '#f2f2ee'], dry: '#a39a7a', leaf: null, heather: '#6a5a6a', snowline: 260, groundSnow: 1, particles: 'snow' },
 };
-let T = TIMES.mittag, S = SEASONS.sommer, LDIR = [0, -1, 0.5], LIGHT, AMB, HAZE;
-function setMood(time, season) {
+export let T = TIMES.mittag, S = SEASONS.sommer, LDIR = [0, -1, 0.5], LIGHT, AMB, HAZE;
+export function setMood(time, season) {
   T = TIMES[time]; S = SEASONS[season];
   LIGHT = T.light; AMB = T.amb; HAZE = hex(T.haze);
   const [sx, sy] = T.sun;
@@ -53,14 +53,14 @@ function setMood(time, season) {
   const l = Math.hypot(...v); LDIR = v.map((x) => x / l);
 }
 // Licht in Stufen: Basisfarbe * (Umgebung + Licht * gestuftes Diffus)
-function lit(base, nx, ny, nz, bands = 3, lightScale = 1) {
+export function lit(base, nx, ny, nz, bands = 3, lightScale = 1) {
   const d = step(Math.max(0, nx * LDIR[0] + ny * LDIR[1] + nz * LDIR[2]), bands);
   return mul(base, add(AMB, sc(LIGHT, d * lightScale)));
 }
-const fog = (col, t) => mix(col, HAZE, step(clamp(t), 6));
+export const fog = (col, t) => mix(col, HAZE, step(clamp(t), 6));
 
 /* ---------- Himmel, Wolken, Sterne, Lichtbänder ---------- */
-function drawSky(L) {
+export function drawSky(L) {
   const [c0, c1, c2] = T.sky.map(hex), [sx, sy] = T.sun;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const t = step(y / 250, 9);
@@ -81,7 +81,7 @@ function drawSky(L) {
   const rr = T.body === 'sun' ? 9 : 7;
   for (let y = sy - rr; y <= sy + rr; y++) for (let x = sx - rr; x <= sx + rr; x++) if (Math.hypot(x - sx, y - sy) < rr - 0.5) L.set(x, y, T.body === 'sun' ? [1.15, 1.05, 0.85] : [0.92, 0.93, 0.98]);
 }
-function lightBands(layers) {
+export function lightBands(layers) {
   if (!T.rays) return;
   const [sx, sy] = T.sun;
   for (const L of layers) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -97,9 +97,9 @@ function lightBands(layers) {
 }
 
 /* ---------- Berge mit Facetten und Schnee ---------- */
-const PEAK = 360;
-const mtnTop = (x) => 250 - (Math.pow(Math.max(0, 1 - Math.abs(x - PEAK) / 270), 1.25) * 205 + Math.pow(Math.max(0, 1 - Math.abs(x - 130) / 150), 1.5) * 85 + N2.ridged(x * 0.012, 0.3, 5) * 34);
-function mountain(L, topFn, opts) {
+export const PEAK = 360;
+export const mtnTop = (x) => 250 - (Math.pow(Math.max(0, 1 - Math.abs(x - PEAK) / 270), 1.25) * 205 + Math.pow(Math.max(0, 1 - Math.abs(x - 130) / 150), 1.5) * 85 + N2.ridged(x * 0.012, 0.3, 5) * 34);
+export function mountain(L, topFn, opts) {
   const { seed, fogBase, fogGain, rock, snow, yEnd, faceX } = opts;
   const nz = makeNoise(seed);
   const h = (x, y) => { const u = (x - faceX) * 0.55 + y * 0.8, v = y * 0.5 - (x - faceX) * 0.35 * Math.sign(x - faceX || 1); return nz.ridged(u * 0.018, v * 0.034, 5); };
@@ -121,7 +121,7 @@ function mountain(L, topFn, opts) {
 }
 
 /* ---------- Nadelbäume, Laubbäume, Felsen ---------- */
-function conifer(L, cx, by, h, w, opts = {}) {
+export function conifer(L, cx, by, h, w, opts = {}) {
   const { fogT = 0, dark = '#24402f', mid = '#35583b', litC = '#56794a', snow = S.groundSnow } = opts;
   const tiers = Math.max(3, Math.round(h / (h > 120 ? 22 : 8)));
   const top = by - h;
@@ -144,7 +144,7 @@ function conifer(L, cx, by, h, w, opts = {}) {
   }
   if (h > 20) for (let k = 0; k < h * 0.12; k++) L.set(cx, by + k, fog(mul(hex('#3a2a1e'), add(AMB, sc(LIGHT, 0.5))), fogT));
 }
-function blobTree(L, cx, by, s, fogT = 0) {
+export function blobTree(L, cx, by, s, fogT = 0) {
   // Laubbaum (Frühling Blüte, Sommer grün, Herbst orange, Winter kahl)
   const trunk = hex('#3d2c22');
   const branch = (x0, y0, ang, len, wid, depth) => {
@@ -166,7 +166,7 @@ function blobTree(L, cx, by, s, fogT = 0) {
     }
   }
 }
-function rock(L, cx, cy, rx, ry, fogT = 0) {
+export function rock(L, cx, cy, rx, ry, fogT = 0) {
   const nz = makeNoise(Math.round(cx * 7 + cy));
   for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
     const dx = (x - cx) / rx, dy = (y - cy) / ry; if (dx * dx + dy * dy > 1 - nz.noise(x * 0.15, y * 0.15) * 0.35) continue;
