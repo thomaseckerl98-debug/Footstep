@@ -2,7 +2,7 @@
 
 Spiele-Link: https://mossheart.onrender.com (Ersatz: https://thomaseckerl98-debug.github.io/Footstep/)
 
-Statische Website (kein eigener Server) + Supabase (Login & Datenbank, Gratis-Tarif).
+Statische Website (kein eigener Server) + Supabase (Login & Datenbank). Dateien: index.html, app.js (Logik), scene.js (Panorama), map.js (Weltkarte), style.css, schema.sql + migrations/.
 
 ## Einrichtung (ca. 15 Minuten)
 
