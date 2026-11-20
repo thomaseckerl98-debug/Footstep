@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Footstep</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Footstep</h1>
+
+    <p id="config-warning" class="msg error" hidden>
+      Supabase ist noch nicht eingetragen. Öffne <code>config.js</code> und füge URL und Key ein.
+    </p>
+
+    <section id="auth-view" class="card">
+      <div class="tabs">
+        <button type="button" id="tab-login" class="active">Anmelden</button>
+        <button type="button" id="tab-register">Registrieren</button>
+      </div>
+      <form id="auth-form">
+        <label id="name-label" hidden>Charaktername
+          <input id="character" minlength="3" maxlength="24" autocomplete="nickname">
+        </label>
+        <label>E-Mail
+          <input id="email" type="email" required autocomplete="email">
+        </label>
+        <label>Passwort (mind. 8 Zeichen)
+          <input id="password" type="password" minlength="8" required autocomplete="current-password">
+        </label>
+        <button type="submit" id="submit-btn">Anmelden</button>
+        <p id="auth-msg" class="msg" role="status"></p>
+      </form>
+    </section>
+
+    <section id="game-view" class="card" hidden>
+      <div class="row">
+        <span>Willkommen, <strong id="char-name"></strong></span>
+        <button type="button" id="logout-btn" class="secondary">Abmelden</button>
+      </div>
+      <h2 id="village-name"></h2>
+      <p class="muted">Position auf der Karte: <span id="village-pos"></span></p>
+      <p class="resource">🪵 Holz: <strong id="wood">–</strong>
+        <span class="muted">(+<span id="wood-rate"></span>/Std.)</span></p>
+      <p class="muted small">
+        Serverzeit: <span id="server-time">–</span><br>
+        Abweichung deiner Geräteuhr: <span id="clock-diff">–</span>
+      </p>
+      <p id="game-msg" class="msg"></p>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
