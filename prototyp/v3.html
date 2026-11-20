@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mossheart – Prototyp 3</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Spectral:wght@400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #12201a; color: #efe6cf; font-family: 'Spectral', Georgia, serif; }
+    main { max-width: 1200px; margin: 0 auto; padding: 16px 12px 40px; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; color: #e0b955; margin: 0 0 10px; font-size: 1.6rem; }
+    .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px; background: #000; }
+    .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+    #bg { filter: blur(1.6px); transform: scale(1.01); }
+    #near { filter: blur(1.4px); }
+    #glow { mix-blend-mode: screen; image-rendering: auto; }
+    #shade { mix-blend-mode: multiply; image-rendering: auto; }
+    #grain { mix-blend-mode: overlay; opacity: .10; image-rendering: auto; }
+    .controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-top: 12px; }
+    .controls label { display: flex; align-items: center; gap: 10px; }
+    input[type=range] { width: 220px; accent-color: #e0b955; }
+    button { background: transparent; color: #efe6cf; border: 1px solid rgba(239,230,207,.3); border-radius: 8px; padding: 6px 12px; font-family: inherit; cursor: pointer; }
+    button.on { background: #e0b955; color: #1f1a0e; border-color: #e0b955; }
+    .stage-name { color: #a9bba9; min-width: 210px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Prototyp 3: Dorfansicht in Pixelart (480×270 Pixel, unbearbeitet)</h1>
+    <div class="frame">
+      <canvas id="bg"></canvas><canvas id="mid"></canvas><canvas id="anim"></canvas><canvas id="front"></canvas>
+      <canvas id="near"></canvas><canvas id="glow"></canvas><canvas id="shade"></canvas><canvas id="grain"></canvas>
+    </div>
+    <div class="controls">
+      <label>Bauphase <input id="stage" type="range" min="0" max="10" value="6"> <span id="stage-name" class="stage-name"></span></label>
+      <button id="day" class="on" type="button">Tag</button><button id="evening" type="button">Abend</button>
+    </div>
+  </main>
+  <script type="module">
+    import { drawBackground, drawMid, drawFront, drawNear, drawAnim, drawGlow, drawShade, drawGrain } from './v3.js?v=1';
+    const $ = (id) => document.getElementById(id);
+    const NAMES = ['0 · Bauplatz abgesteckt', '1 · Material angeliefert', '2 · Steinfundament', '3 · Pfosten stehen', '4 · Balken und Streben',
+      '5 · Dachsparren, Gerüst', '6 · Wände halb verbrettert', '7 · Wände fertig', '8 · Dach halb gedeckt', '9 · Dach gedeckt', '10 · Fertig, bewohnt'];
+    const params = new URLSearchParams(location.search);
+    let stage = Number(params.get('stage') ?? 6), mode = params.get('mode') === 'evening' ? 'evening' : 'day';
+    $('stage').value = stage;
+    function redraw() {
+      drawBackground($('bg'), mode); drawMid($('mid'), stage); drawFront($('front'), { scar: true }); drawNear($('near')); drawShade($('shade'), mode);
+      $('stage-name').textContent = NAMES[stage];
+      $('day').classList.toggle('on', mode === 'day'); $('evening').classList.toggle('on', mode === 'evening');
+    }
+    $('stage').oninput = (e) => { stage = Number(e.target.value); redraw(); };
+    $('day').onclick = () => { mode = 'day'; redraw(); };
+    $('evening').onclick = () => { mode = 'evening'; redraw(); };
+    redraw();
+    let lastGrain = 0;
+    const loop = (t) => {
+      drawAnim($('anim'), t, stage); drawGlow($('glow'), t, mode, stage);
+      if (t - lastGrain > 90) { drawGrain($('grain')); lastGrain = t; }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
