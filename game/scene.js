@@ -1,12 +1,14 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
-import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=1';
+import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=2';
 import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=1';
 import { VILLAGERS } from './villagers.js?v=1';
+import { Village, fieldSprite } from './life.js?v=1';
 import * as CORE from './core.js?v=1';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
-const LAYOUT_KEY = 'mossheart_test_layout_v1';
-const DEFAULT_LAYOUT = [['langhaus', 1], ['wohnhaus', 2], ['schmiede', 4], ['scheune', 6], ['wachturm', 9]];
+const LAYOUT_KEY = 'mossheart_test_layout_v2';
+const DEFAULT_LAYOUT = [['langhaus', 1], ['wohnhaus', 3], ['schmiede', 4], ['scheune', 6], ['wachturm', 9], ['feld', 13]];
+const MOOD_HOUR = { morgen: 8.5, mittag: 14, abend: 18.5, nacht: 23.5 };
 
 export function realMood(date = new Date()) {
   const h = date.getHours(), m = date.getMonth();
@@ -31,6 +33,7 @@ export class Scene {
     this.sprites = []; this.hero = null; this.heroFrames = null;
     this.particles = []; this.birds = null; this.nextBirds = performance.now() + 15000;
     this.pal = null; this.ready = false;
+    this.village = new Village(); this.showNames = true; this.residentsSet = false;
     this.build();
     this.worker = new Worker(new URL('./worker.js?v=1', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this.onWorld(e.data);
@@ -54,7 +57,7 @@ export class Scene {
     this.cv = {
       back: mk('lyr back', this.world, W, H), mid: mk('lyr mid', this.world, W, H), roads: mk('lyr roads', this.world, W, H),
       village: mk('lyr village', this.world, W, H), anim: mk('lyr anim', this.world, W, H), front: mk('lyr front', this.world, W, H),
-      glow: mk('lyr glow', this.world, W * 2, H * 2), marks: mk('lyr marks', this.world, W * 2, H * 2),
+      glow: mk('lyr glow', this.world, W * 2, H * 2), marks: mk('lyr marks', this.world, W * 2, H * 2), lbl: mk('lyr marks', this.world, W * 2, H * 2),
     };
     this.cv.roads.style.opacity = 0;
     this.heroWrap = document.createElement('div'); this.heroWrap.className = 'herowrap'; this.root.appendChild(this.heroWrap);
@@ -94,7 +97,7 @@ export class Scene {
     put(this.cv.back, v.back); put(this.cv.mid, v.mid); put(this.cv.roads, v.roads); put(this.cv.front, v.front);
     this.rebuildSprites();
     this.heroFrames = [heroSprite(HERO_PLAN, 0), heroSprite(HERO_PLAN, 1)];
-    this.makeWalkers();
+    if (!this.residentsSet) this.setResidents(null); else this.village.refreshSheets();
     this.drawHero(0, true);
     this.makeGrass();
     this.drawShade();
@@ -105,13 +108,14 @@ export class Scene {
   rebuildSprites() {
     if (!this.pal) return;
     setMood(this.mood.time, this.mood.season);
-    this.sprites = this.layout.map(([type, plotId]) => buildingSprite(type, PLOTS.find((p) => p.id === plotId), this.pal)).sort((a, b) => (a.y + a.h) - (b.y + b.h));
+    this.sprites = this.layout.map(([type, plotId]) => { const plot = PLOTS.find((p) => p.id === plotId); return type === 'feld' ? fieldSprite(plot) : buildingSprite(type, plot, this.pal); }).sort((a, b) => (a.type === 'feld' ? -1 : 0) - (b.type === 'feld' ? -1 : 0) || (a.y + a.h) - (b.y + b.h));
     const c = this.cv.village.getContext('2d'); c.clearRect(0, 0, W, H);
     for (const s of this.sprites) {
       const tmp = document.createElement('canvas'); tmp.width = s.w; tmp.height = s.h;
       tmp.getContext('2d').putImageData(new ImageData(s.data, s.w, s.h), 0, 0);
       s.canvas = tmp; c.drawImage(tmp, s.x, s.y);
     }
+    this.village.setSprites(this.sprites);
     this.drawMarks();
     this.hooks.onLayout?.(this.layout);
   }
@@ -166,8 +170,8 @@ export class Scene {
     this.mouse = [((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1];
     if (!this.ready) return;
     const [wx, wy, sx, sy] = this.toWorld(e.clientX, e.clientY);
-    const v = this.walkerAt(wx, wy);
-    if (v) { this.hooks.onHover?.({ kind: 'villager', plan: v.plan, x: sx, y: sy }); this.root.style.cursor = 'pointer'; return; }
+    const v = this.village.hit(wx, wy);
+    if (v) { this.hooks.onHover?.({ kind: 'villager', person: v, x: sx, y: sy }); this.root.style.cursor = 'pointer'; return; }
     const s = this.spriteAt(wx, wy);
     const p = !s && this.showPlots ? this.plotAt(wx, wy) : null;
     this.hooks.onHover?.(s ? { kind: 'building', sprite: s, building: BUILDINGS[s.type], plot: PLOTS.find((q) => q.id === s.plotId), x: sx, y: sy } : p ? { kind: 'plot', plot: p, x: sx, y: sy } : null);
@@ -205,60 +209,18 @@ export class Scene {
   }
   setWeather(kind) { this.weather.target = kind; this.weather.forced = kind !== 'auto'; if (kind === 'auto') { this.weather.forced = false; this.weather.target = 'klar'; } this.hooks.onWeather?.(this.weather.target); }
 
-  /* ---------- Dorfbewohner (kleine Figuren) ---------- */
-  makeWalkers() {
+  /* ---------- Dorfbewohner ---------- */
+  setResidents(data) {
+    // data aus get_my_residents(); ohne Daten (lokaler Test) acht Beispiel-Bewohner
+    this.residentsSet = true;
+    let list = data && Array.isArray(data.residents) && data.residents.length ? data.residents : null, wand = (data && data.wanderer) || [];
+    if (!list) { const pick = VILLAGERS.slice(0, 16).filter((_, i) => i % 2 === 0); list = pick.map((v, i) => ({ id: 1000 + i, name: v.name, job: v.beruf, look: v, stimmung: ['freundlich', 'herzlich', 'zurückhaltend'][i % 3], freund: null, erinnerung: null })); wand = VILLAGERS.slice(30, 34).map((v, i) => ({ id: 2000 + i, name: v.name, job: v.beruf, look: v })); }
     setMood(this.mood.time, this.mood.season);
-    if (!this.walkers) {
-      const pool = VILLAGERS.slice().sort(() => Math.random() - 0.5).slice(0, 10);
-      this.walkers = pool.map((plan) => { const [x, y] = this.randomSpot(); return { plan, x, y, path: [], wait: 1 + Math.random() * 10, dir: 'down', dist: 0, ph: Math.random() * 10 }; });
-    }
-    for (const w of this.walkers) {
-      const sh = sheetData(w.plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h;
-      cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0); w.cv = cv;
-    }
+    this.village.setPeople(list, wand);
+    if (this.sprites.length) this.village.setSprites(this.sprites);
   }
-  randomSpot() {
-    const r = Math.random(), built = this.layout.map(([, id]) => PLOTS.find((p) => p.id === id)).filter(Boolean);
-    if (r < 0.55 && built.length) { const p = built[Math.floor(Math.random() * built.length)]; return [p.x + (Math.random() - 0.5) * 14, p.y + 4 + Math.random() * 3]; }
-    if (r < 0.85) return [PLAZA.x + (Math.random() - 0.5) * 30, PLAZA.y + 2 + (Math.random() - 0.5) * 8];
-    const u = Math.random(); return [478 + (500 - 478) * u + (Math.random() - 0.5) * 4, 532 - (532 - 452) * u];
-  }
-  activeWalkers() {
-    const n = this.mood.time === 'nacht' ? 2 : (this.weather.kind === 'regen' || this.weather.kind === 'schnee') ? 4 : this.walkers.length;
-    return this.walkers.slice(0, n);
-  }
-  walkerAt(wx, wy) {
-    if (!this.walkers) return null;
-    for (const w of this.activeWalkers()) if (Math.abs(wx - w.x) <= 6 && wy <= w.y + 1 && wy >= w.y - 16) return w;
-    return null;
-  }
-  updateWalkers(dt) {
-    for (const w of this.activeWalkers()) {
-      if (!w.path.length) {
-        w.wait -= dt;
-        if (w.wait <= 0) { const t = this.randomSpot(); w.path = Math.hypot(t[0] - w.x, t[1] - w.y) > 60 ? [[PLAZA.x + (Math.random() - 0.5) * 24, PLAZA.y + 3 + (Math.random() - 0.5) * 6], t] : [t]; }
-        continue;
-      }
-      const [tx, ty] = w.path[0], dx = tx - w.x, dy = ty - w.y, d = Math.hypot(dx, dy), sp = 6.5 * dt;
-      if (d <= sp) { w.x = tx; w.y = ty; w.path.shift(); if (!w.path.length) { w.wait = 5 + Math.random() * 14; if (Math.random() < 0.5) w.dir = 'down'; } continue; }
-      w.x += (dx / d) * sp; w.y += (dy / d) * sp; w.dist += sp;
-      w.dir = Math.abs(dx) > Math.abs(dy) * 1.3 ? (dx > 0 ? 'right' : 'left') : dy < 0 ? 'up' : 'down';
-    }
-  }
-  drawWalkers(c, t) {
-    const list = this.activeWalkers().slice().sort((a, b) => a.y - b.y);
-    for (const w of list) {
-      c.fillStyle = 'rgba(15,18,28,.28)'; c.fillRect(Math.round(w.x) - 4, Math.round(w.y), 8, 1); c.fillRect(Math.round(w.x) - 3, Math.round(w.y) + 1, 6, 1);
-      const moving = w.path.length && w.wait <= 0;
-      const col = moving ? Math.floor(w.dist / 2.6) % 4 : 4 + ((((t / 1000) + w.ph) % 5.2) > 3.2 ? 1 : 0);
-      c.drawImage(w.cv, col * SW, DIRS.indexOf(w.dir) * SH, SW, SH, Math.round(w.x) - 7, Math.round(w.y) - FOOT, SW, SH);
-    }
-    // Häuser vor Figuren, die dahinter stehen, wieder darüberlegen
-    for (const s of this.sprites) {
-      const base = s.y + s.h - 3;
-      if (list.some((w) => w.y < base && w.x + 7 > s.x && w.x - 7 < s.x + s.w && w.y > s.y && w.y - FOOT < s.y + s.h)) c.drawImage(s.canvas, s.x, s.y);
-    }
-  }
+  sceneHour() { if (this.auto) { const d = new Date(); return d.getHours() + d.getMinutes() / 60; } return MOOD_HOUR[this.mood.time]; }
+  toggleNames(v) { this.showNames = v ?? !this.showNames; }
 
   /* ---------- Held ---------- */
   drawHero(frame, force = false) {
@@ -321,7 +283,7 @@ export class Scene {
     this.smooth[0] += (this.mouse[0] - this.smooth[0]) * 0.03; this.smooth[1] += (this.mouse[1] - this.smooth[1]) * 0.03;
     const [mx, my] = this.smooth;
     const off = (k) => `translate(${(-mx * k).toFixed(2)}px, ${(-my * k * 0.5).toFixed(2)}px)`;
-    this.cv.back.style.transform = off(1.2); this.cv.mid.style.transform = this.cv.roads.style.transform = this.cv.village.style.transform = this.cv.anim.style.transform = this.cv.glow.style.transform = this.cv.marks.style.transform = off(2.6); this.cv.front.style.transform = off(4.5);
+    this.cv.back.style.transform = off(1.2); this.cv.mid.style.transform = this.cv.roads.style.transform = this.cv.village.style.transform = this.cv.anim.style.transform = this.cv.glow.style.transform = this.cv.marks.style.transform = this.cv.lbl.style.transform = off(2.6); this.cv.front.style.transform = off(4.5);
     this.heroWrap.style.transform = `translate(${(-mx * 14).toFixed(1)}px, ${(-my * 6).toFixed(1)}px)`;
     this.updateWeather(t, dt);
     this.drawAnim(t, dt);
@@ -367,8 +329,11 @@ export class Scene {
       const f = Math.max(0, Math.min(4, Math.round(2 + s * 1.6 * Math.min(1.4, wind))));
       c.drawImage(this.grassVariants[g.v][f], Math.round(g.x - 8), Math.round(g.y - 15));
     }
-    // Dorfbewohner
-    this.updateWalkers(dt); this.drawWalkers(c, t);
+    // Dorfbewohner (Tagesablauf, Wege, Verdeckung) und Namensschilder
+    this.village.update(dt, this.sceneHour(), t);
+    const vis = this.village.draw(c, t);
+    const lc = this.cv.lbl.getContext('2d'); lc.clearRect(0, 0, W * 2, H * 2);
+    if (this.showNames) this.village.drawNames(lc, vis, 2);
     // Rauch aus Schornsteinen und Esse
     const night = this.mood.time === 'nacht';
     for (const s of this.sprites) for (const ch of s.info.chimneys) for (let i = 0; i < 7; i++) {

@@ -158,6 +158,7 @@ export const BUILDINGS = {
   schmiede: { name: 'Schmiede', size: 'M', desc: 'Steinbau mit Esse' },
   scheune: { name: 'Scheune', size: 'M', desc: 'Holzscheune mit Heuboden' },
   wachturm: { name: 'Wachturm', size: 'S', desc: 'Hölzerner Ausguck' },
+  feld: { name: 'Feld', size: 'M', desc: 'Acker – wächst mit den Jahreszeiten' },
 };
 function boxBuilding(L, x, y, c) {
   // c: s, wallH, roofH, front (half width), depth, wallFront(i,k), wallSide(i,k), roof(xx,yy,n,i), shadow, moss

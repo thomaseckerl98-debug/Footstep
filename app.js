@@ -1,10 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=2';
+import { Scene, realMood } from './game/scene.js?v=3';
 import { drawIcon } from './game/icons.js?v=1';
-import { PLOTS } from './game/world.js?v=1';
+import { PLOTS } from './game/world.js?v=2';
+import { SW, SH } from './game/chars.js?v=1';
 
 const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ───────────── Anmeldung / Registrierung ───────────── */
@@ -110,7 +112,7 @@ function renderPanel(id) {
   $('panel-title').textContent = MENUS.find((m) => m.id === id).name;
   if (id === 'dorf') {
     body.append(p(village ? `${village.village_name} · Häuptling ${village.character_name}` : 'Dein Dorf'));
-    body.append(p('Testmodus: Hier stellst du die fünf Gebäude um und probierst Licht, Jahreszeit und Wetter aus. Im fertigen Spiel wird hier gebaut.', 'muted small'));
+    body.append(p('Testmodus: Hier stellst du die fünf Gebäude und das Feld um und probierst Licht, Jahreszeit und Wetter aus. Im fertigen Spiel wird hier gebaut.', 'muted small'));
     body.append(h3('Ansicht'));
     body.append(row(...[['dorf', 'Dorf'], ['grossdorf', 'Großes Dorf'], ['stadt', 'Stadt']].map(([z, n]) => btn(n, scene.zoom === z, () => { scene.setZoom(z); renderPanel('dorf'); }))));
     body.append(h3('Gebäude umstellen'));
@@ -118,9 +120,10 @@ function renderPanel(id) {
       btn(scene.showPlots ? 'Bauplätze ausblenden' : 'Bauplätze anzeigen', scene.showPlots, () => { scene.togglePlots(); renderPanel('dorf'); }),
       btn(scene.showRoads ? 'Geplante Wege ausblenden' : 'Geplante Wege anzeigen', scene.showRoads, () => { scene.toggleRoads(); renderPanel('dorf'); }),
       btn('Anordnung zurücksetzen', false, () => scene.resetLayout()),
+      btn(scene.showNames ? 'Namen ausblenden' : 'Namen anzeigen', scene.showNames, () => { scene.toggleNames(); renderPanel('dorf'); }),
     ));
     body.append(p(scene.showPlots
-      ? (scene.selected ? `Gebäude auf Bauplatz ${scene.selected} gewählt. Jetzt einen anderen Bauplatz anklicken.` : 'Klicke ein Gebäude an und danach einen Bauplatz (gelbe Ringe). Steht dort schon ein Gebäude, werden beide getauscht.')
+      ? (scene.selected ? `Gebäude auf Bauplatz ${scene.selected} gewählt. Jetzt einen anderen Bauplatz anklicken.` : 'Klicke ein Gebäude oder das Feld an und danach einen Bauplatz (gelbe Ringe). Steht dort schon ein Gebäude, werden beide getauscht.')
       : `Es gibt ${PLOTS.length} vorberechnete Bauplätze. Tipp: Für mehr Bauplätze auf „Großes Dorf“ oder „Stadt“ zoomen.`, 'muted small'));
     body.append(h3('Tageszeit'));
     body.append(row(btn('Echtzeit', scene.auto, () => { const m = realMood(); scene.setMood(m.time, m.season, true); renderPanel('dorf'); }),
@@ -143,8 +146,19 @@ function renderPanel(id) {
         li.append(a, b); ul.append(li);
       }
     });
+  } else if (id === 'bewohner') {
+    const info = scene ? scene.village.info() : [];
+    body.append(p(info.length ? `${info.length} Bewohner leben in deinem Dorf. Was sie von dir halten, zeigt sich an ihrem Verhalten.` : 'Noch wohnt niemand hier.', 'muted small'));
+    const ul = document.createElement('ul'); ul.className = 'residents'; body.append(ul);
+    for (const r of info) {
+      const li = document.createElement('li');
+      const cv = document.createElement('canvas'); cv.width = SW; cv.height = SH; if (r.cv) cv.getContext('2d').drawImage(r.cv, 4 * SW, 0, SW, SH, 0, 0, SW, SH);
+      const t = document.createElement('div');
+      t.innerHTML = `<b>${esc(r.name)}</b> <span class="muted">· ${esc(r.job)}</span><br><span class="small">wirkt ${esc(r.stimmung)} · ${esc(r.activity)}</span><br><span class="small muted">${r.erinnerung ? 'Erinnert sich: ' + esc(r.erinnerung) : 'Noch keine gemeinsamen Erlebnisse.'}</span>`;
+      li.append(cv, t); ul.append(li);
+    }
   } else {
-    const texts = { bewohner: 'Hier triffst du bald deine Dorfbewohner, gibst ihnen Berufe und pflegst eure Beziehungen.', charakter: 'Hier gestaltest du bald deinen Helden: Aussehen, Fähigkeiten und alles, was er erlebt hat.', inventar: 'Hier liegen bald deine Ausrüstung und Gegenstände.' };
+    const texts = { charakter: 'Hier gestaltest du bald deinen Helden: Aussehen, Fähigkeiten und alles, was er erlebt hat.', inventar: 'Hier liegen bald deine Ausrüstung und Gegenstände.' };
     body.append(p(texts[id] || '', 'muted'));
   }
   $('panel').hidden = false;
@@ -163,7 +177,7 @@ async function startGame() {
       onWeather: (w) => { weatherNow = w; updateChip(); },
       onHover: (h) => {
         if (!h) return hideTip();
-        if (h.kind === 'villager') return showTip(`<b>${h.plan.name}</b><br>${h.plan.beruf}`, { x: h.x, y: h.y });
+        if (h.kind === 'villager') { const p = h.person; return showTip(p.wanderer ? `<b>${esc(p.name)}</b><br>Wanderer · ${esc(p.job)}<div class="tt-actions">${esc(p.activity)}</div>` : `<b>${esc(p.name)}</b><br>${esc(p.job)} · wirkt ${esc(p.stimmung)}<div class="tt-actions">${esc(p.activity || '')}${p.erinnerung ? '<br>Erinnert sich: ' + esc(p.erinnerung) : ''}</div>`, { x: h.x, y: h.y }); }
         if (h.kind === 'building') showTip(`<b>${h.building.name}</b><br>${h.building.desc}<br><span class="muted">Gebäudegröße ${h.building.size} · Bauplatz ${h.plot.id} (Platz bis ${h.plot.size})${h.plot.shadow ? ' · im Bergschatten' : ''}</span><div class="tt-actions">Stufe 1 · fertig<br>Ausbauen · Bewohner zuweisen (bald)</div>`, { x: h.x, y: h.y });
         else showTip(`<b>Bauplatz ${h.plot.id}</b><br>Platz bis Größe ${h.plot.size}${h.plot.shadow ? ' · im Bergschatten' : ''}<div class="tt-actions">frei</div>`, { x: h.x, y: h.y });
       },
@@ -173,6 +187,7 @@ async function startGame() {
     });
     window.mossheart = scene; // für Tests in der Konsole
   }
+  db.rpc('get_my_residents').then(({ data, error }) => { if (error) console.warn('Bewohner:', error.message); scene.setResidents(error ? null : data); });
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';
