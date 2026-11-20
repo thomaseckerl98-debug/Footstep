@@ -3,41 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#16261c">
+  <meta name="theme-color" content="#0b0f14">
   <title>Mossheart</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Spectral:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <!-- Anmeldung -->
   <div id="auth-screen" class="auth-screen">
-    <div id="auth-scene" class="scene-bg" aria-hidden="true"></div>
     <main class="auth-content">
       <h1 class="logo">Mossheart</h1>
       <p class="tagline">Ein Dorf im Herzen des Waldes</p>
-
-      <p id="config-warning" class="msg error" hidden>
-        Supabase ist noch nicht eingetragen. Öffne <code>config.js</code> und füge URL und Key ein.
-      </p>
-
-      <section id="auth-view" class="card">
+      <section id="auth-view" class="px-frame">
         <div class="tabs">
-          <button type="button" id="tab-login" class="active">Anmelden</button>
-          <button type="button" id="tab-register">Registrieren</button>
+          <button type="button" id="tab-login" class="px-btn active">Anmelden</button>
+          <button type="button" id="tab-register" class="px-btn">Registrieren</button>
         </div>
         <form id="auth-form">
           <label id="name-label" hidden>Charaktername
             <input id="character" minlength="3" maxlength="24" autocomplete="nickname">
           </label>
-          <label>E-Mail
-            <input id="email" type="email" required autocomplete="email">
-          </label>
-          <label>Passwort (mind. 8 Zeichen)
-            <input id="password" type="password" minlength="8" required autocomplete="current-password">
-          </label>
-          <button type="submit" id="submit-btn" class="primary">Anmelden</button>
+          <label>E-Mail <input id="email" type="email" required autocomplete="email"></label>
+          <label>Passwort (mind. 8 Zeichen) <input id="password" type="password" minlength="8" required autocomplete="current-password"></label>
+          <button type="submit" id="submit-btn" class="px-btn primary">Anmelden</button>
           <p id="auth-msg" class="msg" role="status"></p>
         </form>
       </section>
@@ -45,70 +35,30 @@
   </div>
 
   <!-- Spiel -->
-  <div id="app" class="app" hidden>
-    <header class="topbar">
-      <div class="brand">Mossheart</div>
-      <div class="resources" aria-label="Rohstoffe">
-        <span class="res" title="Holz">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15c3-1 13-6 16-7v3c-3 1-13 6-16 7z" fill="#a9784a"/><circle cx="4.5" cy="16.5" r="2.5" fill="#d9b48a" stroke="#6b4a2f"/><circle cx="19.5" cy="9.5" r="2.5" fill="#d9b48a" stroke="#6b4a2f"/></svg>
-          <b id="wood">–</b><small>+<span id="wood-rate">–</span>/Std.</small>
-        </span>
+  <div id="game" hidden>
+    <div id="stage" class="stage"></div>
+
+    <header class="ui topbar">
+      <div class="chip px-frame small" id="mood-chip">…</div>
+      <div class="banner"><span id="banner-title">Dorf</span></div>
+      <div class="top-right">
+        <button type="button" class="px-btn icon" id="gear-btn" aria-label="Einstellungen">⚙</button>
+        <div class="px-frame small menu" id="gear-menu" hidden>
+          <p class="muted" id="who"></p>
+          <button type="button" class="px-btn" id="logout-btn">Abmelden</button>
+        </div>
       </div>
-      <button type="button" id="logout-btn" class="ghost">Abmelden</button>
     </header>
 
-    <nav class="nav" aria-label="Hauptmenü">
-      <a href="#dorf" data-view="dorf">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" /></svg>
-        <span>Dorf</span>
-      </a>
-      <a href="#karte" data-view="karte">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></svg>
-        <span>Weltkarte</span>
-      </a>
-      <a href="#diplomatie" data-view="diplomatie">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h10a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8a2 2 0 0 1-2-2z" /><path d="M6 8H4V6a2 2 0 0 1 2-2" /><path d="M10 9h5M10 13h5" /></svg>
-        <span>Diplomatie</span>
-      </a>
-    </nav>
+    <section class="ui panel px-frame" id="panel" hidden>
+      <div class="panel-head"><h2 id="panel-title"></h2><button type="button" class="px-btn icon" id="panel-close" aria-label="Schließen">✕</button></div>
+      <div id="panel-body"></div>
+    </section>
 
-    <main class="content">
-      <!-- Dorf -->
-      <section id="view-dorf" class="view">
-        <div id="village-scene" class="panorama"></div>
-        <div class="panel">
-          <h2 id="village-name">…</h2>
-          <p class="muted">Häuptling <strong id="char-name"></strong> · Lage <span id="village-pos"></span></p>
-          <h3>Gebäude</h3>
-          <p class="placeholder">Hier erscheinen bald deine Gebäude und die Bauschlange.</p>
-          <p class="muted small">Serverzeit: <span id="server-time">–</span> · Abweichung deiner Uhr: <span id="clock-diff">–</span></p>
-          <p id="game-msg" class="msg"></p>
-        </div>
-      </section>
-
-      <!-- Weltkarte -->
-      <section id="view-karte" class="view" hidden>
-        <div class="panel map-panel">
-          <h2>Weltkarte</h2>
-          <p class="muted small">Tippe auf ein Dorf für Details. Golden: dein Dorf.</p>
-          <div class="map-wrap"><canvas id="world-map" aria-label="Weltkarte mit allen Dörfern"></canvas></div>
-          <div id="map-info" class="map-info muted">Kein Dorf ausgewählt.</div>
-        </div>
-      </section>
-
-      <!-- Diplomatie -->
-      <section id="view-diplomatie" class="view" hidden>
-        <div class="panel">
-          <h2>Diplomatie</h2>
-          <h3>Bekannte Häuptlinge</h3>
-          <ul id="chief-list" class="chief-list"></ul>
-          <h3>Nachrichten</h3>
-          <p class="placeholder">Bündnisse, Kriegserklärungen und Nachrichten kommen in einem der nächsten Schritte.</p>
-        </div>
-      </section>
-    </main>
+    <nav class="ui dock px-frame" id="dock" aria-label="Hauptmenü"></nav>
+    <div class="ui tooltip px-frame small" id="tooltip" hidden></div>
   </div>
 
-  <script type="module" src="app.js?v=6"></script>
+  <script type="module" src="app.js?v=7"></script>
 </body>
 </html>
