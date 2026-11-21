@@ -1,5 +1,5 @@
 // Dorfleben: Wegfindung (Häuser blockieren, Wege werden bevorzugt), Tagesablauf, Berufe, Gespräche, Namen.
-import { PLOTS, PLAZA, ROADS, TREES } from './world.js?v=4';
+import { PLOTS, PLAZA, ROADS, TREES, STREAM, BRIDGE, streamWidth } from './world.js?v=5';
 import * as CORE from './core.js?v=1';
 import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
 import { CATALOG, jobsAt } from './buildings.js?v=2';
@@ -7,7 +7,7 @@ const FEM = new Set(['huette', 'muehle', 'baeckerei', 'brauerei', 'imkerei', 'ja
 const ORT = (t) => t === 'feld' ? 'auf dem Feld' : t === 'markt' ? 'auf dem Marktplatz' : (FEM.has(t) ? 'in der ' : 'im ') + (CATALOG[t]?.name || t);
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const meadowY = (x) => 357 + Math.sin(x * 0.007) * 4 + CORE.N1.fbm(x * 0.013, 4, 3) * 9;
+export const meadowY = (x) => 357 + Math.sin(x * 0.007) * 4 + CORE.N1.fbm(x * 0.013, 4, 3) * 9;
 const rightSlope = (x) => 468 - Math.pow(Math.max(0, x - 700) / 260, 1.1) * 200 + CORE.N2.fbm(x * 0.02, 5, 4) * 16;
 function distSeg(px, py, ax, ay, bx, by) { const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? clamp(((px - ax) * dx + (py - ay) * dy) / l, 0, 1) : 0; return Math.hypot(px - ax - dx * t, py - ay - dy * t); }
 function hash(n) { let x = (n * 2654435761) >>> 0; x ^= x >>> 13; x = Math.imul(x, 1274126177) >>> 0; return (x >>> 0) / 4294967296; }
@@ -34,6 +34,7 @@ export class Nav {
         if (((x - PLAZA.x) / 30) ** 2 + ((y - PLAZA.y) / 12) ** 2 < 1) k = 0.55;
         if (((x - PLAZA.x) / 10) ** 2 + ((y - PLAZA.y + 2) / 5) ** 2 < 1) k = Infinity; // Brunnen
         for (const [tx, ty] of TREES) if (Math.abs(x - tx) < 5 && y > ty - 4 && y < ty + 3) k = Infinity;
+        for (let i = 0; i < STREAM.length - 1; i++) { const [ax, ay] = STREAM[i], [bx, by] = STREAM[i + 1]; if (distSeg(x, y, ax, ay, bx, by) < streamWidth((i + 0.5) / (STREAM.length - 1)) / 2 + 2) k = Math.abs(y - BRIDGE.y) < 4 && Math.abs(x - BRIDGE.x) < BRIDGE.w ? 0.6 : Infinity; }
       }
       cost[cy * cols + cx] = k;
     }
@@ -95,12 +96,13 @@ const JOB_PLACE = {
   wachturm: ['Wache', 'Hauptmann', 'Söldnerin', 'Falknerin'],
   langhaus: ['Wirt', 'Schankmaid', 'Koch', 'Brauer', 'Bäcker', 'Barde', 'Dorfälteste', 'Schreiber', 'Gelehrter', 'Priesterin', 'Mönch', 'Alchemist', 'Heilerin', 'Seherin', 'Kerzenzieherin', 'Schneiderin', 'Weberin', 'Gerberin', 'Töpfer', 'Metzger'],
   wald: ['Holzfäller', 'Köhler', 'Jäger', 'Jägerin', 'Kräuterfrau', 'Bergmann'],
-  platz: ['Händler', 'Wäscherin', 'Fischer', 'Fährmann', 'Totengräber', 'Rattenfänger', 'Steinmetz'],
+  platz: ['Händler', 'Totengräber', 'Rattenfänger', 'Steinmetz'],
+  bach: ['Fischer', 'Fährmann', 'Wäscherin'],
 };
 const PLACE_OF = {}; for (const [p, jobs] of Object.entries(JOB_PLACE)) for (const j of jobs) PLACE_OF[j] = p;
-const WORK_TEXT = { schmiede: 'arbeitet an der Schmiede', feld: 'arbeitet auf dem Feld', scheune: 'arbeitet an der Scheune', wachturm: 'hält Wache am Turm', langhaus: 'arbeitet in der Halle', wald: 'arbeitet am Waldrand', platz: 'arbeitet am Dorfplatz' };
-const GO_TEXT = { schmiede: 'geht zur Schmiede', feld: 'geht aufs Feld', scheune: 'geht zur Scheune', wachturm: 'geht zum Wachturm', langhaus: 'geht zur Halle', wald: 'geht zum Waldrand', platz: 'geht zum Dorfplatz', home: 'geht nach Hause' };
-const JOB_TEXT = { Holzfäller: 'fällt Holz am Waldrand', Kräuterfrau: 'sammelt Kräuter', Jäger: 'pirscht am Waldrand', Jägerin: 'pirscht am Waldrand', Köhler: 'schichtet Holz für den Meiler', Wäscherin: 'wäscht am Brunnen', Händler: 'bietet Waren an', Bauer: 'bestellt das Feld', Bäuerin: 'bestellt das Feld', Schmied: 'hämmert an der Esse', Wirt: 'schenkt in der Halle aus' };
+const WORK_TEXT = { bach: 'arbeitet am Bach', schmiede: 'arbeitet an der Schmiede', feld: 'arbeitet auf dem Feld', scheune: 'arbeitet an der Scheune', wachturm: 'hält Wache am Turm', langhaus: 'arbeitet in der Halle', wald: 'arbeitet am Waldrand', platz: 'arbeitet am Dorfplatz' };
+const GO_TEXT = { bach: 'geht zum Bach', schmiede: 'geht zur Schmiede', feld: 'geht aufs Feld', scheune: 'geht zur Scheune', wachturm: 'geht zum Wachturm', langhaus: 'geht zur Halle', wald: 'geht zum Waldrand', platz: 'geht zum Dorfplatz', home: 'geht nach Hause' };
+const JOB_TEXT = { Fischer: 'angelt am Bach', Fährmann: 'flickt sein Boot am Bach', Holzfäller: 'fällt Holz am Waldrand', Kräuterfrau: 'sammelt Kräuter', Jäger: 'pirscht am Waldrand', Jägerin: 'pirscht am Waldrand', Köhler: 'schichtet Holz für den Meiler', Wäscherin: 'wäscht Wäsche am Bach', Händler: 'bietet Waren an', Bauer: 'bestellt das Feld', Bäuerin: 'bestellt das Feld', Schmied: 'hämmert an der Esse', Wirt: 'schenkt in der Halle aus' };
 const NAME_COL = { 'treu ergeben': '#ffd27a', herzlich: '#ffe3a0', freundlich: '#f1e6cc', zurückhaltend: '#cfc6b4', misstrauisch: '#e0a890', feindselig: '#f07a66', fremd: '#c8d0dc' };
 function phaseOf(hour) { hour = ((hour % 24) + 24) % 24; if (hour < 6) return 'schlaf'; if (hour < 7) return 'aufstehen'; if (hour < 12) return 'arbeit'; if (hour < 13) return 'mittag'; if (hour < 17) return 'arbeit'; if (hour < 20.5) return 'feierabend'; if (hour < 22) return 'heim'; return 'schlaf'; }
 
@@ -127,6 +129,7 @@ export class Village {
   door(s) { const base = s.y + s.h - 1; return this.nav.nearestFree(PLOTS.find((q) => q.id === s.plotId)?.x ?? s.x + s.w / 2, base + 4); }
   workSpot(place, p) {
     const r = Math.random;
+    if (place === 'bach') { const i = 2 + Math.floor(r() * (STREAM.length - 3)), t = r(), [ax, ay] = STREAM[i], [bx, by] = STREAM[i + 1]; return this.nav.nearestFree(ax + (bx - ax) * t + 7, ay + (by - ay) * t); }
     if (place === 'platz') { const a = r() * Math.PI * 2; return this.nav.nearestFree(PLAZA.x + Math.cos(a) * 22, PLAZA.y + 3 + Math.sin(a) * 7); }
     if (place === 'wald') { if (r() < 0.6) { const x = 740 + r() * 130; return this.nav.nearestFree(x, 466 + r() * 4); } const x = 330 + r() * 360; return this.nav.nearestFree(x, meadowY(x) + 8 + r() * 3); }
     const s = this.spriteOf(place) || this.byType(place)[0];
@@ -136,10 +139,14 @@ export class Village {
     const base = s.y + s.h - 1, opts = [[s.x + 3, base + 5], [s.x + s.w - 4, base + 4], [s.x + s.w * 0.5 + (r() - 0.5) * 14, base + 8]];
     const o = opts[Math.floor(r() * opts.length)]; return this.nav.nearestFree(o[0], o[1]);
   }
-  placeFor(p) { const s = this.sprites.find((q) => jobsAt(q.type).includes(p.job)); if (s) return 'b:' + s.plotId; const pl = PLACE_OF[p.job] || 'platz'; if (pl === 'wald' || pl === 'platz') return pl; return this.byType(pl).length ? pl : 'platz'; }
+  placeFor(p) { const s = this.sprites.find((q) => jobsAt(q.type).includes(p.job)); if (s) return 'b:' + s.plotId; const pl = PLACE_OF[p.job] || 'platz'; if (pl === 'wald' || pl === 'platz' || pl === 'bach') return pl; return this.byType(pl).length ? pl : 'platz'; }
   spriteOf(place) { return place && place.startsWith('b:') ? this.sprites.find((q) => q.plotId === +place.slice(2)) : null; }
   desire(p, hour) {
     const ph = phaseOf(hour - p.shift);
+    if (this.weather === 'regen' && (ph === 'arbeit' || ph === 'feierabend' || ph === 'mittag')) {
+      const pl = ph === 'arbeit' ? this.placeFor(p) : 'platz', ws = this.spriteOf(pl), outdoor = !ws || ['feld', 'markt'].includes(ws.type);
+      if (outdoor && p.job !== 'Wache') { const where = p.home || this.byType('langhaus')[0] || this.byType('gasthaus')[0]; if (where) return { kind: 'inside', where, text: 'wartet den Regen ab' }; }
+    }
     if (p.job === 'Wache' && (ph === 'schlaf' || ph === 'heim')) return { kind: 'work', place: this.placeFor(p) };
     if (ph === 'schlaf' || ph === 'heim') return { kind: 'home' };
     const hall = this.byType('langhaus')[0] || this.byType('gasthaus')[0], inn = this.byType('gasthaus')[0];
@@ -153,7 +160,8 @@ export class Village {
     for (const p of social) { if (used.has(p.id)) continue; let q = social.find((o) => o.id === p.freund && !used.has(o.id)) || social.find((o) => o.id !== p.id && !used.has(o.id)); used.add(p.id); if (q) { used.add(q.id); out.push([p, q]); } else out.push([p]); }
     return out;
   }
-  update(dt, hour, t) {
+  update(dt, hour, t, weather) {
+    this.weather = weather;
     let regroup = false;
     for (const p of this.people) {
       const d = this.desire(p, hour), k = this.key(d);
@@ -168,7 +176,8 @@ export class Village {
       this.wanderer = { ...w, x: from[0], y: from[1], path: this.nav.path(from[0], from[1], PLAZA.x + 12, PLAZA.y + 6), dest: to, dir: 'right', dist: 0, ph: 0, alpha: 0, rest: 18, state: 'walk', activity: 'zieht durchs Dorf', wanderer: true };
       this.refreshSheets();
     }
-    if (this.wanderer) {
+    if (this.wanderer && this.wanderer.talking) { this.wanderer.dir = 'down'; this.wanderer.activity = 'spricht mit dir'; }
+    else if (this.wanderer) {
       const w = this.wanderer; w.alpha = Math.min(1, w.alpha + dt);
       if (!w.path.length) { if (w.rest > 0) { w.rest -= dt; w.activity = 'rastet am Brunnen'; w.dir = 'down'; } else if (w.dest) { w.path = this.nav.path(w.x, w.y, w.dest[0], w.dest[1]); w.dest = null; w.activity = 'zieht weiter über die Berge'; } else { this.wanderer = null; this.nextWanderer = t + 180000 + Math.random() * 240000; } }
       else this.walk(w, dt);
@@ -196,6 +205,7 @@ export class Village {
   }
   step(p, dt, t, hour) {
     const d = p.goal; if (!d) return;
+    if (p.talking) { if (p.state === 'inside') { p.state = 'idle'; p.alpha = 1; } p.path = []; p.dir = 'down'; p.activity = 'spricht mit dir'; return; }
     if (p.state === 'inside') {
       if (d.kind === 'home' || d.kind === 'inside') { p.activity = d.kind === 'home' ? (phaseOf(hour - p.shift) === 'schlaf' ? 'schläft' : 'ist zu Hause') : d.text; return; }
       p.wait -= dt; if (p.wait > 0) return; p.state = 'idle'; p.alpha = 0; p.arrived = false; // kommt aus der Tür
@@ -258,7 +268,7 @@ export class Village {
     }
     c.globalAlpha = 1;
   }
-  info() { return this.people.map((p) => ({ id: p.id, name: p.name, job: p.job, stimmung: p.stimmung, activity: p.activity || '…', erinnerung: p.erinnerung, cv: p.cv })); }
+  info() { return this.people.map((p) => ({ id: p.id, name: p.name, job: p.job, stimmung: p.stimmung, wesen: p.wesen, activity: p.activity || '…', erinnerung: p.erinnerung, cv: p.cv, person: p })); }
 }
 
 /* ======================================================================

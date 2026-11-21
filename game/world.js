@@ -6,7 +6,13 @@ import {
 import * as CORE from './core.js?v=1';
 export { W, H, setMood };
 
-export const WORLD_VERSION = 2;
+export const WORLD_VERSION = 3;
+// Bach vom Wasserfall durch die Lücke zwischen den Bauplätzen links, mit Brücke am Westweg
+export const STREAM = [[190, 364], [185, 384], [188, 404], [183, 424], [187, 441], [181, 462], [184, 484], [192, 512], [198, 548]];
+export const BRIDGE = { x: 185, y: 433, w: 12 };
+export const WATERFALL = { x: 191, y0: 262, y1: 352 };
+export const LANTERNS = [[488, 526], [462, 500], [494, 476], [470, 458], [528, 450], [474, 430], [526, 428]];
+export function streamWidth(t) { return 3 + t * 5; }
 const S = () => CORE.S, T = () => CORE.T;
 const flat = (base, k = 0.75) => mul(base, add(CORE.AMB, sc(CORE.LIGHT, k)));
 
@@ -76,6 +82,24 @@ function drawRoad(L, road, alpha = 1) {
     }
   }
 }
+function streamAt(i, t) { const a = STREAM[i], b = STREAM[i + 1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
+function drawStream(L) {
+  const winter = S().groundSnow, n = STREAM.length - 1;
+  for (let i = 0; i < n; i++) for (let s2 = 0; s2 < 40; s2++) {
+    const t = s2 / 40, [x, y] = streamAt(i, t), g = (i + t) / n, w = streamWidth(g), half = w / 2 + 1.5;
+    for (let xx = -half - 1; xx <= half + 1; xx++) {
+      const px = Math.round(x + xx), d = Math.abs(xx) / half; let c;
+      if (d > 1) c = winter ? lit(hex('#e4e8ee'), xx > 0 ? 0.5 : -0.5, -0.6, 0.6, 2) : lit(hex(N4.noise(px * 0.7, y * 0.7) > 0.6 ? '#7a7d86' : '#4a3a28'), xx > 0 ? 0.5 : -0.5, -0.5, 0.7, 2);
+      else c = lit(hex(d > 0.75 ? '#8ab4c4' : d > 0.4 ? '#4f86a4' : '#3a6a8a'), 0, -0.8, 0.6, 3);
+      L.set(px, Math.round(y), c);
+    }
+  }
+  // Holzbrücke am Westweg
+  const { x: bx, y: by, w: bw } = BRIDGE;
+  for (let yy = -4; yy <= 3; yy++) for (let xx = -bw / 2 - 3; xx <= bw / 2 + 3; xx++) L.set(bx + xx, by + yy, lit(hex((xx + 40) % 3 === 0 ? '#4a3220' : '#8a6a44'), 0, -0.8, 0.6, 2));
+  for (const sx of [-bw / 2 - 3, bw / 2 + 3]) for (let k = 0; k < 6; k++) { L.set(bx + sx, by - 4 - k, lit(hex('#5a3e28'), sx > 0 ? 0.6 : -0.4, 0, 0.8, 2)); L.set(bx + sx, by + 3 - k, lit(hex('#5a3e28'), sx > 0 ? 0.6 : -0.4, 0, 0.8, 2)); }
+  for (let xx = -bw / 2 - 3; xx <= bw / 2 + 3; xx++) { L.set(bx + xx, by - 8, lit(hex('#6b4b2e'), 0, -0.8, 0.6, 2)); L.set(bx + xx, by - 1, lit(hex('#6b4b2e'), 0, -0.8, 0.6, 2)); }
+}
 // Busch aus mehreren kleinen Blattballen, mit gestuftem Licht
 function bush(L, x, y, rx, ry, cols, fogT = 0, snowTop = false) {
   const n = 2 + Math.round(rx / 2.5);
@@ -119,6 +143,9 @@ export function renderWorld(time, season) {
   drawSky(back);
   mountain(back, (x) => 285 - N3.ridged(x * 0.0067, 1.7, 5) * 105, { seed: 9, fogBase: 0.6, fogGain: 0.3, rock: '#76819a', snow: '#e8ecf2', yEnd: 354, faceX: 450 });
   mountain(back, (x) => mtnTop(x / K) * K - 33, { seed: 3, fogBase: 0.2, fogGain: 0.55, rock: '#6a7690', snow: '#f1eee6', yEnd: 372, faceX: PEAK * K });
+  { const { x: wx, y0, y1 } = WATERFALL;
+    for (let y = y0; y <= y1; y++) { const j = Math.round(N1.noise(y * 0.08, 3) * 3 - 1.5), wdt = 1 + Math.floor((y - y0) / 30); for (let k = -wdt; k <= wdt; k++) back.set(wx + j + k, y, fog(lit(hex(Math.abs(k) === wdt ? '#9fb8c8' : '#e6eef2'), k / (wdt + 1), 0, 0.8, 3), clamp(0.25 - (y - y0) * 0.001))); }
+    for (let y = y1 - 8; y <= y1 + 4; y++) for (let x = wx - 8; x <= wx + 8; x++) if (((x - wx) / 8) ** 2 + ((y - y1) / 6) ** 2 < 1 && N1.noise(x * 0.4, y * 0.4) > 0.35) back.set(x, y, fog(hex('#dfe8ee'), 0.3)); }
   const HZ = CORE.HAZE;
   for (let y = 285; y < 376; y++) for (let x = 0; x < W; x++) { const n = N1.fbm(x * 0.008, y * 0.033, 4); const t = clamp(1 - Math.abs(y - 339) / 36) * (n > 0.45 ? 1 : 0.55); if (t > 0.35) back.set(x, y, mix(back.has(x, y) ? back.get(x, y) : HZ, HZ, step(t * 0.8, 3))); }
   const r = rng(12);
@@ -138,6 +165,8 @@ export function renderWorld(time, season) {
     mid.set(x, y, fog(col, clamp(0.16 - (y - 357) * 0.003)));
   }
   forestEdge(mid, r);
+  drawStream(mid);
+  for (const [lx, ly] of LANTERNS) { for (let k = 0; k < 11; k++) mid.set(lx, ly - k, lit(hex('#3a2a1e'), 0.5, 0, 0.8, 2)); mid.set(lx + 1, ly - 10, lit(hex('#3a2a1e'), 0.5, -0.5, 0.7, 2)); for (let yy = -13; yy <= -11; yy++) for (let xx = 1; xx <= 3; xx++) mid.set(lx + xx, ly + yy, xx === 2 && yy === -12 ? hex('#e8c87a') : lit(hex('#2a2420'), 0.4, 0, 0.8, 2)); }
   { const list = []; for (let i = 0; i < 300; i++) { const x = 715 + r() * 250, y = rightSlope(x) + 4 + r() * 90; if (y < 462 && y > meadowY(x) + 2) list.push([x, y]); } list.sort((a, b) => a[1] - b[1]); for (const [x, y] of list) conifer(mid, x, y, 22 + r() * 30, 6 + r() * 4, { fogT: 0.08 }); }
   // kleine Felsen und Büsche als Detail (nicht auf Bauplätzen/Wegen)
   for (let i = 0; i < 70; i++) {

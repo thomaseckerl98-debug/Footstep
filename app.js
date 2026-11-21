@@ -1,12 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=6';
-import { openCreator } from './game/creator.js?v=1';
+import { Scene, realMood } from './game/scene.js?v=7';
+import { openCreator } from './game/creator.js?v=2';
+import { buildTalk } from './game/dialog.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=1';
-import { PLOTS } from './game/world.js?v=4';
+import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
 
 const $ = (id) => document.getElementById(id);
@@ -221,6 +222,68 @@ function showCreator(first) {
     },
   });
 }
+/* ───────────── Auswahl-Karte und Gespräche ───────────── */
+const NEUTR = new Set(['wohnhaus', 'langhaus', 'gasthaus', 'feld', 'saegewerk', 'heilerhaus', 'lagerhaus']), MASK = new Set(['stall', 'markt', 'schrein', 'alchemistenturm', 'wachturm']);
+const withArticle = (t) => (NEUTR.has(t) ? 'das ' : MASK.has(t) ? 'der ' : 'die ') + (CATALOG[t]?.name || t);
+let selTimer = 0;
+function portraitCanvas(plan, size = 96) { const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH; cv.style.width = cv.style.height = size + 'px'; cv.className = 'portrait'; cv.getContext('2d').putImageData(new ImageData(portraitSprite(plan).data, PW, PH), 0, 0); return cv; }
+function showSelCard(obj) {
+  const card = $('selcard'); clearInterval(selTimer);
+  if (!obj) { card.hidden = true; return; }
+  hideTip(); card.hidden = false; card.innerHTML = '';
+  const close = document.createElement('button'); close.className = 'px-btn icon sc-close'; close.textContent = '✕'; close.onclick = () => scene.select(null); card.append(close);
+  if (obj.kind === 'villager') {
+    const p = obj.person, head = document.createElement('div'); head.className = 'sc-head';
+    const info = document.createElement('div'); head.append(portraitCanvas(p.plan), info); card.append(head);
+    const upd = () => { info.innerHTML = `<b>${esc(p.name)}</b><br>${esc(p.wanderer ? 'Wanderer · ' + p.job : p.job)}<br><span class="small">${p.stimmung ? 'wirkt ' + esc(p.stimmung) : ''}${p.wesen ? ' · ' + esc(p.wesen) : ''}</span><br><span class="small muted">${esc(p.activity || '')}</span>${p.erinnerung ? `<br><span class="small muted">Erinnert sich: ${esc(p.erinnerung)}</span>` : ''}`; };
+    upd(); selTimer = setInterval(upd, 1000);
+    const quest = btn('Auf Quest mitnehmen', false, () => {}); quest.disabled = true; quest.title = 'Quests werden nach dem Tutorial freigeschaltet';
+    card.append(row(btn('Ansprechen', false, () => startTalk(p)), quest, btn('Kamera folgen', false, () => scene.select(obj))));
+  } else {
+    const s = obj.sprite, c = CATALOG[s.type], plot = PLOTS.find((q) => q.id === s.plotId);
+    const h = document.createElement('div'); h.innerHTML = `<b>${esc(c?.name || BUILDINGS_NAME(s.type))}</b><br><span class="small muted">Bauplatz ${plot?.id} · Stufe 1</span>`; card.append(h);
+    for (const line of c ? summary(s.type) : []) card.append(p(line, 'small'));
+    const workers = scene.village.people.filter((q) => scene.village.spriteOf(scene.village.placeFor(q)) === s), dwellers = scene.village.people.filter((q) => q.home === s);
+    if (workers.length) card.append(p('Arbeiten hier: ' + workers.map((q) => q.name).join(', '), 'small'));
+    if (dwellers.length) card.append(p('Wohnen hier: ' + dwellers.map((q) => q.name).join(', '), 'small'));
+    if (c?.folgen?.[0]) card.append(p('• ' + c.folgen[0], 'small muted'));
+    const up = btn('Ausbauen', false, () => {}); up.disabled = true; up.title = 'Echtes Bauen folgt im nächsten Schritt';
+    const team = btn('Bewohner ansehen', false, () => openMenu('bewohner')); team.disabled = !workers.length && !dwellers.length;
+    card.append(row(up, team));
+  }
+}
+const BUILDINGS_NAME = (t) => t;
+function startTalk(p) {
+  const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = ''; $('selcard').hidden = true; clearInterval(selTimer);
+  const fr = scene.village.people.find((q) => q.id === p.freund);
+  const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude: [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map(withArticle), du: me?.name || 'du' });
+  const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
+  const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
+  const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
+  head.append(portraitCanvas(p.plan, 110), right); box.append(head);
+  const opts = document.createElement('div'); opts.className = 'dl-opts'; box.append(opts);
+  let round = 0, topic = 'alltag';
+  const say = (who, text) => { const el = document.createElement('p'); el.className = who; el.textContent = text; log.append(el); log.scrollTop = log.scrollHeight; };
+  const end = () => { p.talking = false; box.hidden = true; box.innerHTML = ''; if (scene.selection?.person === p) showSelCard(scene.selection); };
+  const offer = () => {
+    opts.innerHTML = '';
+    for (const o of t.options()) { const b = document.createElement('button'); b.type = 'button'; b.className = 'px-btn dl-opt'; b.innerHTML = `<span class="small muted">${esc(o.label)}</span><br>${esc(o.text)}`; b.onclick = () => choose(o); opts.append(b); }
+    const bye = btn('Verabschieden', false, () => { opts.innerHTML = ''; say('npc', t.bye(p.lastReact || 'neutral')); setTimeout(end, 1400); }); bye.classList.add('dl-bye'); opts.append(bye);
+  };
+  const choose = async (o) => {
+    opts.innerHTML = '<p class="muted small">…</p>'; say('me', o.text);
+    let res = null;
+    if (p.id && p.id < 1000) { const { data, error } = await db.rpc('talk_to_npc', { p_npc: p.id, p_tone: o.tone, p_topic: topic }); if (!error && data && typeof data === 'object') res = data; else if (error) console.warn('Gespräch:', error.message); }
+    if (!res) res = { reaktion: { freundlich: 'freundlich', loben: 'erfreut', scherzen: Math.random() < 0.5 ? 'erfreut' : 'kuehl', helfen: 'erfreut', fragen: 'freundlich', kritisieren: 'kuehl' }[o.tone] };
+    p.lastReact = res.reaktion; if (res.stimmung) p.stimmung = res.stimmung; if (res.erinnerung) p.erinnerung = res.erinnerung;
+    setTimeout(() => {
+      say('npc', t.reaction(res.reaktion)); round++;
+      if (round >= 3 || res.reaktion === 'veraergert' || res.reaktion === 'kurz') { opts.innerHTML = ''; setTimeout(() => { say('npc', t.bye(res.reaktion)); opts.append(btn('Gespräch beenden', false, end)); }, 700); return; }
+      setTimeout(() => { const tl = t.topicLine(); topic = tl.topic; say('npc', tl.text); offer(); }, 800);
+    }, 450);
+  };
+  say('npc', t.opener()); const tl = t.topicLine(); topic = tl.topic; setTimeout(() => { say('npc', tl.text); offer(); }, 600);
+}
 function updateChip() { if (!scene) return; $('mood-chip').textContent = `${SEASON_NAMES[scene.mood.season]} · ${TIME_NAMES[scene.mood.time]} · ${WEATHER_NAMES[weatherNow] || 'Klar'}`; }
 
 $('gear-btn').onclick = () => { $('gear-menu').hidden = !$('gear-menu').hidden; };
@@ -240,6 +303,7 @@ async function startGame() {
         else showTip(`<b>Bauplatz ${h.plot.id}</b><br>Platz bis Größe ${h.plot.size}${h.plot.shadow ? ' · im Bergschatten' : ''}<div class="tt-actions">frei</div>`, { x: h.x, y: h.y });
       },
       onReady: () => updateChip(),
+      onSelectObject: (obj) => showSelCard(obj),
       onPlots: (on) => $('game').classList.toggle('placing', on),
       onSelect: () => { if (!$('panel').hidden && active === 'dorf') renderPanel('dorf'); },
     });

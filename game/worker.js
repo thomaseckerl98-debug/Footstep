@@ -1,5 +1,5 @@
 // Zeichnet die große Landschaft im Hintergrund, damit die Seite nicht ruckelt.
-import { renderWorld } from './world.js?v=4';
+import { renderWorld } from './world.js?v=5';
 self.onmessage = (e) => {
   const { time, season, id } = e.data;
   try {

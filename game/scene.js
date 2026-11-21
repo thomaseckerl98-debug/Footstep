@@ -1,8 +1,9 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
-import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=4';
+import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale, LANTERNS } from './world.js?v=5';
+import { Nature } from './nature.js?v=1';
 import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=3';
+import { Village, fieldSprite } from './life.js?v=4';
 import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 
@@ -34,7 +35,7 @@ export class Scene {
     this.sprites = []; this.hero = null; this.heroFrames = null;
     this.particles = []; this.birds = null; this.nextBirds = performance.now() + 15000;
     this.pal = null; this.ready = false;
-    this.village = new Village(); this.showNames = true; this.residentsSet = false;
+    this.village = new Village(); this.nature = new Nature(); this.showNames = false; this.residentsSet = false; this.selection = null; this.camTarget = null;
     this.build();
     this.worker = new Worker(new URL('./worker.js?v=2', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this.onWorld(e.data);
@@ -118,6 +119,7 @@ export class Scene {
       s.canvas = tmp; c.drawImage(tmp, s.x, s.y);
     }
     this.village.setSprites(this.sprites);
+    this.filterGrass();
     this.drawMarks();
     this.hooks.onLayout?.(this.layout);
   }
@@ -167,10 +169,10 @@ export class Scene {
     this.view.cx = wx - (sx - n.rw / 2) / n.scale + (n.portrait ? 0 : 0); this.view.cy = wy - (sy - n.rh / 2) / n.scale;
     this.zoom = null; this.applyCamera(true); this.hooks.onZoom?.();
   }
-  panBy(dx, dy) { this.view.cx -= dx / this.cam.scale; this.view.cy -= dy / this.cam.scale; this.zoom = null; this.applyCamera(true); }
+  panBy(dx, dy) { if (this.camTarget?.person) this.camTarget = null; this.view.cx -= dx / this.cam.scale; this.view.cy -= dy / this.cam.scale; this.zoom = null; this.applyCamera(true); }
   initGestures() {
     const root = this.root, ptrs = new Map();
-    root.addEventListener('wheel', (e) => { e.preventDefault(); this.zoomAt(e.clientX, e.clientY, this.view.w * Math.exp(e.deltaY * (e.deltaMode ? 0.05 : 0.0015))); }, { passive: false });
+    root.addEventListener('wheel', (e) => { e.preventDefault(); this.camTarget = null; this.zoomAt(e.clientX, e.clientY, this.view.w * Math.exp(e.deltaY * (e.deltaMode ? 0.05 : 0.0015))); }, { passive: false });
     root.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -226,6 +228,12 @@ export class Scene {
     if (!this.ready || e.target.closest('.ui')) return;
     const [wx, wy] = this.toWorld(e.clientX, e.clientY);
     const s = this.spriteAt(wx, wy);
+    if (!this.showPlots) {
+      const v = this.village.hit(wx, wy);
+      if (v) return this.select({ kind: 'villager', person: v });
+      if (s) return this.select({ kind: 'building', sprite: s });
+      return this.select(null);
+    }
     if (this.showPlots) {
       if (s) { this.selected = s.plotId === this.selected ? null : s.plotId; this.selPlot = null; this.drawMarks(); this.hooks.onSelect?.(this.selected); return; }
       const p = this.plotAt(wx, wy);
@@ -257,6 +265,32 @@ export class Scene {
   removeBuilding(plotId) { this.layout = this.layout.filter((l) => l[1] !== plotId); this.selPlot = null; this.selected = null; this.saveLayout(); this.rebuildSprites(); this.hooks.onSelect?.(null); }
   typeAt(plotId) { return this.layout.find((l) => l[1] === plotId)?.[0] || null; }
   setWeather(kind) { this.weather.target = kind; this.weather.forced = kind !== 'auto'; if (kind === 'auto') { this.weather.forced = false; this.weather.target = 'klar'; } this.hooks.onWeather?.(this.weather.target); }
+
+  /* ---------- Auswahl: hineinzoomen, folgen, Ring ---------- */
+  select(obj) {
+    if (this.selection?.person) this.selection.person.talking = false;
+    this.selection = obj;
+    if (obj) {
+      const plot = obj.sprite && PLOTS.find((p) => p.id === obj.sprite.plotId);
+      this.camTarget = obj.kind === 'villager' ? { w: 400, person: obj.person } : { w: 470, cx: plot ? plot.x : obj.sprite.x + obj.sprite.w / 2, cy: (plot ? plot.y : obj.sprite.y + obj.sprite.h) - 30 };
+    } else this.camTarget = null;
+    this.hooks.onSelectObject?.(obj);
+  }
+  stepCamera(dt) {
+    const tg = this.camTarget; if (!tg || (this.drag && this.drag.moved) || this.pinch) return;
+    if (tg.person) { tg.cx = tg.person.x; tg.cy = tg.person.y - 14; }
+    const v = this.view, k = 1 - Math.exp(-dt * 2.6);
+    v.w += (tg.w - v.w) * k; v.cx += (tg.cx - v.cx) * k; v.cy += (tg.cy - v.cy) * k; this.zoom = null;
+    this.applyCamera(true);
+    if (!tg.person && Math.abs(tg.w - v.w) < 1 && Math.abs(tg.cx - v.cx) < 1) this.camTarget = null;
+  }
+  drawSelection(c, t) {
+    const sel = this.selection; if (!sel) return;
+    const pulse = 0.55 + Math.sin(t / 300) * 0.25;
+    c.strokeStyle = `rgba(255,214,120,${pulse.toFixed(2)})`; c.lineWidth = 1;
+    if (sel.kind === 'villager') { const p = sel.person; if (p.state === 'inside') return; c.beginPath(); c.ellipse(Math.round(p.x) + 0.5, Math.round(p.y) + 1.5, 7, 2.5, 0, 0, Math.PI * 2); c.stroke(); }
+    else { const plot = PLOTS.find((q) => q.id === sel.sprite.plotId); if (!plot) return; c.beginPath(); c.ellipse(plot.x, plot.y + 2, plot.rad * 0.95, plot.rad * 0.32, 0, 0, Math.PI * 2); c.stroke(); }
+  }
 
   /* ---------- Dorfbewohner ---------- */
   setResidents(data) {
@@ -308,8 +342,14 @@ export class Scene {
       this.grass.push({ x, y, v: Math.floor(rnd() * 12), ph: rnd() * 6.28 });
     }
     this.grass.sort((a, b) => a.y - b.y);
+    this.filterGrass();
   }
 
+  filterGrass() {
+    if (!this.grass) return;
+    const hidden = (g) => this.sprites.some((s) => { if (s.type === 'feld') return g.x > s.x && g.x < s.x + s.w && g.y > s.y && g.y < s.y + s.h + 2; if (g.x < s.x || g.x >= s.x + s.w || g.y < s.y || g.y > s.y + s.h + 3) return false; for (let dy = 0; dy < 16; dy++) { const yy = Math.floor(g.y - dy - s.y), xx = Math.floor(g.x - s.x); if (yy >= 0 && yy < s.h && s.data[(yy * s.w + xx) * 4 + 3]) return true; } return false; });
+    this.grassVis = this.grass.filter((g) => !hidden(g));
+  }
   /* ---------- Licht, Vignette, Korn ---------- */
   drawShade() {
     const c = this.cv.shade.getContext('2d'), w = 320, h = 180;
@@ -332,6 +372,7 @@ export class Scene {
     const dt = Math.min(0.05, (t - (this.lastT || t)) / 1000); this.lastT = t;
     // sanfte Parallaxe
     this.smooth[0] += (this.mouse[0] - this.smooth[0]) * 0.03; this.smooth[1] += (this.mouse[1] - this.smooth[1]) * 0.03;
+    this.stepCamera(dt);
     const [mx, my] = this.smooth;
     const off = (k) => `translate(${(-mx * k).toFixed(2)}px, ${(-my * k * 0.5).toFixed(2)}px)`;
     this.cv.back.style.transform = off(1.2); this.cv.mid.style.transform = this.cv.roads.style.transform = this.cv.village.style.transform = this.cv.anim.style.transform = this.cv.glow.style.transform = this.cv.marks.style.transform = this.cv.lbl.style.transform = off(2.6); this.cv.front.style.transform = off(4.5);
@@ -375,17 +416,23 @@ export class Scene {
     }
     // Gras im Wind (ruhig)
     const wind = this.wind || 1;
-    for (const g of this.grass) {
+    for (const g of this.grassVis || this.grass) {
       const s = Math.sin(t / (3200 / wind) + g.x * 0.018 + g.ph * 0.15) * 0.5 + Math.sin(t / 7100 + g.x * 0.004) * 0.5;
       const f = Math.max(0, Math.min(4, Math.round(2 + s * 1.6 * Math.min(1.4, wind))));
       c.drawImage(this.grassVariants[g.v][f], Math.round(g.x - 8), Math.round(g.y - 15));
     }
-    // Dorfbewohner (Tagesablauf, Wege, Verdeckung) und Namensschilder
-    this.village.update(dt, this.sceneHour(), t);
+    // Ökosystem (Pfützen, Spuren, Wasser, Tiere), Dorfbewohner (Tagesablauf, Wege, Verdeckung), Namensschilder
+    const hour = this.sceneHour();
+    this.nature.drawGround(c, t);
+    this.drawSelection(c, t);
+    this.nature.update(dt, t, { hour, weather: this.weather.kind, season: this.mood.season, people: this.village.visible(), sprites: this.sprites });
+    this.nature.drawAnimals(c, t);
+    this.village.update(dt, hour, t, this.weather.kind);
     const vis = this.village.draw(c, t);
     for (const sp of this.sprites) if (sp.info.sails) this.drawSails(c, sp.info.sails, t);
     const lc = this.cv.lbl.getContext('2d'); lc.clearRect(0, 0, W * 2, H * 2);
     if (this.showNames) this.village.drawNames(lc, vis, 2);
+    else if (this.selection?.kind === 'villager' && vis.includes(this.selection.person)) this.village.drawNames(lc, [this.selection.person], 2);
     // Rauch aus Schornsteinen und Esse
     const night = this.mood.time === 'nacht';
     for (const s of this.sprites) for (const ch of s.info.chimneys) for (let i = 0; i < 7; i++) {
@@ -436,6 +483,7 @@ export class Scene {
       // Staub im Licht
       for (let i = 0; i < 26; i++) { const ph = ((t / 16000) + i / 26) % 1; const x = 260 + ((i * 53) % 520) - ph * 40, y = 220 + ((i * 97) % 250) - ph * 25; c.fillStyle = `rgba(255,240,200,${(0.4 * wf * Math.sin(ph * Math.PI)).toFixed(2)})`; c.fillRect(x * S2, y * S2, S2, S2); }
     } else glow(sx, sy, 80, '190,205,255', 0.35 * wf);
+    if (this.mood.time === 'nacht' || this.mood.time === 'abend') for (const [lx, ly] of LANTERNS) glow(lx + 2, ly - 12, 16, '255,200,120', (this.mood.time === 'nacht' ? 0.6 : 0.3) + Math.sin(t / 700 + lx) * 0.04);
     if (this.mood.time === 'nacht' || this.mood.time === 'abend') for (const s of this.sprites) { for (const w of s.info.windows) glow(w[0], w[1], 12, '255,190,100', this.mood.time === 'nacht' ? 0.55 : 0.25); }
     for (const s of this.sprites) if (s.info.forge) glow(s.info.forge[0], s.info.forge[1], 14, '255,140,60', (this.mood.time === 'nacht' ? 0.7 : 0.35) + Math.sin(t / 380) * 0.08);
     if (this.mood.time === 'nacht' && this.mood.season !== 'winter') for (let i = 0; i < 16; i++) { const ph = ((t / 9000) + i / 16) % 1, a = Math.sin(ph * Math.PI); c.fillStyle = `rgba(210,255,150,${(a * 0.9).toFixed(2)})`; c.fillRect((300 + ((i * 71) % 420) + Math.sin(ph * 6 + i) * 6) * S2, (420 + ((i * 37) % 90) - a * 8) * S2, S2, S2); }
