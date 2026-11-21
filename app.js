@@ -1,9 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=3';
+import { Scene, realMood } from './game/scene.js?v=5';
+import { openCreator } from './game/creator.js?v=1';
+import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=2';
+import { setMood } from './game/core.js?v=1';
+import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=1';
 import { drawIcon } from './game/icons.js?v=1';
-import { PLOTS } from './game/world.js?v=2';
-import { SW, SH } from './game/chars.js?v=1';
+import { PLOTS } from './game/world.js?v=3';
+import { SW, SH } from './game/chars.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -66,7 +70,7 @@ const MENUS = [
 const TIME_NAMES = { morgen: 'Morgen', mittag: 'Mittag', abend: 'Abend', nacht: 'Nacht' };
 const SEASON_NAMES = { fruehling: 'Frühling', sommer: 'Sommer', herbst: 'Herbst', winter: 'Winter' };
 const WEATHER_NAMES = { klar: 'Klar', wolkig: 'Wolkig', regen: 'Regen', nebel: 'Nebel', schnee: 'Schnee' };
-let scene = null, active = 'dorf', village = null, weatherNow = 'klar';
+let scene = null, active = 'dorf', village = null, weatherNow = 'klar', me = null;
 
 function buildDock() {
   const dock = $('dock'); dock.innerHTML = '';
@@ -112,7 +116,8 @@ function renderPanel(id) {
   $('panel-title').textContent = MENUS.find((m) => m.id === id).name;
   if (id === 'dorf') {
     body.append(p(village ? `${village.village_name} · Häuptling ${village.character_name}` : 'Dein Dorf'));
-    body.append(p('Testmodus: Hier stellst du die fünf Gebäude und das Feld um und probierst Licht, Jahreszeit und Wetter aus. Im fertigen Spiel wird hier gebaut.', 'muted small'));
+    body.append(p('Testmodus: Bauplätze anzeigen, dann einen freien Bauplatz anklicken, um aus dem Baukatalog zu bauen – oder ein Gebäude anklicken, um es zu verschieben, umzubauen oder abzureißen. Licht, Jahreszeit und Wetter kannst du unten ausprobieren.', 'muted small'));
+    if (scene.showPlots && (scene.selPlot != null || scene.selected != null)) renderBuildMenu(body);
     body.append(h3('Ansicht'));
     body.append(row(...[['dorf', 'Dorf'], ['grossdorf', 'Großes Dorf'], ['stadt', 'Stadt']].map(([z, n]) => btn(n, scene.zoom === z, () => { scene.setZoom(z); renderPanel('dorf'); }))));
     body.append(h3('Gebäude umstellen'));
@@ -146,6 +151,17 @@ function renderPanel(id) {
         li.append(a, b); ul.append(li);
       }
     });
+  } else if (id === 'charakter') {
+    if (me && me.look) {
+      const cv = document.createElement('canvas'); cv.className = 'portrait'; cv.width = PW; cv.height = PH;
+      setMood('mittag', 'sommer'); cv.getContext('2d').putImageData(new ImageData(portraitSprite(planFromLook(me.look, me.name)).data, PW, PH), 0, 0); scene?.restoreMood();
+      const r = RACES[me.look.race];
+      const wrap = document.createElement('div'); wrap.className = 'charbox'; const t = document.createElement('div');
+      t.innerHTML = `<b>${esc(me.name)}</b><br>${esc(r.name)} · ${esc(r.desc)}<br><span class="small muted">Neigung: ${esc(r.neigung)}</span>`;
+      wrap.append(cv, t); body.append(wrap);
+      body.append(p('Fähigkeiten, Ausrüstung, Wunden und Narben folgen. Werte bleiben verdeckt.', 'muted small'));
+    }
+    body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
   } else if (id === 'bewohner') {
     const info = scene ? scene.village.info() : [];
     body.append(p(info.length ? `${info.length} Bewohner leben in deinem Dorf. Was sie von dir halten, zeigt sich an ihrem Verhalten.` : 'Noch wohnt niemand hier.', 'muted small'));
@@ -158,10 +174,52 @@ function renderPanel(id) {
       li.append(cv, t); ul.append(li);
     }
   } else {
-    const texts = { charakter: 'Hier gestaltest du bald deinen Helden: Aussehen, Fähigkeiten und alles, was er erlebt hat.', inventar: 'Hier liegen bald deine Ausrüstung und Gegenstände.' };
+    const texts = { inventar: 'Hier liegen bald deine Ausrüstung und Gegenstände.' };
     body.append(p(texts[id] || '', 'muted'));
   }
   $('panel').hidden = false;
+}
+const RANK = { S: 1, M: 2, L: 3 };
+function renderBuildMenu(body) {
+  const plotId = scene.selPlot ?? scene.selected, plot = PLOTS.find((q) => q.id === plotId), cur = scene.typeAt(plotId);
+  const box = document.createElement('div'); box.className = 'buildbox'; body.append(box);
+  const head = document.createElement('h3'); head.textContent = cur ? `Bauplatz ${plotId}: ${CATALOG[cur]?.name || cur}` : `Bauplatz ${plotId} (Platz bis Größe ${plot.size})`; box.append(head);
+  if (cur) {
+    for (const line of summary(cur)) box.append(p(line, 'small'));
+    for (const f of CATALOG[cur]?.folgen || []) box.append(p('• ' + f, 'small muted'));
+    box.append(row(btn('Abreißen', false, () => scene.removeBuilding(plotId)), btn('Abbrechen', false, () => { scene.selected = null; scene.selPlot = null; scene.drawMarks(); renderPanel('dorf'); })));
+    box.append(p('Zum Verschieben jetzt einen anderen Bauplatz anklicken – oder unten umbauen:', 'muted small'));
+  } else box.append(p('Was soll hier entstehen? (Testmodus: sofort fertig. Im echten Spiel kostet es Rohstoffe und Bauzeit.)', 'muted small'));
+  for (const [kat, kname] of Object.entries(KATEGORIEN)) {
+    const items = Object.entries(CATALOG).filter(([, c]) => c.kat === kat); if (!items.length) continue;
+    const det = document.createElement('details'); det.className = 'kat'; const sum = document.createElement('summary'); sum.textContent = `${kname} (${items.length})`; det.append(sum);
+    for (const [id, c] of items) {
+      const it = document.createElement('div'); it.className = 'bitem' + (id === cur ? ' cur' : '');
+      const fits = RANK[c.size] <= RANK[plot.size];
+      const t = document.createElement('div');
+      t.innerHTML = `<b>${esc(c.name)}</b> <span class="muted small">· Größe ${c.size} · ${Object.entries(c.kosten).map(([k, v]) => v + ' ' + k).join(', ')} · ${c.bauzeit} h${c.benoetigt ? ' · braucht ' + c.benoetigt.map((b) => CATALOG[b]?.name || b).join(', ') : ''}</span>`;
+      for (const line of summary(id)) { const q = document.createElement('div'); q.className = 'small'; q.textContent = line; t.append(q); }
+      for (const f of c.folgen) { const q = document.createElement('div'); q.className = 'small muted'; q.textContent = '• ' + f; t.append(q); }
+      const b = btn(id === cur ? 'Steht hier' : fits ? (cur ? 'Umbauen' : 'Bauen') : 'Zu groß', false, () => scene.placeBuilding(id, plotId)); b.disabled = !fits || id === cur;
+      it.append(t, b); det.append(it);
+    }
+    box.append(det);
+  }
+  box.append(p(STUFEN, 'muted small'));
+}
+function showCreator(first) {
+  hideTip();
+  openCreator({
+    root: $('creator'), name: me?.name || 'Du', look: me?.look, first,
+    restoreMood: () => scene?.restoreMood(),
+    onSave: async (look) => {
+      const { data, error } = await db.rpc('save_character', { p_look: look });
+      if (error) throw new Error(error.message);
+      me = data && typeof data === 'object' && data.look ? data : { ...(me || {}), look };
+      scene.setHeroPlan(planFromLook(me.look, me.name));
+      if (!$('panel').hidden && active === 'charakter') renderPanel('charakter');
+    },
+  });
 }
 function updateChip() { if (!scene) return; $('mood-chip').textContent = `${SEASON_NAMES[scene.mood.season]} · ${TIME_NAMES[scene.mood.time]} · ${WEATHER_NAMES[weatherNow] || 'Klar'}`; }
 
@@ -178,7 +236,7 @@ async function startGame() {
       onHover: (h) => {
         if (!h) return hideTip();
         if (h.kind === 'villager') { const p = h.person; return showTip(p.wanderer ? `<b>${esc(p.name)}</b><br>Wanderer · ${esc(p.job)}<div class="tt-actions">${esc(p.activity)}</div>` : `<b>${esc(p.name)}</b><br>${esc(p.job)} · wirkt ${esc(p.stimmung)}<div class="tt-actions">${esc(p.activity || '')}${p.erinnerung ? '<br>Erinnert sich: ' + esc(p.erinnerung) : ''}</div>`, { x: h.x, y: h.y }); }
-        if (h.kind === 'building') showTip(`<b>${h.building.name}</b><br>${h.building.desc}<br><span class="muted">Gebäudegröße ${h.building.size} · Bauplatz ${h.plot.id} (Platz bis ${h.plot.size})${h.plot.shadow ? ' · im Bergschatten' : ''}</span><div class="tt-actions">Stufe 1 · fertig<br>Ausbauen · Bewohner zuweisen (bald)</div>`, { x: h.x, y: h.y });
+        if (h.kind === 'building') showTip(`<b>${h.building.name}</b><br>${CATALOG[h.sprite.type] ? summary(h.sprite.type).map(esc).join('<br>') : h.building.desc}<br><span class="muted">Gebäudegröße ${h.building.size} · Bauplatz ${h.plot.id} (Platz bis ${h.plot.size})${h.plot.shadow ? ' · im Bergschatten' : ''}</span><div class="tt-actions">Stufe 1 · fertig<br>Ausbauen · Bewohner zuweisen (bald)</div>`, { x: h.x, y: h.y });
         else showTip(`<b>Bauplatz ${h.plot.id}</b><br>Platz bis Größe ${h.plot.size}${h.plot.shadow ? ' · im Bergschatten' : ''}<div class="tt-actions">frei</div>`, { x: h.x, y: h.y });
       },
       onReady: () => updateChip(),
@@ -188,6 +246,11 @@ async function startGame() {
     window.mossheart = scene; // für Tests in der Konsole
   }
   db.rpc('get_my_residents').then(({ data, error }) => { if (error) console.warn('Bewohner:', error.message); scene.setResidents(error ? null : data); });
+  db.rpc('get_my_character').then(({ data, error }) => {
+    if (error) console.warn('Charakter:', error.message);
+    me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
+    if (me.look) scene.setHeroPlan(planFromLook(me.look, me.name)); else showCreator(true);
+  });
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';

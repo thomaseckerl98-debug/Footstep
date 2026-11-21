@@ -1,8 +1,9 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
-import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=2';
-import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=1';
+import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=3';
+import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=2';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=1';
+import { Village, fieldSprite } from './life.js?v=2';
+import './buildings.js?v=1'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
@@ -96,7 +97,7 @@ export class Scene {
     { const d = v.back; this.root.style.background = `rgb(${d[0]},${d[1]},${d[2]})`; }
     put(this.cv.back, v.back); put(this.cv.mid, v.mid); put(this.cv.roads, v.roads); put(this.cv.front, v.front);
     this.rebuildSprites();
-    this.heroFrames = [heroSprite(HERO_PLAN, 0), heroSprite(HERO_PLAN, 1)];
+    this.heroFrames = [heroSprite(this.heroPlan || HERO_PLAN, 0), heroSprite(this.heroPlan || HERO_PLAN, 1)];
     if (!this.residentsSet) this.setResidents(null); else this.village.refreshSheets();
     this.drawHero(0, true);
     this.makeGrass();
@@ -182,23 +183,23 @@ export class Scene {
     const [wx, wy] = this.toWorld(e.clientX, e.clientY);
     const s = this.spriteAt(wx, wy);
     if (this.showPlots) {
-      if (s) { this.selected = s.plotId === this.selected ? null : s.plotId; this.drawMarks(); this.hooks.onSelect?.(this.selected); return; }
+      if (s) { this.selected = s.plotId === this.selected ? null : s.plotId; this.selPlot = null; this.drawMarks(); this.hooks.onSelect?.(this.selected); return; }
       const p = this.plotAt(wx, wy);
       if (p && this.selected != null) {
         const from = this.layout.find((l) => l[1] === this.selected), occupant = this.layout.find((l) => l[1] === p.id);
         if (from) { if (occupant) occupant[1] = this.selected; from[1] = p.id; }
         this.selected = null; this.saveLayout(); this.rebuildSprites(); this.hooks.onSelect?.(null);
-      }
+      } else if (p) { this.selPlot = this.selPlot === p.id ? null : p.id; this.drawMarks(); this.hooks.onSelect?.(null); }
     }
   }
-  togglePlots(v) { this.showPlots = v ?? !this.showPlots; this.selected = null; this.drawMarks(); this.hooks.onPlots?.(this.showPlots); }
+  togglePlots(v) { this.showPlots = v ?? !this.showPlots; this.selected = null; this.selPlot = null; this.drawMarks(); this.hooks.onPlots?.(this.showPlots); }
   toggleRoads(v) { this.showRoads = v ?? !this.showRoads; this.cv.roads.style.opacity = this.showRoads ? 1 : 0; }
   drawMarks() {
     const c = this.cv.marks.getContext('2d'); c.clearRect(0, 0, W * 2, H * 2);
     if (!this.showPlots) return;
     c.imageSmoothingEnabled = false;
     for (const p of PLOTS) {
-      const used = this.layout.find((l) => l[1] === p.id), sel = this.selected === p.id;
+      const used = this.layout.find((l) => l[1] === p.id), sel = this.selected === p.id || this.selPlot === p.id;
       c.strokeStyle = sel ? '#ffe08a' : used ? 'rgba(255,255,255,.35)' : 'rgba(255,224,138,.85)';
       c.lineWidth = sel ? 4 : 3; c.setLineDash(used ? [3, 3] : [6, 4]);
       c.beginPath(); c.ellipse(p.x * 2, p.y * 2, p.rad * 1.3, p.rad * 0.6, 0, 0, Math.PI * 2); c.stroke();
@@ -207,6 +208,10 @@ export class Scene {
       c.fillText(String(p.id), p.x * 2, p.y * 2 + 1);
     }
   }
+  // Testmodus: Gebäude setzen / abreißen
+  placeBuilding(type, plotId) { const cur = this.layout.find((l) => l[1] === plotId); if (cur) cur[0] = type; else this.layout.push([type, plotId]); this.selPlot = null; this.selected = null; this.saveLayout(); this.rebuildSprites(); this.hooks.onSelect?.(null); }
+  removeBuilding(plotId) { this.layout = this.layout.filter((l) => l[1] !== plotId); this.selPlot = null; this.selected = null; this.saveLayout(); this.rebuildSprites(); this.hooks.onSelect?.(null); }
+  typeAt(plotId) { return this.layout.find((l) => l[1] === plotId)?.[0] || null; }
   setWeather(kind) { this.weather.target = kind; this.weather.forced = kind !== 'auto'; if (kind === 'auto') { this.weather.forced = false; this.weather.target = 'klar'; } this.hooks.onWeather?.(this.weather.target); }
 
   /* ---------- Dorfbewohner ---------- */
@@ -223,6 +228,8 @@ export class Scene {
   toggleNames(v) { this.showNames = v ?? !this.showNames; }
 
   /* ---------- Held ---------- */
+  setHeroPlan(plan) { this.heroPlan = plan; if (!this.pal) return; setMood(this.mood.time, this.mood.season); this.heroFrames = [heroSprite(plan, 0), heroSprite(plan, 1)]; this.drawHero(this.heroFrame || 0, true); }
+  restoreMood() { setMood(this.mood.time, this.mood.season); }
   drawHero(frame, force = false) {
     if (!this.heroFrames || (!force && frame === this.heroFrame)) return;
     this.heroFrame = frame;
@@ -332,6 +339,7 @@ export class Scene {
     // Dorfbewohner (Tagesablauf, Wege, Verdeckung) und Namensschilder
     this.village.update(dt, this.sceneHour(), t);
     const vis = this.village.draw(c, t);
+    for (const sp of this.sprites) if (sp.info.sails) this.drawSails(c, sp.info.sails, t);
     const lc = this.cv.lbl.getContext('2d'); lc.clearRect(0, 0, W * 2, H * 2);
     if (this.showNames) this.village.drawNames(lc, vis, 2);
     // Rauch aus Schornsteinen und Esse
@@ -359,6 +367,19 @@ export class Scene {
       else for (let i = 0; i < b.n; i++) {
         const x = b.dir > 0 ? -30 + ph * (W + 60) - i * 9 : W + 30 - ph * (W + 60) + i * 9, y = b.y + (i % 2) * 5 + Math.sin(ph * 14 + i) * 2, f = Math.floor(t / 420 + i) % 2;
         c.fillStyle = 'rgba(35,35,48,.75)'; c.fillRect(x | 0, y | 0, 1, 1); c.fillRect((x - 1) | 0, (y - f) | 0, 1, 1); c.fillRect((x + 1) | 0, (y - f) | 0, 1, 1); c.fillRect((x - 2) | 0, (y - 1 + f) | 0, 1, 1); c.fillRect((x + 2) | 0, (y - 1 + f) | 0, 1, 1);
+      }
+    }
+  }
+  drawSails(c, [hx, hy, len], t) {
+    const wind = this.weather.kind === 'regen' ? 1.8 : this.weather.kind === 'klar' ? 0.8 : 1.2, a0 = (t / 5200) * wind;
+    const tone = (hx) => { const m = CORE.mul(CORE.hex(hx), CORE.add(CORE.AMB, CORE.sc(CORE.LIGHT, 0.75))); return `rgb(${Math.min(255, m[0] * 255) | 0},${Math.min(255, m[1] * 255) | 0},${Math.min(255, m[2] * 255) | 0})`; };
+    const C1 = tone('#4a3424'), C2 = tone('#6b5038'), C3 = tone('#d8d0bc'), C4 = tone('#ece6d6');
+    for (let b = 0; b < 4; b++) {
+      const a = a0 + b * Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a), px = -dy, py = dx;
+      for (let k = 2; k <= len; k++) {
+        const x = hx + dx * k, y = hy + dy * k * 0.9;
+        c.fillStyle = C1; c.fillRect(Math.round(x), Math.round(y), 1, 1);
+        if (k > len * 0.3) for (let w = 1; w <= 4; w++) { c.fillStyle = (k + w) % 5 === 0 ? C2 : (w > 2 ? C3 : C4); c.fillRect(Math.round(x + px * w), Math.round(y + py * w * 0.9), 1, 1); }
       }
     }
   }

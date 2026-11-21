@@ -1,7 +1,10 @@
 // Dorfleben: Wegfindung (Häuser blockieren, Wege werden bevorzugt), Tagesablauf, Berufe, Gespräche, Namen.
-import { PLOTS, PLAZA, ROADS, TREES } from './world.js?v=2';
+import { PLOTS, PLAZA, ROADS, TREES } from './world.js?v=3';
 import * as CORE from './core.js?v=1';
-import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=1';
+import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=2';
+import { CATALOG, jobsAt } from './buildings.js?v=1';
+const FEM = new Set(['huette', 'muehle', 'baeckerei', 'brauerei', 'imkerei', 'jagdhuette', 'holzfaeller', 'steinmetz', 'koehlerei', 'schmiede', 'gerberei', 'weberei', 'toepferei', 'scheune', 'kaserne', 'schreibstube']);
+const ORT = (t) => t === 'feld' ? 'auf dem Feld' : t === 'markt' ? 'auf dem Marktplatz' : (FEM.has(t) ? 'in der ' : 'im ') + (CATALOG[t]?.name || t);
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const meadowY = (x) => 357 + Math.sin(x * 0.007) * 4 + CORE.N1.fbm(x * 0.013, 4, 3) * 9;
@@ -117,7 +120,8 @@ export class Village {
   byType(t) { return this.sprites.filter((s) => s.type === t); }
   assignHomes() {
     if (!this.sprites.length) return;
-    const homes = []; for (const [t, cap] of [['wohnhaus', 3], ['langhaus', 8], ['scheune', 2], ['schmiede', 2], ['wachturm', 1]]) for (const s of this.byType(t)) for (let k = 0; k < cap; k++) homes.push(s);
+    const homes = []; for (const s of this.sprites) for (let k = 0; k < (CATALOG[s.type]?.wohnraum || 0); k++) homes.push(s);
+    if (!homes.length) for (const s of this.sprites.filter((q) => q.type !== 'feld')) homes.push(s);
     this.people.forEach((p, i) => { p.home = homes[i % Math.max(1, homes.length)] || null; });
   }
   door(s) { const base = s.y + s.h - 1; return this.nav.nearestFree(PLOTS.find((q) => q.id === s.plotId)?.x ?? s.x + s.w / 2, base + 4); }
@@ -125,19 +129,22 @@ export class Village {
     const r = Math.random;
     if (place === 'platz') { const a = r() * Math.PI * 2; return this.nav.nearestFree(PLAZA.x + Math.cos(a) * 22, PLAZA.y + 3 + Math.sin(a) * 7); }
     if (place === 'wald') { if (r() < 0.6) { const x = 740 + r() * 130; return this.nav.nearestFree(x, 466 + r() * 4); } const x = 330 + r() * 360; return this.nav.nearestFree(x, meadowY(x) + 8 + r() * 3); }
-    const s = this.byType(place)[0];
+    const s = this.spriteOf(place) || this.byType(place)[0];
     if (!s) return this.workSpot('platz', p);
+    if (s.type === 'feld') return this.nav.nearestFree(s.x + 5 + r() * (s.w - 10), s.y + 4 + r() * (s.h - 7));
     if (place === 'feld') return this.nav.nearestFree(s.x + 5 + r() * (s.w - 10), s.y + 4 + r() * (s.h - 7));
     const base = s.y + s.h - 1, opts = [[s.x + 3, base + 5], [s.x + s.w - 4, base + 4], [s.x + s.w * 0.5 + (r() - 0.5) * 14, base + 8]];
     const o = opts[Math.floor(r() * opts.length)]; return this.nav.nearestFree(o[0], o[1]);
   }
-  placeFor(p) { const pl = PLACE_OF[p.job] || 'platz'; if (pl === 'wald' || pl === 'platz') return pl; return this.byType(pl).length ? pl : 'platz'; }
+  placeFor(p) { const s = this.sprites.find((q) => jobsAt(q.type).includes(p.job)); if (s) return 'b:' + s.plotId; const pl = PLACE_OF[p.job] || 'platz'; if (pl === 'wald' || pl === 'platz') return pl; return this.byType(pl).length ? pl : 'platz'; }
+  spriteOf(place) { return place && place.startsWith('b:') ? this.sprites.find((q) => q.plotId === +place.slice(2)) : null; }
   desire(p, hour) {
     const ph = phaseOf(hour - p.shift);
     if (p.job === 'Wache' && (ph === 'schlaf' || ph === 'heim')) return { kind: 'work', place: this.placeFor(p) };
     if (ph === 'schlaf' || ph === 'heim') return { kind: 'home' };
-    if (ph === 'mittag') return this.byType('langhaus').length ? { kind: 'inside', where: this.byType('langhaus')[0], text: 'isst in der Halle' } : { kind: 'platz', text: 'macht Mittagspause' };
-    if (ph === 'feierabend') return hash(p.id + Math.floor(hour)) < 0.65 ? { kind: 'social' } : { kind: 'home' };
+    const hall = this.byType('langhaus')[0] || this.byType('gasthaus')[0], inn = this.byType('gasthaus')[0];
+    if (ph === 'mittag') return hall ? { kind: 'inside', where: hall, text: 'isst ' + ORT(hall.type) } : { kind: 'platz', text: 'macht Mittagspause' };
+    if (ph === 'feierabend') { const r = hash(p.id + Math.floor(hour)); if (inn && r < 0.3) return { kind: 'inside', where: inn, text: 'sitzt im Gasthaus' }; return r < 0.7 ? { kind: 'social' } : { kind: 'home' }; }
     return { kind: 'work', place: this.placeFor(p) };
   }
   key(d) { return d.kind + (d.place || '') + (d.where ? d.where.plotId : ''); }
@@ -168,7 +175,7 @@ export class Village {
     }
     // Arbeitsfunken / Späne
     for (const p of this.people) if (p.state === 'work' && Math.random() < dt * 1.6) {
-      const col = { schmiede: '#ffb35a', wald: '#c9a26a', feld: '#7a5a38', scheune: '#d8c070' }[p.goal.place]; if (!col) continue;
+      const ws = this.spriteOf(p.goal.place), col = { schmiede: '#ffb35a', wald: '#c9a26a', feld: '#7a5a38', scheune: '#d8c070', holzfaeller: '#c9a26a', saegewerk: '#d8b878', steinmetz: '#b4b8c0', toepferei: '#b06a3a', baeckerei: '#f0e0b0' }[ws ? ws.type : p.goal.place]; if (!col) continue;
       this.fx.push({ x: p.x + (p.dir === 'left' ? -5 : 5), y: p.y - 4, vx: (Math.random() - 0.5) * 14, vy: -8 - Math.random() * 10, life: 0, col });
     }
     this.fx = this.fx.filter((f) => (f.life += dt) < 0.7); for (const f of this.fx) { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 30 * dt; }
@@ -195,7 +202,7 @@ export class Village {
     }
     if (p.alpha < 1 && p.state !== 'leaving') p.alpha = Math.min(1, p.alpha + dt * 1.5);
     if (p.path.length) { this.walk(p, dt); if (!p.path.length) this.arrive(p); return; }
-    if (!p.arrived) { p.wait -= dt; if (p.wait > 0) { p.state = 'idle'; return; } const [tx, ty] = this.target(p); p.path = this.nav.path(p.x, p.y, tx, ty); p.state = 'walk'; p.activity = d.kind === 'social' ? 'geht zum Dorfplatz' : d.kind === 'inside' ? 'geht zur Halle' : GO_TEXT[d.kind === 'work' ? d.place : d.kind === 'home' ? 'home' : 'platz']; return; }
+    if (!p.arrived) { p.wait -= dt; if (p.wait > 0) { p.state = 'idle'; return; } const [tx, ty] = this.target(p); p.path = this.nav.path(p.x, p.y, tx, ty); p.state = 'walk'; p.activity = d.kind === 'social' ? 'geht zum Dorfplatz' : d.kind === 'inside' ? 'geht ' + (d.where.type === 'gasthaus' ? 'ins Gasthaus' : 'zum Essen') : (d.kind === 'work' && this.spriteOf(d.place) ? 'geht zur Arbeit' : GO_TEXT[d.kind === 'work' ? d.place : d.kind === 'home' ? 'home' : 'platz']); return; }
     if (p.state === 'leaving') { p.alpha -= dt * 1.5; if (p.alpha <= 0) { p.alpha = 0; p.state = 'inside'; } return; }
     // angekommen: arbeiten / plaudern / kurz verweilen, dann neuen Platz am selben Ort suchen
     if (d.kind === 'social') { if (p.partner && p.partner.arrived && p.partner.goal?.kind === 'social') { p.dir = p.faceDir; p.activity = `plaudert mit ${p.partner.name}`; } else p.activity = 'wartet am Dorfplatz'; return; }
@@ -206,8 +213,9 @@ export class Village {
     const d = p.goal; p.arrived = true;
     if (d.kind === 'home' || d.kind === 'inside') { p.state = 'leaving'; p.dir = 'up'; return; }
     p.state = d.kind === 'work' ? 'work' : 'idle'; p.wait = 18 + Math.random() * 35;
-    p.activity = d.kind === 'work' ? (JOB_TEXT[p.job] || WORK_TEXT[d.place]) : d.text || 'steht am Dorfplatz';
-    if (Math.random() < 0.6) p.dir = d.kind === 'work' && d.place !== 'feld' && d.place !== 'wald' && d.place !== 'platz' ? 'up' : 'down';
+    const ws = this.spriteOf(d.place);
+    p.activity = d.kind === 'work' ? (JOB_TEXT[p.job] || (ws ? 'arbeitet ' + ORT(ws.type) : WORK_TEXT[d.place])) : d.text || 'steht am Dorfplatz';
+    if (Math.random() < 0.6) p.dir = d.kind === 'work' && ws && ws.type !== 'feld' && ws.type !== 'markt' ? 'up' : 'down';
   }
   walk(p, dt) {
     const [tx, ty] = p.path[0], dx = tx - p.x, dy = ty - p.y, dd = Math.hypot(dx, dy), sp = (p.wanderer ? 7.5 : 6.5) * dt;

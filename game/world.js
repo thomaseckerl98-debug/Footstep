@@ -160,7 +160,9 @@ export const BUILDINGS = {
   wachturm: { name: 'Wachturm', size: 'S', desc: 'Hölzerner Ausguck' },
   feld: { name: 'Feld', size: 'M', desc: 'Acker – wächst mit den Jahreszeiten' },
 };
-function boxBuilding(L, x, y, c) {
+export const EXTRA_DRAW = {};   // weitere Bausätze (game/buildings.js) melden sich hier an
+export const KIT_COLORS = [];   // Zusatzfarben dieser Bausätze (werden pro Stimmung beleuchtet)
+export function boxBuilding(L, x, y, c) {
   // c: s, wallH, roofH, front (half width), depth, wallFront(i,k), wallSide(i,k), roof(xx,yy,n,i), shadow, moss
   const { s, shadow = 0, moss = false } = c, snow = S().groundSnow;
   const ls = 1 - shadow * 0.72;
@@ -189,15 +191,16 @@ function boxBuilding(L, x, y, c) {
   for (let i = -3; i < depth + 4; i++) P(x + i, peakY - Math.round(Math.max(0, i) * dd) - 1, LT(c.ridge || '#4a3424', [0, -1, 0.4]));
   return { W2, wallH, roofH, depth, dd, gy, peakY, P, LT, FRONT, SIDE, ls };
 }
-const thatch = (xx, yy) => { const s2 = N4.noise(xx * 0.9, yy * 0.18); return s2 > 0.6 ? '#c4a466' : s2 > 0.35 ? '#a88850' : '#86683c'; };
-const timberFront = (i, k, W2, wallH) => (Math.abs(i) > W2 - 2 || k < 2 || k > wallH - 3 || Math.abs(i) < 1 ? '#4a3424' : '#a38c6d');
-const timberSide = (i, k, wallH) => (i % 10 < 2 || k < 2 || k > wallH - 3 ? '#4a3424' : '#9b8467');
+export const thatch = (xx, yy) => { const s2 = N4.noise(xx * 0.9, yy * 0.18); return s2 > 0.6 ? '#c4a466' : s2 > 0.35 ? '#a88850' : '#86683c'; };
+export const timberFront = (i, k, W2, wallH) => (Math.abs(i) > W2 - 2 || k < 2 || k > wallH - 3 || Math.abs(i) < 1 ? '#4a3424' : '#a38c6d');
+export const timberSide = (i, k, wallH) => (i % 10 < 2 || k < 2 || k > wallH - 3 ? '#4a3424' : '#9b8467');
 
 export function drawBuilding(L, type, x, y, opts = {}) {
   const s = opts.s || 1, shadow = opts.shadow || 0, moss = opts.moss || false, night = T().body === 'moon';
   const info = { chimneys: [], windows: [], forge: null };
   const win = (g, xx, yy, w, h) => { for (let k = 0; k < h; k++) for (let i = 0; i < w; i++) L.set(xx + i, yy - k, night ? hex('#ffcf74') : g.LT('#2a2a36', g.FRONT, 1)); info.windows.push([xx + w / 2, yy - h / 2]); };
   const chimney = (g, cx, cy, h, col = '#6f6a66') => { for (let k = 0; k < h; k++) for (let i = 0; i < 4 * s; i++) g.P(cx + i, cy - k, g.LT(col, i > 1 ? g.SIDE : g.FRONT)); info.chimneys.push([cx + 2 * s, cy - h]); };
+  if (EXTRA_DRAW[type]) { EXTRA_DRAW[type](L, x, y, { s, shadow, moss, night, info, win, chimney }); return info; }
   if (type === 'wohnhaus' || type === 'langhaus') {
     const long = type === 'langhaus';
     const g = boxBuilding(L, x, y, { s: s * (long ? 1.2 : 1), shadow, moss, front: 22, wallH: 18, roofH: 30, depth: long ? 54 : 30, wallFront: timberFront, wallSide: timberSide, roof: thatch, gable: (i) => (Math.abs(i) < 1 ? '#4a3424' : '#8d775c') });
@@ -246,13 +249,14 @@ export function drawBuilding(L, type, x, y, opts = {}) {
   return info;
 }
 export function buildingSprite(type, plot, pal) {
-  const s = plot.s, w = Math.round(160 * s), h = Math.round(150 * s);
-  const sp = new Sprite(w, h, plot.x - Math.round(60 * s), plot.y - Math.round(130 * s));
+  const s = plot.s, w = Math.round(170 * s), h = Math.round(175 * s);
+  const sp = new Sprite(w, h, plot.x - Math.round(70 * s), plot.y - Math.round(155 * s));
   const info = drawBuilding(sp, type, plot.x, plot.y, { s, shadow: T().body === 'sun' ? plot.shadow : 0, moss: plot.shadow ? true : false });
   // auf genutzten Bereich zuschneiden
   let x0 = w, y0 = h, x1 = 0, y1 = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (sp.a[y * w + x]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  const cw = x1 - x0 + 1, ch = y1 - y0 + 1, full = quantize(sp, pal), data = new Uint8ClampedArray(cw * ch * 4);
+  const kit = KIT_COLORS.flatMap((hx) => [lit(hex(hx), 0.4, -0.5, 0.6, 3), lit(hex(hx), -0.4, 0, 0.8, 3), lit(hex(hx), 0.9, -0.3, 0.4, 3)]);
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1, full = quantize(sp, kit.length ? pal.concat(kit) : pal), data = new Uint8ClampedArray(cw * ch * 4);
   for (let y = 0; y < ch; y++) data.set(full.subarray(((y0 + y) * w + x0) * 4, ((y0 + y) * w + x1 + 1) * 4), y * cw * 4);
   return { type, plotId: plot.id, x: sp.ox + x0, y: sp.oy + y0, w: cw, h: ch, data, info };
 }
