@@ -85,7 +85,7 @@ const BYE = { gut: ['Bis später, {du}!', 'Pass auf dich auf.', 'Komm bald wiede
 // Jede Folgefrage und jede Probe gibt es pro Gespräch nur einmal. Proben würfelt der Server (talk_check).
 // j = Tagebucheintrag (Schlüssel, Titel, Text) – Grundlage für spätere Quests.
 const RUMORS = [
-  { key: 'mine', line: 'Man sagt, in den Bergen gibt es eine verlassene Mine.',
+  { key: 'mine', wer: 'jemanden, der mit Stein oder Erz arbeitet', line: 'Man sagt, in den Bergen gibt es eine verlassene Mine.',
     j: ['mine', 'Die verlassene Mine', '{name} erzählt von einer verlassenen Eisenmine oben am alten Pass, hinter dem Wasserfall. Die Bergleute sollen zu tief gegraben haben.'],
     follow: [
       ['Eine Mine? Wo genau?', ['Oben am alten Pass, hinter dem Wasserfall. Früher haben sie dort Eisen geholt – lange vor meiner Zeit.', 'Irgendwo über dem Wasserfall. Von unten sieht man nur noch die alten Holzstützen.']],
@@ -97,7 +97,7 @@ const RUMORS = [
       { id: 'altes_wissen', q: 'In alten Chroniken ist von einer Zwergenmine am Pass die Rede …', zwerg: 'Ich bin ein Zwerg. Erzähl mir vom Gestein dort oben – ich erkenne eine alte Zwergenmine.', ok: 'Ja! Die Leute nennen den Pass „Hammerkerbe“. Das passt doch. Vielleicht ist es dieselbe.', fail: 'Chroniken? Davon verstehe ich nichts.', j: ['mine_chronik', 'Die Hammerkerbe', 'Der alte Pass heißt im Volksmund „Hammerkerbe“ – vielleicht die Zwergenmine aus den alten Chroniken.'] },
       { id: 'spuren', q: 'Wenn dort oben jemand war, finde ich seine Spuren. Wo beginnt der Pfad?', ok: 'Hinter der zweiten Biegung des Bachs, wo die Steine moosig sind. Da führt ein Wildwechsel hinauf.', fail: 'Der Pfad? Den findet keiner mehr. Zugewachsen, alles.', j: ['mine_pfad', 'Der Pfad zur Mine', 'Der Weg zur Mine beginnt hinter der zweiten Bachbiegung, wo die Steine moosig sind – ein Wildwechsel führt hinauf.'] },
     ] },
-  { key: 'hirsch', line: 'Angeblich lebt im Wald ein Hirsch mit silbernem Geweih.',
+  { key: 'hirsch', wer: 'die Jäger oder den Hirten', line: 'Angeblich lebt im Wald ein Hirsch mit silbernem Geweih.',
     j: ['hirsch', 'Der Silberhirsch', '{name} erzählt von einem Hirsch mit silbernem Geweih, der im Nebel am Waldrand erscheint und über den Wald wachen soll.'],
     follow: [
       ['Hast du ihn selbst gesehen?', ['Einmal, glaube ich. Im Nebel, am Waldrand. Dann war er weg, als hätte es ihn nie gegeben.', 'Nein. Aber der Hirte schwört, er hat ihn gesehen.']],
@@ -107,7 +107,7 @@ const RUMORS = [
       { id: 'spuren', q: 'Wo hat man ihn zuletzt gesehen? Ich lese die Fährte.', ok: 'An der Lichtung im Osten. Abgeknickte Zweige, ganz hoch oben – so groß ist kein gewöhnlicher Hirsch.', fail: 'Fährten? Im Nebel verschwinden auch Spuren.', j: ['hirsch_faehrte', 'Fährte des Silberhirschs', 'An der Lichtung im Osten sind hoch oben Zweige abgeknickt – der Silberhirsch könnte dort entlanggezogen sein.'] },
       { id: 'altes_wissen', q: 'Silberne Hirsche kommen in alten Liedern vor – als Boten.', ok: 'Boten? … Meine Großmutter sagte, er erscheint, bevor sich etwas Großes ändert.', fail: 'Lieder. Hm. Ich kenne nur Trinklieder.', j: ['hirsch_bote', 'Ein Bote des Wandels', 'Der Silberhirsch soll erscheinen, bevor sich etwas Großes ändert.'] },
     ] },
-  { key: 'feuer', line: 'Ein Wanderer hat erzählt, jenseits der Berge brennen Dörfer.',
+  { key: 'feuer', wer: 'Leute, die viel herumkommen – Wachen oder Fährleute', line: 'Ein Wanderer hat erzählt, jenseits der Berge brennen Dörfer.',
     j: ['feuer', 'Feuer jenseits der Berge', 'Ein Wanderer berichtete {name} von brennenden Dörfern jenseits der Berge. Reiter unter schwarzem Banner sollen dahinterstecken.'],
     follow: [
       ['Wer steckt dahinter?', ['Er sprach von Reitern unter einem schwarzen Banner. Mehr wusste er nicht – oder wollte es nicht sagen.']],
@@ -117,7 +117,7 @@ const RUMORS = [
       { id: 'menschenkenntnis', q: 'Hat der Wanderer die Wahrheit gesagt?', ok: 'Er hatte Brandlöcher im Mantel und zitterte noch. So etwas spielt man nicht.', fail: 'Woher soll ich das wissen? Ich kann den Leuten nicht in den Kopf schauen.', j: ['feuer_echt', 'Der Wanderer log nicht', 'Der Wanderer hatte Brandlöcher im Mantel – die Geschichte von den brennenden Dörfern scheint wahr.'] },
       { id: 'beruhigen', q: 'Wir werden vorbereitet sein. Niemand brennt dieses Dorf nieder.', ok: 'Ich … glaube dir. Danke. Vielleicht schlafe ich heute Nacht etwas besser.', fail: 'Leicht gesagt. Du hast die Augen des Wanderers nicht gesehen.' },
     ] },
-  { key: 'wache', line: 'Im Nachbardorf haben sie angeblich eine Wache aufgestellt. Wovor haben die Angst?',
+  { key: 'wache', wer: 'den Wirt, in der Schänke hört man alles', line: 'Im Nachbardorf haben sie angeblich eine Wache aufgestellt. Wovor haben die Angst?',
     j: ['nachbar_wache', 'Wache im Nachbardorf', 'Das Dorf hinter dem Ostkamm hat Wachen aufgestellt. Warum, weiß niemand.'],
     follow: [
       ['Welches Nachbardorf meinst du?', ['Das hinter dem Ostkamm. Wer dort das Sagen hat, weiß ich nicht – die reden nicht viel mit uns.']],
@@ -126,7 +126,7 @@ const RUMORS = [
     checks: [
       { id: 'ueberreden', q: 'Statt zu rätseln, sollten wir mit ihnen reden. Kennst du dort jemanden?', ok: 'Meine Base hat dorthin geheiratet. Wenn du willst, schicke ich ihr eine Nachricht.', fail: 'Mit denen? Lieber nicht.', j: ['nachbar_kontakt', 'Ein Kontakt hinter dem Ostkamm', '{name} hat eine Base im Dorf hinter dem Ostkamm und könnte ihr eine Nachricht schicken.'] },
     ] },
-  { key: 'lichter', line: 'Nachts sieht man manchmal kleine Lichter zwischen den Bäumen.',
+  { key: 'lichter', wer: 'die Alten oder jemanden vom Glauben', line: 'Nachts sieht man manchmal kleine Lichter zwischen den Bäumen.',
     j: ['lichter', 'Lichter im Wald', 'Nachts tanzen grünliche Lichter zwischen den Bäumen. Wer hinging, kam verstört zurück.'],
     follow: [
       ['Was für Lichter?', ['Kleine, grünliche. Sie tanzen, wenn man nicht hinsieht, und verschwinden, wenn man hinsieht.']],
@@ -136,7 +136,7 @@ const RUMORS = [
       { id: 'altes_wissen', q: 'Irrlichter. Sie führen Wanderer in Sümpfe – oder zu Verborgenem.', ok: 'Zu Verborgenem? … Unter der großen Eiche im Westen soll einmal ein Schrein gestanden haben.', fail: 'Irrlichter, Geister … ich will davon nichts wissen.', j: ['lichter_eiche', 'Der Schrein unter der Eiche', 'Unter der großen Eiche im Westen soll einst ein Schrein gestanden haben – vielleicht führen die Lichter dorthin.'] },
       { id: 'flink', q: 'Ich bin leise und schnell genug, um mich anzuschleichen. Wann sieht man sie?', ok: 'In nebligen Nächten, kurz vor Mitternacht, am Waldrand hinter den Feldern.', fail: 'Leise? Dich hört man doch schon von Weitem.', j: ['lichter_zeit', 'Wann die Lichter tanzen', 'Die Lichter erscheinen in nebligen Nächten kurz vor Mitternacht am Waldrand hinter den Feldern.'] },
     ] },
-  { key: 'eisen', line: 'Ein Händler meinte, Eisen wird knapp im ganzen Tal.',
+  { key: 'eisen', wer: 'einen Schmied oder Händler', line: 'Ein Händler meinte, Eisen wird knapp im ganzen Tal.',
     j: ['eisen', 'Eisen wird knapp', 'Laut einem Händler wird Eisen im ganzen Tal knapp, weil die Minen im Süden nichts mehr liefern.'],
     follow: [
       ['Warum wird es knapp?', ['Die Minen im Süden liefern nichts mehr. Krieg oder Streit, wer weiß das schon.']],
@@ -177,6 +177,11 @@ const COLD_CHECKS = [
   { id: 'einschuechtern', q: 'Pass auf, wie du mit mir redest.', ok: 'Schon gut, schon gut … Ich hab es nicht so gemeint.', fail: 'Willst du mir drohen? Lächerlich.' },
   { id: 'menschenkenntnis', q: 'Was hast du eigentlich gegen mich?', ok: 'Du … hast mich lange nicht beachtet. Das hat wehgetan.', fail: 'Nichts. Lass mich einfach.' },
 ];
+const NO_RUMOR = ['Neues? Nicht, dass ich wüsste. Hier passiert ja nichts.', 'Gerüchte? Da fragst du die Falsche. Ich höre nur, was der Wind erzählt.', 'Ich kümmere mich um meine Arbeit, nicht um Gerede.'];
+const PERS_OPEN = { gesellig: ['Von mir? Ha, frag ruhig – ich erzähle gern.'], wortkarg: ['… Was willst du wissen?'], stolz: ['Warum interessiert dich das?'], ängstlich: ['Von mir? Oh … da gibt es nicht viel zu erzählen.'], geschäftstüchtig: ['Neugierig, was? Gut, frag.'], sonst: ['Von mir? Was willst du denn wissen?', 'Hm. Na gut, frag.'] };
+const PERS_Q = { herkunft: 'Woher kommst du eigentlich?', ziel: 'Was wünschst du dir vom Leben?', angst: 'Gibt es etwas, wovor du Angst hast?' };
+const REFUSE = { wortkarg: ['…', 'Das geht dich nichts an.'], stolz: ['Das geht dich nichts an.', 'So gut kennen wir uns noch nicht.'], ängstlich: ['Ich … lieber nicht. Noch nicht.'], gesellig: ['Ha, netter Versuch! Vielleicht erzähle ich dir das, wenn wir mal einen getrunken haben.'], sonst: ['Vielleicht erzähle ich dir das irgendwann. Nicht heute.', 'Hm. Darüber rede ich nicht mit jedem.', 'Lass uns über etwas anderes reden.'] };
+const GEHEIM_CHECK = { id: 'menschenkenntnis', q: 'Da ist doch noch etwas, das dich beschäftigt. Das sehe ich dir an.', ok: '', fail: 'Was soll da sein? Nichts. Gar nichts.', personal: 'geheimnis' };
 const CHECK_GENERIC = new Set(['ueberreden', 'einschuechtern', 'menschenkenntnis', 'beruhigen', 'anpacken']);
 const RACE_UNLOCK = { elf: ['spuren'], zwerg: ['altes_wissen'], halbling: ['flink'] };
 const RACE_NAME = { elf: 'Elf', zwerg: 'Zwerg', halbling: 'Halbling', mensch: 'Mensch' };
@@ -191,6 +196,8 @@ export function buildTalk(ctx) {
   if (cold || ctx.wesen === 'ängstlich' || Math.random() < 0.3) topics.push('sorgen');
   const usedTopics = new Set(), usedRumors = new Set();
   const asked = new Set(), checked = new Set();
+  const known = (k) => !ctx.wissen || ctx.wissen.includes(k);
+  const askedPersonal = new Set(ctx.gefragt || []); let personalUsed = false;
 
   // Sichtbarkeit einer Probe: allgemeine immer, besondere nur mit passender Herkunft, Volk oder hoher Eigenschaft
   const visible = (id) => {
@@ -212,7 +219,11 @@ export function buildTalk(ctx) {
     let tp = pick(free.length ? free : ['wetter']);
     if (tp === 'geruechte' && usedRumors.size >= 2) tp = pick(topics.filter((t) => t !== 'geruechte')) || 'wetter';
     usedTopics.add(tp);
-    if (tp === 'geruechte') { const r = pick(RUMORS.filter((x) => !usedRumors.has(x.key))) || RUMORS[0]; usedRumors.add(r.key); return { topic: tp, text: r.line, rumor: r }; }
+    if (tp === 'geruechte') {
+      const r = pick(RUMORS.filter((x) => known(x.key) && !usedRumors.has(x.key)));
+      if (!r) { usedRumors.add('_'); return { topic: 'geruechte', text: pick(NO_RUMOR) }; }
+      usedRumors.add(r.key); return { topic: tp, text: r.line, rumor: r };
+    }
     const line = tp === 'arbeit' ? pick(WORK[g]) : tp === 'wetter' ? `${pick(WEATHER[ctx.weather] || WEATHER.klar)} ${pick(SEASON[ctx.season] || SEASON.sommer)}` : tp === 'dorf' ? pick(VILLAGE) : tp === 'freunde' ? pick(FRIEND) : pick(WORRY);
     return { topic: tp, text: fill(line, c) };
   };
@@ -223,10 +234,16 @@ export function buildTalk(ctx) {
     const follow = (id, q, ans, extra = {}) => { if (!asked.has(id)) out.push({ kind: 'follow', id, text: fill(q, c), answer: fill(pick(ans), c), ...extra }); };
     if (cur.rumor) {
       cur.rumor.follow.forEach(([q, a], i) => follow(cur.rumor.key + i, q, a, { journal: i === 0 ? cur.rumor.j : null }));
-      for (const def of cur.rumor.checks) { const o = checkOpt(def); if (o) out.push(o); }
+      for (const def of cur.rumor.checks) {
+        const d = def.j && !known(def.j[0]) ? { ...def, ok: `Ehrlich? Mehr weiß ich darüber nicht. Frag mal ${cur.rumor.wer}.`, j: null } : def;
+        const o = checkOpt(d); if (o) out.push(o);
+      }
     } else if (cur.topic === 'arbeit') {
       follow('need', 'Was brauchst du am dringendsten?', NEED[g]);
       const wc = WORK_CHECK[g]; for (const def of [wc, wc.alt].filter(Boolean)) { const o = checkOpt(def); if (o) out.push(o); }
+    } else if (cur.topic === 'persoenlich') {
+      for (const [k, q] of Object.entries(PERS_Q)) if (!askedPersonal.has(k)) out.push({ kind: 'personal', what: k, text: q });
+      if (!askedPersonal.has('geheimnis')) { const o = checkOpt(GEHEIM_CHECK); if (o) out.push(o); }
     } else if (cur.topic === 'sorgen') {
       follow('sorgen', 'Was bedrückt dich wirklich?', SORGEN_ASK);
       for (const def of SORGEN_CHECKS) { const o = checkOpt(def); if (o) out.push(o); }
@@ -240,10 +257,13 @@ export function buildTalk(ctx) {
     // Tonfall – drei zufällige
     const tones = ['freundlich', 'loben', 'scherzen', 'helfen', 'fragen', 'kritisieren'].sort(() => Math.random() - 0.5).slice(0, 3);
     for (const t of tones) out.push({ kind: 'tone', tone: t, tag: `[${TONE_LABEL[t]}]`, text: fill(pick(OPT[t]), c) });
+    if (!personalUsed && cur.topic !== 'persoenlich') out.push({ kind: 'personal_topic', text: 'Erzähl mir etwas von dir.' });
     out.push({ kind: 'topic', text: 'Erzähl mir etwas anderes.' });
     return out;
   };
-  const markAsked = (id) => asked.add(id), markChecked = (id) => checked.add(id);
+  const markAsked = (id) => asked.add(id), markChecked = (id) => checked.add(id), markPersonal = (k) => askedPersonal.add(k);
+  const personalTopic = () => { personalUsed = true; return { topic: 'persoenlich', text: fill(pick(PERS_OPEN[ctx.wesen] || PERS_OPEN.sonst), c) }; };
+  const refuse = () => fill(pick(REFUSE[ctx.wesen] || REFUSE.sonst), c);
   const checkText = (def, ok) => fill(ok ? def.ok : def.fail, c);
   const journal = (j) => (j ? { key: j[0], title: j[1], text: fill(j[2], c) } : null);
   const opener = () => {
@@ -254,5 +274,5 @@ export function buildTalk(ctx) {
   const reaction = (react) => fill(pick((WESEN_REACT[ctx.wesen] || {})[react] || REACT[react] || REACT.neutral), c);
   const bye = (react) => fill(pick(BYE[react === 'erfreut' || react === 'freundlich' ? 'gut' : react === 'veraergert' || react === 'kuehl' ? 'schlecht' : 'mittel']), c);
   const patience = { 'treu ergeben': 10, herzlich: 9, freundlich: 7, fremd: 6, zurückhaltend: 5, misstrauisch: 4, feindselig: 2 }[ctx.stimmung] ?? 6;
-  return { opener, nextTopic, options, markAsked, markChecked, checkText, journal, reaction, bye, patience: patience + (ctx.wesen === 'gesellig' ? 2 : ctx.wesen === 'wortkarg' ? -2 : 0) };
+  return { opener, nextTopic, options, markAsked, markChecked, markPersonal, personalTopic, refuse, checkText, journal, reaction, bye, patience: patience + (ctx.wesen === 'gesellig' ? 2 : ctx.wesen === 'wortkarg' ? -2 : 0) };
 }

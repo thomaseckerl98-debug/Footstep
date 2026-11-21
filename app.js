@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
 import { Scene, realMood } from './game/scene.js?v=7';
 import { openCreator } from './game/creator.js?v=3';
-import { buildTalk } from './game/dialog.js?v=2';
+import { buildTalk } from './game/dialog.js?v=3';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
@@ -67,7 +67,7 @@ const MENUS = [
   { id: 'inventar', name: 'Inventar', tip: 'Ausrüstung und Gegenstände.' },
   { id: 'quest', name: 'Tagebuch', tip: 'Gerüchte, Hinweise und Aufträge aus deinen Gesprächen.' },
   { id: 'karte', name: 'Karte', tip: 'Die Weltkarte mit allen Dörfern.' },
-  { id: 'diplomatie', name: 'Diplomatie', tip: 'Bündnisse, Kriege und Nachrichten.' },
+  { id: 'diplomatie', name: 'Diplomatie', tip: 'Dein Notizbuch über die Menschen im Tal: Eindrücke, Erlebtes, Gefallen.' },
 ];
 const TIME_NAMES = { morgen: 'Morgen', mittag: 'Mittag', abend: 'Abend', nacht: 'Nacht' };
 const SEASON_NAMES = { fruehling: 'Frühling', sommer: 'Sommer', herbst: 'Herbst', winter: 'Winter' };
@@ -141,8 +141,10 @@ function renderPanel(id) {
     body.append(row(btn('Automatisch', !scene.weather.forced, () => { scene.setWeather('auto'); renderPanel('dorf'); }),
       ...Object.entries(WEATHER_NAMES).map(([k, n]) => btn(n, scene.weather.forced && scene.weather.target === k, () => { scene.setWeather(k); renderPanel('dorf'); }))));
     body.append(p('Hinweis: Jede neue Kombination aus Tageszeit und Jahreszeit wird beim ersten Mal ein paar Sekunden gezeichnet und danach im Browser gespeichert.', 'muted small'));
-  } else if (id === 'karte' || id === 'diplomatie') {
-    body.append(p(id === 'karte' ? 'Die große Weltkarte folgt. Bisher bekannte Dörfer:' : 'Bündnisse, Kriegserklärungen und Nachrichten folgen. Bekannte Häuptlinge:', 'muted'));
+  } else if (id === 'diplomatie') {
+    renderPeople(body);
+  } else if (id === 'karte') {
+    body.append(p('Die große Weltkarte folgt. Bisher bekannte Dörfer:', 'muted'));
     const ul = document.createElement('ul'); ul.className = 'chiefs'; body.append(ul);
     db.rpc('get_world_map').then(({ data, error }) => {
       if (error) { ul.append(p('Konnte die Karte nicht laden.', 'error')); return; }
@@ -265,29 +267,41 @@ function showSelCard(obj) {
   }
 }
 const BUILDINGS_NAME = (t) => t;
-function startTalk(p) {
-  const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = ''; $('selcard').hidden = true; clearInterval(selTimer);
+async function startTalk(p) {
+  const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = '<p class="muted small">…</p>'; $('selcard').hidden = true; clearInterval(selTimer);
+  const online = p.id && p.id < 1000, conv = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
+  // Was diese Figur weiß (nur Schlüssel, keine Geheimnisse) und ob die KI heute noch antworten kann
+  let brief = null;
+  if (online) {
+    const [b1, b2] = await Promise.all([db.rpc('get_npc_brief', { p_npc: p.id }), db.rpc('ai_status')]);
+    if (!b1.error) brief = b1.data; if (!b2.error && b2.data) aiState = b2.data;
+  }
+  box.innerHTML = '';
   const fr = scene.village.people.find((q) => q.id === p.freund);
   const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
   const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map(withArticle);
   const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
-    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)) });
-  const online = p.id && p.id < 1000, conv = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
+    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [] });
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
   const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
   const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
   head.append(portraitCanvas(p.plan, 110), right); box.append(head);
   const opts = document.createElement('ol'); opts.className = 'dl-opts'; box.append(opts);
-  let cur = null, left = t.patience, lastReact = 'neutral', busy = false, ideas = [];
-  const history = [];
-  const say = (who, text, cls) => { const el = document.createElement('p'); el.className = cls || who; el.textContent = text; log.append(el); log.scrollTop = log.scrollHeight; if (who === 'me' || who === 'npc') history.push({ wer: who === 'me' ? 'ich' : 'npc', text }); };
+  let cur = null, left = t.patience, lastReact = 'neutral', busy = false, ideas = [], spoken = 0, aiUsed = 0, closed = false;
+  const history = [], highlights = [];
+  const say = (who, text, cls) => { const el = document.createElement('p'); el.className = cls || who; el.textContent = text; log.append(el); log.scrollTop = log.scrollHeight; if (who === 'me' || who === 'npc') history.push({ wer: who === 'me' ? 'ich' : 'npc', text }); if (who === 'me') spoken++; };
   const note = (html) => { const el = document.createElement('p'); el.className = 'note'; el.innerHTML = html; log.append(el); log.scrollTop = log.scrollHeight; };
-  const end = () => { document.removeEventListener('keydown', onKey); p.talking = false; box.hidden = true; box.innerHTML = ''; if (scene.selection?.person === p) showSelCard(scene.selection); };
+  const end = () => {
+    if (closed) return; closed = true;
+    document.removeEventListener('keydown', onKey); p.talking = false; box.hidden = true; box.innerHTML = '';
+    if (scene.selection?.person === p) showSelCard(scene.selection);
+    if (online && spoken >= 2) writeEncounterNote(p, history, highlights, spoken, aiUsed);
+  };
   const finish = (react) => { opts.innerHTML = ''; setTimeout(() => { say('npc', t.bye(react)); const li = document.createElement('li'); li.append(btn('Gespräch beenden', false, end)); opts.append(li); }, 600); };
-  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-opt')[n - 1]?.click(); if (e.key === 'Escape') end(); };
+  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-opt:not(:disabled)')[n - 1]?.click(); if (e.key === 'Escape') end(); };
   document.addEventListener('keydown', onKey);
   const addJournal = async (j) => {
-    if (!j) return; journalLocal.set(j.key, { ...j, npc: p.name, kind: 'geruecht', status: 'offen' });
+    if (!j) return; journalLocal.set(j.key, { ...j, npc: p.name, kind: 'geruecht', status: 'offen' }); highlights.push(`Ich habe etwas erfahren: ${j.title}.`);
     if (online) { const { error } = await db.rpc('add_journal', { p_kind: 'geruecht', p_key: j.key, p_title: j.title, p_text: j.text, p_npc: p.id }); if (error) console.warn('Tagebuch:', error.message); }
     note(`Tagebuch: <b>${esc(j.title)}</b>`);
   };
@@ -299,17 +313,22 @@ function startTalk(p) {
   const apply = (res) => { if (!res) return; if (res.reaktion) lastReact = p.lastReact = res.reaktion; if (res.stimmung) p.stimmung = res.stimmung; if (res.erinnerung) p.erinnerung = res.erinnerung; };
   const after = () => { left--; busy = false; if (left <= 0 || lastReact === 'veraergert' || lastReact === 'kurz') return finish(lastReact); offer(); };
   const item = (o, i) => {
-    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.kind === 'check' ? ' check' : o.kind === 'free' || o.kind === 'idea' ? ' free' : '');
-    b.innerHTML = `<span class="num">${i + 1}.</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}${esc(o.text)}${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}`;
-    b.onclick = () => { if (!busy) choose(o); }; li.append(b); return li;
+    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.kind === 'check' ? ' check' : o.kind === 'free' || o.kind === 'idea' ? ' free' : '') + (o.off ? ' off' : '');
+    b.innerHTML = `<span class="num">${o.off ? '–' : i + 1 + '.'}</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}${o.why ? `<span class="why">${esc(o.why)}</span>` : ''}`;
+    if (o.off) b.disabled = true; else b.onclick = () => { if (!busy) choose(o); };
+    li.append(b); return li;
   };
   const offer = () => {
     opts.innerHTML = '';
     const list = t.options(cur);
-    for (const idea of ideas) list.unshift({ kind: 'idea', tag: '[Idee]', text: idea });
-    if (online) list.push({ kind: 'free', tag: '[Eigene Worte]', text: 'Selbst etwas sagen …' });
-    list.push({ kind: 'bye', text: 'Verabschieden.' });
-    list.forEach((o, i) => opts.append(item(o, i)));
+    if (aiState.verfuegbar) for (const idea of ideas) list.unshift({ kind: 'idea', tag: '[Idee]', text: idea });
+    let n = 0;
+    for (const o of list) opts.append(item(o, n++));
+    if (online) {
+      if (aiState.verfuegbar) opts.append(item({ kind: 'free', tag: '[Eigene Worte]', text: 'Selbst etwas sagen …' }, n++));
+      else opts.append(item({ kind: 'free', off: true, tag: '[Eigene Worte]', text: 'Selbst etwas sagen …', why: aiWhy(aiState) }, n));
+    }
+    opts.append(item({ kind: 'bye', text: 'Verabschieden.' }, n));
   };
   const freeForm = () => {
     opts.innerHTML = '';
@@ -323,19 +342,28 @@ function startTalk(p) {
     busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', text);
     let res = null;
     try {
-      const { data, error } = await db.functions.invoke('npc-talk', { body: { npc: p.id, conv, text, verlauf: history.slice(-9, -1), gebaeude, umgebung: `${TIME_NAMES[scene.mood.time]}, ${SEASON_NAMES[scene.mood.season]}, ${WEATHER_NAMES[weatherNow] || 'klar'}` } });
+      const { data, error } = await db.functions.invoke('npc-talk', { body: { npc: p.id, conv, text, verlauf: history.slice(-11, -1), gebaeude, umgebung: `${TIME_NAMES[scene.mood.time]}, ${SEASON_NAMES[scene.mood.season]}, ${WEATHER_NAMES[weatherNow] || 'klar'}` } });
       if (error) console.warn('KI:', error.message); else res = data;
     } catch (e) { console.warn('KI:', e); }
     if (!res || res.fallback || !res.antwort) {
-      const why = { kein_schluessel: 'KI noch nicht eingerichtet', tageslimit: 'KI-Tageslimit erreicht', zu_schnell: 'kurz warten', gemini_limit: 'KI gerade ausgelastet' }[res?.grund] || 'KI gerade nicht erreichbar';
-      note(`<span class="muted">(${esc(why)} – ${esc(p.name)} antwortet aus dem Bauch heraus)</span>`);
+      if (res && ['gemini_limit', 'tageslimit'].includes(res.grund) && !res.kurz) aiState = { verfuegbar: false, grund: res.grund, bis: res.bis };
+      note(`<span class="muted">(${esc(aiWhy(res || {}))} – ${esc(p.name)} antwortet aus dem Bauch heraus)</span>`);
       const r = await tone('fragen', cur?.topic); apply(r); say('npc', t.reaction(r.reaktion)); return after();
     }
-    if (res.probe) note(rollLine(res.probe));
+    aiUsed++; if (typeof res.rest === 'number') aiState.rest = res.rest;
+    if (res.probe) { note(rollLine(res.probe)); highlights.push(res.probe.erfolg ? `Mein Versuch (${CHECKS[res.probe.id]?.name}) gelang.` : `Mein Versuch (${CHECKS[res.probe.id]?.name}) ging daneben.`); }
     apply(res); say('npc', res.antwort);
-    if (res.journal) note(`Tagebuch: <b>${esc(res.journal.title)}</b>`);
+    if (res.zusage) { note(`Zusage: <b>${esc(res.zusage.text)}</b> <span class="muted">(im Notizbuch unter Diplomatie)</span>`); highlights.push(`${p.name} hat mir etwas zugesagt: ${res.zusage.text}.`); }
+    if (res.journal) { note(`Tagebuch: <b>${esc(res.journal.title)}</b>`); highlights.push(`Ich habe etwas erfahren: ${res.journal.title}.`); }
     ideas = res.vorschlaege || [];
     after();
+  };
+  const personal = async (what) => {
+    let r = null;
+    if (online) { const { data, error } = await db.rpc('ask_personal', { p_npc: p.id, p_what: what, p_conv: conv }); if (!error) r = data; else console.warn('Persönlich:', error.message); }
+    t.markPersonal(what);
+    if (r?.ok) { say('npc', r.text); note(`Notizbuch: <b>Neues über ${esc(p.name)}</b>`); highlights.push(what === 'geheimnis' ? `${p.name} hat mir ein Geheimnis anvertraut.` : what === 'ziel' ? `Ich weiß jetzt, was ${p.name} sich vom Leben wünscht.` : what === 'angst' ? `${p.name} hat mir von einer Angst erzählt.` : `Ich weiß jetzt, woher ${p.name} kommt.`); }
+    else say('npc', t.refuse());
   };
   const choose = async (o) => {
     if (o.kind === 'bye') { opts.innerHTML = ''; say('me', o.text); say('npc', t.bye(lastReact)); setTimeout(end, 1500); return; }
@@ -343,6 +371,8 @@ function startTalk(p) {
     if (o.kind === 'idea') return freeSay(o.text);
     busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', o.text);
     if (o.kind === 'topic') { cur = t.nextTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
+    if (o.kind === 'personal_topic') { cur = t.personalTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
+    if (o.kind === 'personal') { apply(await tone('fragen', 'persoenlich')); setTimeout(async () => { await personal(o.what); after(); }, 500); return; }
     if (o.kind === 'follow') {
       t.markAsked(o.id); apply(await tone('fragen', cur?.topic));
       setTimeout(async () => { say('npc', o.answer); if (o.journal) await addJournal(t.journal(o.journal)); after(); }, 500); return;
@@ -351,15 +381,79 @@ function startTalk(p) {
       t.markChecked(o.check); let r = null;
       if (online) { const { data, error } = await db.rpc('talk_check', { p_npc: p.id, p_check: o.check, p_conv: conv }); if (!error && data) r = data; else if (error) console.warn('Probe:', error.message); }
       if (!r) { const ch = CHECKS[o.check], w = 1 + Math.floor(Math.random() * 20), md = attrs[ch.attr] - 2, bo = herk === ch.fav ? 2 : 0; r = { wurf: w, mod: md, bonus: bo, dc: ch.dc, gesamt: w + md + bo, erfolg: w === 20 || (w !== 1 && w + md + bo >= ch.dc), eigenschaft: ch.attr, reaktion: 'neutral' }; }
-      note(rollLine(r)); apply(r);
-      setTimeout(async () => { say('npc', t.checkText(o.def, r.erfolg)); if (r.erfolg && o.def.j) await addJournal(t.journal(o.def.j)); after(); }, 700); return;
+      note(rollLine(r)); apply(r); highlights.push(r.erfolg ? `${CHECKS[o.check].name} bei ${p.name}: gelungen.` : `${CHECKS[o.check].name} bei ${p.name}: ging daneben.`);
+      setTimeout(async () => {
+        if (o.def.personal && r.erfolg) await personal(o.def.personal);
+        else { say('npc', t.checkText(o.def, r.erfolg)); if (r.erfolg && o.def.j) await addJournal(t.journal(o.def.j)); }
+        after();
+      }, 700); return;
     }
     const r = await tone(o.tone, cur?.topic); apply(r);
     setTimeout(() => { say('npc', t.reaction(r.reaktion)); if (left > 1 && r.reaktion !== 'veraergert' && r.reaktion !== 'kurz') { cur = t.nextTopic(); setTimeout(() => say('npc', cur.text), 500); setTimeout(after, 550); } else after(); }, 450);
   };
-  say('npc', t.opener()); cur = t.nextTopic(); busy = true; setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 600);
+  say('npc', t.opener());
+  // Hat die Figur etwas über dich gehört? Dann spricht sie es vielleicht an.
+  const heard = brief?.gehoert?.[0];
+  if (heard && Math.random() < 0.6) setTimeout(() => say('npc', `Ich hab da was gehört … ${heard} Stimmt das?`), 300);
+  cur = t.nextTopic(); busy = true; setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, heard ? 1100 : 600);
+}
+let aiState = { verfuegbar: true };
+const clock = (iso) => { try { return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+function aiWhy(st) {
+  if (st.grund === 'gemini_limit' && st.bis) return `KI-Kontingent erschöpft – bis ca. ${clock(st.bis)} Uhr nur vorgegebene Antworten`;
+  if (st.grund === 'gemini_limit') return 'KI gerade ausgelastet – kurz warten';
+  if (st.grund === 'tageslimit') return `Deine 60 freien Antworten für heute sind verbraucht – ab ca. ${clock(st.bis)} Uhr wieder`;
+  if (st.grund === 'kein_schluessel') return 'KI noch nicht eingerichtet';
+  if (st.grund === 'zu_schnell') return 'kurz durchatmen';
+  return 'KI gerade nicht erreichbar';
+}
+// Nach jedem Gespräch: eine Notiz ins Notizbuch über diese Person (mit KI persönlich formuliert, sonst aus den Höhepunkten)
+async function writeEncounterNote(p, history, highlights, spoken, aiUsed) {
+  if (aiState.verfuegbar && (aiUsed > 0 || spoken >= 4)) {
+    try {
+      const { data } = await db.functions.invoke('npc-talk', { body: { modus: 'abschluss', npc: p.id, verlauf: history.slice(-16) } });
+      if (data?.notiz) return;
+      if (data?.grund && ['gemini_limit', 'tageslimit'].includes(data.grund) && data.bis) aiState = { verfuegbar: false, grund: data.grund, bis: data.bis };
+    } catch (e) { console.warn('Notiz:', e); }
+  }
+  const mood = { 'treu ergeben': 'Ich spüre, dass ich mich auf ' + p.name + ' verlassen kann.', herzlich: 'Ich hatte ein gutes Gefühl dabei.', freundlich: 'Ein angenehmes Gespräch.', zurückhaltend: p.name + ' blieb mir gegenüber reserviert.', misstrauisch: p.name + ' traut mir nicht über den Weg.', feindselig: p.name + ' war offen feindselig.' }[p.stimmung] || '';
+  const topics = history.filter((h) => h.wer === 'ich').slice(0, 2).map((h) => `„${h.text.slice(0, 60)}“`).join(', ');
+  const txt = [`Habe mit ${p.name} gesprochen${topics ? ` (u. a. ${topics})` : ''}.`, ...highlights.slice(0, 3), mood].filter(Boolean).join(' ');
+  db.rpc('add_note', { p_npc: p.id, p_kind: 'begegnung', p_text: txt }).then(({ error }) => error && console.warn('Notiz:', error.message));
 }
 const journalLocal = new Map();
+// Diplomatie: Notizbuch über Menschen – keine Zahlen, nur Eindrücke, Erlebtes, Gefallen
+function renderPeople(body) {
+  body.append(p('Was ich über die Menschen im Tal weiß. Ich schreibe auf, was wir erlebt haben – und was ich von ihnen halte.', 'muted small'));
+  const rep = document.createElement('div'); rep.className = 'rep'; body.append(rep);
+  const list = document.createElement('div'); list.className = 'people'; body.append(list);
+  list.append(p('…', 'muted small'));
+  db.rpc('get_my_reputation').then(({ data, error }) => {
+    if (error || !Array.isArray(data) || !data.length || active !== 'diplomatie') return;
+    rep.innerHTML = `<h3>Was man sich über mich erzählt</h3><ul>${data.slice(0, 5).map((r) => `<li>${esc(r.wer)} hat von ${esc(r.quelle)} gehört: „${esc(r.text)}“</li>`).join('')}</ul>`;
+  });
+  db.rpc('get_people_notes').then(({ data, error }) => {
+    if (active !== 'diplomatie') return; list.innerHTML = '';
+    if (error || !Array.isArray(data)) { list.append(p('Das Notizbuch ist gerade nicht erreichbar.', 'muted small')); return; }
+    const groups = { dorf: 'In meinem Dorf', begegnung: 'Unterwegs getroffen' };
+    for (const [g, title] of Object.entries(groups)) {
+      const ppl = data.filter((x) => x.gruppe === g); if (!ppl.length) continue;
+      const h = document.createElement('h3'); h.textContent = title; list.append(h);
+      for (const x of ppl.sort((a, b) => b.erlebt - a.erlebt)) {
+        const det = document.createElement('details'); det.className = 'person';
+        const sum = document.createElement('summary');
+        const person = scene?.village.people.find((q) => q.id === x.id);
+        if (person?.plan) sum.append(portraitCanvas(person.plan, 40));
+        const t = document.createElement('div'); t.innerHTML = `<b>${esc(x.name)}</b> <span class="muted small">· ${esc(x.beruf)}</span><br><span class="small eindruck">${esc(x.eindruck)}</span>`; sum.append(t); det.append(sum);
+        const ul = document.createElement('ul'); ul.className = 'notes';
+        for (const f of x.gefallen || []) { const li = document.createElement('li'); li.className = 'gefallen'; li.textContent = 'Offene Zusage: ' + f; ul.append(li); }
+        for (const n of x.notizen || []) { const li = document.createElement('li'); li.className = n.art; li.innerHTML = `<span class="muted small">${new Date(n.am).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span> ${esc(n.text)}`; ul.append(li); }
+        if (!ul.children.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'Noch nichts aufgeschrieben. Vielleicht sollte ich ' + x.name + ' einmal ansprechen.'; ul.append(li); }
+        det.append(ul); list.append(det);
+      }
+    }
+  });
+}
 function updateChip() { if (!scene) return; $('mood-chip').textContent = `${SEASON_NAMES[scene.mood.season]} · ${TIME_NAMES[scene.mood.time]} · ${WEATHER_NAMES[weatherNow] || 'Klar'}`; }
 
 $('gear-btn').onclick = () => { $('gear-menu').hidden = !$('gear-menu').hidden; };
