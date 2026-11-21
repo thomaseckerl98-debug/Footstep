@@ -1,6 +1,6 @@
 // Charaktererstellung: Auswahl von Volk, Gesicht, Haut, Haaren, Bart, Augen und Umhang mit Live-Vorschau.
 import { setMood } from './core.js?v=1';
-import { RACES, FACES, SKINS, HAIRS, HAIR_STYLES, BEARDS, EYES, CLOAKS, DEFAULT_LOOK, randomLook, planFromLook, portraitSprite, sheetData, heroSprite, SW, SH, PW, PH, HERO_W } from './chars.js?v=2';
+import { RACES, FACES, SKINS, HAIRS, HAIR_STYLES, BEARDS, EYES, CLOAKS, DEFAULT_LOOK, randomLook, planFromLook, portraitSprite, sheetData, heroSprite, SW, SH, PW, PH, HERO_W } from './chars.js?v=3';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let raf = 0;

@@ -39,13 +39,13 @@ input { display: block; width: 100%; margin-top: 4px; padding: 10px; font-family
 input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--gold); }
 
 /* ---------- Bühne (Szene) ---------- */
-.stage { position: fixed; inset: 0; overflow: hidden; background: #0b0f14; touch-action: manipulation; }
+.stage { position: fixed; inset: 0; overflow: hidden; background: #0b0f14; touch-action: none; overscroll-behavior: none; }
 .world { position: absolute; left: 0; top: 0; width: 960px; height: 540px; transform-origin: 0 0; will-change: transform; }
 .lyr { position: absolute; left: 0; top: 0; width: 960px; height: 540px; image-rendering: pixelated; }
 .lyr.glow { mix-blend-mode: screen; image-rendering: auto; }
 .lyr.marks { image-rendering: auto; }
 .lyr.roads { transition: opacity .8s; }
-.herowrap { position: absolute; left: 0; bottom: 0; pointer-events: none; will-change: transform; }
+.herowrap { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
 .hero { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
 .screen { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .weather { image-rendering: pixelated; }

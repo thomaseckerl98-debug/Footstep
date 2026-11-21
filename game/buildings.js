@@ -1,7 +1,7 @@
 // Mossheart Baukatalog: alle Gebäudetypen mit Wirkungen + Pixel-Bausätze für die neuen Typen.
 // Wirkungen sind Spieldaten (noch ohne laufende Wirtschaft). Werte gelten für Stufe 1; jede weitere Stufe
 // erhöht Wohnraum/Arbeitsplätze/Produktion um ca. 25 % und Nachbarschaftseffekte um ca. 10 % (siehe STUFEN).
-import { boxBuilding, thatch, timberFront, timberSide, BUILDINGS, EXTRA_DRAW, KIT_COLORS } from './world.js?v=3';
+import { boxBuilding, thatch, timberFront, timberSide, BUILDINGS, EXTRA_DRAW, KIT_COLORS } from './world.js?v=4';
 import { hex, lit, N3, N4 } from './core.js?v=1';
 
 /* ======================================================================

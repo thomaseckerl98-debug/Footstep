@@ -1,9 +1,9 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
-import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=3';
-import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=2';
+import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale } from './world.js?v=4';
+import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=2';
-import './buildings.js?v=1'; // meldet die zusätzlichen Bausätze an
+import { Village, fieldSprite } from './life.js?v=3';
+import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
@@ -36,13 +36,14 @@ export class Scene {
     this.pal = null; this.ready = false;
     this.village = new Village(); this.showNames = true; this.residentsSet = false;
     this.build();
-    this.worker = new Worker(new URL('./worker.js?v=1', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('./worker.js?v=2', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this.onWorld(e.data);
     this.loadMood(this.mood.time, this.mood.season);
     window.addEventListener('resize', () => this.applyCamera(true));
     root.addEventListener('pointermove', (e) => this.onMove(e));
     root.addEventListener('pointerleave', () => { this.mouse = [0, 0]; this.hooks.onHover?.(null); });
     root.addEventListener('click', (e) => this.onClick(e));
+    this.initGestures();
     window.addEventListener('deviceorientation', (e) => { if (e.gamma != null) this.mouse = [Math.max(-1, Math.min(1, e.gamma / 25)), Math.max(-1, Math.min(1, (e.beta - 40) / 25))]; });
     requestAnimationFrame((t) => this.loop(t));
     setInterval(() => { if (this.auto) { const m = realMood(); if (m.time !== this.mood.time || m.season !== this.mood.season) this.setMood(m.time, m.season, true); } }, 60000);
@@ -122,34 +123,75 @@ export class Scene {
   }
 
   /* ---------- Kamera ---------- */
-  setZoom(z) { this.zoom = z; this.applyCamera(); }
-  applyCamera(instant = false) {
-    const rw = this.root.clientWidth || window.innerWidth, rh = this.root.clientHeight || window.innerHeight;
-    const z = ZOOMS[this.zoom], portrait = rw < rh * 0.9;
-    let scale, vx, vy;
+  setZoom(z) { const p = ZOOMS[z]; this.zoom = z; this.view = { w: p.w, cx: p.cx, cy: p.cy }; this.applyCamera(); }
+  computeCam() {
+    const rw = this.root.clientWidth || window.innerWidth, rh = this.root.clientHeight || window.innerHeight, portrait = rw < rh * 0.9;
+    if (!this.view) { const p = ZOOMS[this.zoom || 'dorf']; this.view = { w: p.w, cx: p.cx, cy: p.cy }; }
+    const v = this.view; let scale, vx, vy;
     if (portrait) {
       // Hochformat (Handy): mehr Breite zeigen, Welt unten ausrichten, darüber geht der Himmel weiter
-      const pw = { dorf: 300, grossdorf: 400, stadt: 520 }[this.zoom];
-      scale = rw / pw;
-      vx = Math.max(0, Math.min(W - pw, z.cx - pw / 2));
-      vy = Math.min(H - rh / scale + 40 / scale, Math.max(0, z.cy - rh / scale / 2));
+      const pw = v.w * 0.46; scale = rw / pw;
+      vx = Math.max(0, Math.min(W - pw, v.cx - pw / 2));
+      vy = Math.min(H - rh / scale + 40 / scale, Math.max(0, v.cy - rh / scale / 2));
+      v.cx = vx + pw / 2;
     } else {
-      const vw = z.w, vh = vw * 9 / 16;
-      scale = Math.max(rw / vw, rh / vh);
-      vx = Math.max(0, Math.min(W - rw / scale, z.cx - rw / scale / 2));
-      vy = Math.max(0, Math.min(H - rh / scale, z.cy - rh / scale / 2));
+      scale = Math.max(rw / v.w, rh / (v.w * 9 / 16));
+      const vw = rw / scale, vh = rh / scale;
+      vx = Math.max(0, Math.min(W - vw, v.cx - vw / 2)); vy = Math.max(0, Math.min(H - vh, v.cy - vh / 2));
+      v.cx = vx + vw / 2; v.cy = vy + vh / 2;
     }
+    return { scale, vx, vy, rw, rh, portrait };
+  }
+  applyCamera(instant = false) {
+    const { scale, vx, vy, rw, rh } = this.computeCam();
     this.cam = { scale, vx, vy };
-    this.world.style.transition = instant ? 'none' : 'transform 3.2s cubic-bezier(.45,.05,.25,1)';
+    const ease = 'cubic-bezier(.45,.05,.25,1)';
+    this.world.style.transition = instant ? 'none' : `transform 3.2s ${ease}`;
     this.world.style.transform = `translate(${-vx * scale}px, ${-vy * scale}px) scale(${scale})`;
-    // Held: passt sich der Bildschirmhöhe an (bleibt beim Zoomen gleich groß)
-    // Held im selben Pixelmaßstab wie die Welt (ein Heldenpixel = ein Weltpixel)
-    const hs = scale;
-    this.heroWrap.style.transition = instant ? 'none' : 'width 3.2s cubic-bezier(.45,.05,.25,1), height 3.2s cubic-bezier(.45,.05,.25,1)';
+    // Held im selben Pixelmaßstab wie die Welt (ein Heldenpixel = ein Weltpixel); beim starken Hineinzoomen gedeckelt
+    const hs = Math.min(scale, Math.max(rw / HERO_W, rh / HERO_H));
+    this.heroWrap.style.transition = instant ? 'none' : `width 3.2s ${ease}, height 3.2s ${ease}, left 3.2s ${ease}, top 3.2s ${ease}`;
     this.heroWrap.style.width = `${HERO_W * hs}px`; this.heroWrap.style.height = `${HERO_H * hs}px`;
+    // Held gehört zum Vordergrund unten links in der Welt: wandert beim Verschieben/Zoomen mit
+    this.heroWrap.style.left = `${Math.round((120 - vx) * scale)}px`; this.heroWrap.style.top = `${Math.round((H - vy) * scale - HERO_H * hs)}px`;
     // Tiefenunschärfe: Berge weich, Vordergrund am Weltrand leicht weich
-    this.cv.back.style.filter = `blur(${(0.9 / scale) * (this.zoom === 'stadt' ? 1.2 : 1.6)}px)`;
+    this.cv.back.style.filter = `blur(${(0.9 / scale) * (this.view.w > 900 ? 1.2 : 1.6)}px)`;
     this.cv.front.style.filter = `blur(${0.8 / scale}px)`;
+  }
+  // Zoomen um einen Bildschirmpunkt (Mausrad, zwei Finger)
+  zoomAt(clientX, clientY, newW) {
+    const r = this.root.getBoundingClientRect(), sx = clientX - r.left, sy = clientY - r.top, c = this.cam;
+    const wx = c.vx + sx / c.scale, wy = c.vy + sy / c.scale;
+    this.view.w = Math.max(360, Math.min(960, newW));
+    const n = this.computeCam();
+    this.view.cx = wx - (sx - n.rw / 2) / n.scale + (n.portrait ? 0 : 0); this.view.cy = wy - (sy - n.rh / 2) / n.scale;
+    this.zoom = null; this.applyCamera(true); this.hooks.onZoom?.();
+  }
+  panBy(dx, dy) { this.view.cx -= dx / this.cam.scale; this.view.cy -= dy / this.cam.scale; this.zoom = null; this.applyCamera(true); }
+  initGestures() {
+    const root = this.root, ptrs = new Map();
+    root.addEventListener('wheel', (e) => { e.preventDefault(); this.zoomAt(e.clientX, e.clientY, this.view.w * Math.exp(e.deltaY * (e.deltaMode ? 0.05 : 0.0015))); }, { passive: false });
+    root.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (ptrs.size === 1) this.drag = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false };
+      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, w: this.view.w, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; if (this.drag) this.drag.moved = true; }
+    });
+    root.addEventListener('pointermove', (e) => {
+      if (!ptrs.has(e.pointerId)) return;
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pinch && ptrs.size >= 2) {
+        const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        this.panBy(mx - this.pinch.mx, my - this.pinch.my); this.pinch.mx = mx; this.pinch.my = my;
+        this.zoomAt(mx, my, this.pinch.w * this.pinch.d / d);
+      } else if (this.drag) {
+        if (Math.abs(e.clientX - this.drag.x) + Math.abs(e.clientY - this.drag.y) > 6) this.drag.moved = true;
+        if (this.drag.moved) { this.panBy(e.clientX - this.drag.lx, e.clientY - this.drag.ly); this.root.style.cursor = 'grabbing'; }
+        this.drag.lx = e.clientX; this.drag.ly = e.clientY;
+      }
+    });
+    const end = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) this.pinch = null; if (ptrs.size === 0 && this.drag) { this.dragMoved = this.drag.moved; this.drag = null; this.root.style.cursor = 'default'; } };
+    root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
   }
   toScreen(wx, wy) { const m = this.world.getBoundingClientRect(); return [m.left + wx * m.width / W, m.top + wy * m.height / H]; }
   toWorld(clientX, clientY) {
@@ -167,6 +209,7 @@ export class Scene {
   }
   plotAt(wx, wy) { return PLOTS.find((p) => Math.hypot((wx - p.x) / (p.rad * 0.7), (wy - p.y) / (p.rad * 0.35)) < 1) || null; }
   onMove(e) {
+    if (this.drag && this.drag.moved) return;
     const r = this.root.getBoundingClientRect();
     this.mouse = [((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1];
     if (!this.ready) return;
@@ -179,6 +222,7 @@ export class Scene {
     this.root.style.cursor = s || p ? 'pointer' : 'default';
   }
   onClick(e) {
+    if (this.dragMoved) { this.dragMoved = false; return; }
     if (!this.ready || e.target.closest('.ui')) return;
     const [wx, wy] = this.toWorld(e.clientX, e.clientY);
     const s = this.spriteAt(wx, wy);

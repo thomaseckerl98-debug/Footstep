@@ -2,7 +2,7 @@
 // Beide Größen nutzen dieselben Farben aus dem Bauplan und dieselbe Lichtfunktion shade(), damit sie zusammenpassen.
 import { clamp, mul, add, sc, hex, step, rng, makeNoise, N1, N4 } from './core.js?v=1';
 import * as CORE from './core.js?v=1';
-import { Sprite } from './world.js?v=3';
+import { Sprite } from './world.js?v=4';
 
 const C3 = (c) => (typeof c === 'string' ? hex(c) : c);
 export function shade(base, nx, ny, nz, rimK = 1) {

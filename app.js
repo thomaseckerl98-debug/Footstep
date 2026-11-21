@@ -1,13 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=5';
+import { Scene, realMood } from './game/scene.js?v=6';
 import { openCreator } from './game/creator.js?v=1';
-import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=2';
+import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
-import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=1';
+import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=1';
-import { PLOTS } from './game/world.js?v=3';
-import { SW, SH } from './game/chars.js?v=2';
+import { PLOTS } from './game/world.js?v=4';
+import { SW, SH } from './game/chars.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

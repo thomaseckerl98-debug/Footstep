@@ -1,8 +1,8 @@
 // Dorfleben: Wegfindung (Häuser blockieren, Wege werden bevorzugt), Tagesablauf, Berufe, Gespräche, Namen.
-import { PLOTS, PLAZA, ROADS, TREES } from './world.js?v=3';
+import { PLOTS, PLAZA, ROADS, TREES } from './world.js?v=4';
 import * as CORE from './core.js?v=1';
-import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=2';
-import { CATALOG, jobsAt } from './buildings.js?v=1';
+import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
+import { CATALOG, jobsAt } from './buildings.js?v=2';
 const FEM = new Set(['huette', 'muehle', 'baeckerei', 'brauerei', 'imkerei', 'jagdhuette', 'holzfaeller', 'steinmetz', 'koehlerei', 'schmiede', 'gerberei', 'weberei', 'toepferei', 'scheune', 'kaserne', 'schreibstube']);
 const ORT = (t) => t === 'feld' ? 'auf dem Feld' : t === 'markt' ? 'auf dem Marktplatz' : (FEM.has(t) ? 'in der ' : 'im ') + (CATALOG[t]?.name || t);
 

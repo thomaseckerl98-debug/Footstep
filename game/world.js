@@ -6,7 +6,7 @@ import {
 import * as CORE from './core.js?v=1';
 export { W, H, setMood };
 
-export const WORLD_VERSION = 1;
+export const WORLD_VERSION = 2;
 const S = () => CORE.S, T = () => CORE.T;
 const flat = (base, k = 0.75) => mul(base, add(CORE.AMB, sc(CORE.LIGHT, k)));
 
@@ -76,6 +76,43 @@ function drawRoad(L, road, alpha = 1) {
     }
   }
 }
+// Busch aus mehreren kleinen Blattballen, mit gestuftem Licht
+function bush(L, x, y, rx, ry, cols, fogT = 0, snowTop = false) {
+  const n = 2 + Math.round(rx / 2.5);
+  for (let b = 0; b < n; b++) {
+    const bx = x + (n > 1 ? (b / (n - 1) - 0.5) * rx * 1.5 : 0) + (N4.noise(x + b * 7, y) - 0.5) * 3, br = ry * (0.55 + N4.noise(b * 2.3, x * 0.31) * 0.5), by = y - br * 0.75 - N4.noise(b * 3.1, x * 0.2) * ry * 0.35;
+    for (let yy = -br; yy <= br * 0.75; yy++) for (let xx = -br * 1.25; xx <= br * 1.25; xx++) {
+      const dx = xx / (br * 1.25), dy = yy / br, d = dx * dx + dy * dy; if (d > 1) continue;
+      if (d > 0.55 && N3.noise((bx + xx) * 0.7, (by + yy) * 0.7) > 0.78) continue;
+      let c = lit(hex(cols[dy < -0.35 ? 2 : dy < 0.25 ? 1 : 0]), dx * 0.85, dy * 0.8 - 0.35, Math.sqrt(1 - d), 3);
+      if (snowTop && dy < -0.25 && N3.noise((bx + xx) * 0.5, (by + yy) * 0.9) > 0.35) c = lit(hex('#eef1f4'), dx, -0.8, 0.6, 2);
+      L.set(bx + xx, by + yy, fog(c, fogT));
+    }
+  }
+}
+// Waldsaum: Unterholz, junge Bäume, Farne und Halme statt einer harten Kante zwischen Wald und Wiese
+function forestEdge(L, r) {
+  const sea = S(), winter = sea.groundSnow, spring = sea.particles === 'petals';
+  const cols = winter ? ['#24382c', '#34503e', '#4a6650'] : spring ? ['#335a30', '#4f7c3c', '#7ea64e'] : sea.leaf.slice();
+  const dark = winter ? ['#22362a', '#2f4a36', '#3e5a44'] : ['#26432a', '#33583a', '#4b7244'];
+  const items = [];
+  for (let x = -6; x < W + 6; x += 2 + r() * 5) {
+    const my = meadowY(x), k = r();
+    if (k < 0.3) items.push(['tree', x, my + 3 + r() * 7, 14 + r() * 24]);
+    else if (k < 0.75) items.push(['bush', x, my + 2 + r() * 5, 3 + r() * 5, 2.5 + r() * 4, r() < 0.35 ? cols : dark]);
+    else if (k < 0.9) items.push(['fern', x, my + 3 + r() * 6]);
+  }
+  items.sort((a, b) => a[2] - b[2]);
+  for (const it of items) {
+    const [kind, x, y] = it, fogT = clamp(0.12 - (y - 357) * 0.004);
+    if (kind === 'tree') conifer(L, x, y, it[3], it[3] * 0.24, { fogT, dark: '#1f3a26', mid: '#2e5232', litC: '#4b7243' });
+    else if (kind === 'bush') bush(L, x, y, it[3], it[4], it[5], fogT, !!winter);
+    else for (let f = 0; f < 5; f++) { const a = -Math.PI / 2 + (f - 2) * 0.45, len = 3 + r() * 3; for (let t = 0; t < len; t++) L.set(x + Math.cos(a) * t * 1.3, y + Math.sin(a) * t, lit(hex(winter ? '#5a6e60' : t > len * 0.6 ? '#7fa652' : '#4f7f3c'), Math.cos(a), -0.5, 0.6, 2)); }
+  }
+  // einzelne Halme, die in den Wald hineinragen
+  const g = sea.grass.map(hex);
+  for (let x = 0; x < W; x++) if (r() < 0.55) { const my = Math.floor(meadowY(x)), hgt = 1 + Math.floor(r() * 3); for (let k = 1; k <= hgt; k++) L.set(x, my - k + 1, flat(g[k === hgt ? 2 : 1], 0.8)); }
+}
 export function renderWorld(time, season) {
   setMood(time, season);
   const back = new Layer(), mid = new Layer(), roads = new Layer(), front = new Layer();
@@ -96,9 +133,11 @@ export function renderWorld(time, season) {
     const n = N2.fbm(x * 0.035, y * 0.08, 4), cl = N3.noise(x * 0.3, y * 0.6), v = n * 0.6 + cl * 0.4;
     let col = flat(g[v > 0.6 ? 2 : v > 0.42 ? 1 : 0], 0.75);
     if (!S().groundSnow && cl > 0.82) col = flat(hex(S().dry), 0.8);
+    { const e = y - meadowY(x); if (e < 12) col = sc(col, 0.74 + (e / 12) * 0.26 + (N3.noise(x * 0.4, y * 0.5) > 0.7 ? 0.04 : 0)); }
     if (T().body === 'sun' && y < shadowLine(x) + N1.noise(x * 0.07, y * 0.15) * 14 - 7) col = sc(mix(col, mul(col, hex('#8090c0')), 0.5), 0.8);
     mid.set(x, y, fog(col, clamp(0.16 - (y - 357) * 0.003)));
   }
+  forestEdge(mid, r);
   { const list = []; for (let i = 0; i < 300; i++) { const x = 715 + r() * 250, y = rightSlope(x) + 4 + r() * 90; if (y < 462 && y > meadowY(x) + 2) list.push([x, y]); } list.sort((a, b) => a[1] - b[1]); for (const [x, y] of list) conifer(mid, x, y, 22 + r() * 30, 6 + r() * 4, { fogT: 0.08 }); }
   // kleine Felsen und Büsche als Detail (nicht auf Bauplätzen/Wegen)
   for (let i = 0; i < 70; i++) {
@@ -176,7 +215,9 @@ export function boxBuilding(L, x, y, c) {
   for (let i = 0; i < depth; i++) for (let k = 0; k < wallH; k++) P(x + W2 + i, y - 3 - k - Math.round(i * dd), LT(c.wallSide(i, k, wallH, depth), SIDE));
   for (let k = 0; k < wallH; k++) for (let i = -W2; i <= W2; i++) P(x + i, y - 3 - k, LT(c.wallFront(i, k, W2, wallH), FRONT));
   const gy = y - 3 - wallH, peakY = gy - roofH;
-  if (c.gable) for (let k = 0; k < roofH * 0.62; k++) { const half = W2 * (1 - k / (roofH * 0.62)); for (let i = -half; i <= half; i++) P(x + i, gy - k, LT(c.gable(i, k), FRONT)); }
+  // Giebelfeld füllt das ganze Dreieck unter den Dachkanten (keine Durchsicht zum Hintergrund)
+  for (let yy = peakY + 1; yy <= gy; yy++) { const k = gy - yy, half = Math.floor(Math.max(0, (W2 + 5) * ((yy - peakY) / roofH) - 2)); for (let i = -half; i <= half; i++) P(x + i, yy, LT(c.gable ? c.gable(i, k) : (Math.abs(i) % 4 === 0 ? '#3a2a1e' : '#5a4430'), FRONT)); }
+  for (let i = -W2 - 1; i <= W2 + 1; i++) P(x + i, gy + 1, LT('#2e2218', FRONT)); // Schattenfuge unter der Traufe
   const roofCol = (xx, yy, n, i) => {
     let col = lit(hex(c.roof(xx, yy, i)), n[0], n[1], n[2], 3, ls);
     if (moss && N3.noise(xx * 0.22, yy * 0.22) > 0.5) col = lit(hex(N3.noise(xx, yy) > 0.5 ? '#5e7a3a' : '#456632'), n[0], n[1], n[2], 2, ls);
