@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
 import { Scene, realMood } from './game/scene.js?v=7';
-import { openCreator } from './game/creator.js?v=2';
-import { buildTalk } from './game/dialog.js?v=1';
+import { openCreator } from './game/creator.js?v=3';
+import { buildTalk } from './game/dialog.js?v=2';
+import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
@@ -64,7 +65,7 @@ const MENUS = [
   { id: 'bewohner', name: 'Bewohner', tip: 'Deine Dorfbewohner, ihre Berufe und Beziehungen.' },
   { id: 'charakter', name: 'Charakter', tip: 'Dein Held: Aussehen, Fähigkeiten, Erfahrungen.' },
   { id: 'inventar', name: 'Inventar', tip: 'Ausrüstung und Gegenstände.' },
-  { id: 'quest', name: 'Quest', tip: 'Gesperrt: wird nach dem Tutorial freigeschaltet.', locked: true },
+  { id: 'quest', name: 'Tagebuch', tip: 'Gerüchte, Hinweise und Aufträge aus deinen Gesprächen.' },
   { id: 'karte', name: 'Karte', tip: 'Die Weltkarte mit allen Dörfern.' },
   { id: 'diplomatie', name: 'Diplomatie', tip: 'Bündnisse, Kriege und Nachrichten.' },
 ];
@@ -158,11 +159,22 @@ function renderPanel(id) {
       setMood('mittag', 'sommer'); cv.getContext('2d').putImageData(new ImageData(portraitSprite(planFromLook(me.look, me.name)).data, PW, PH), 0, 0); scene?.restoreMood();
       const r = RACES[me.look.race];
       const wrap = document.createElement('div'); wrap.className = 'charbox'; const t = document.createElement('div');
-      t.innerHTML = `<b>${esc(me.name)}</b><br>${esc(r.name)} · ${esc(r.desc)}<br><span class="small muted">Neigung: ${esc(r.neigung)}</span>`;
+      const hk = HERKUNFT[me.herkunft || me.look.herkunft || 'waldlaeufer'], at = me.attrs || charAttrs(me.look.race, me.herkunft);
+      t.innerHTML = `<b>${esc(me.name)}</b><br>${esc(r.name)} · ${esc(hk.name)}<br><span class="small">${esc(hk.desc)}</span><br><span class="attrs small">${Object.entries(ATTRS).map(([k, n]) => `<span>${n} ${'●'.repeat(at[k])}${'○'.repeat(6 - at[k])}</span>`).join('')}</span>`;
       wrap.append(cv, t); body.append(wrap);
-      body.append(p('Fähigkeiten, Ausrüstung, Wunden und Narben folgen. Werte bleiben verdeckt.', 'muted small'));
+      body.append(p('Eigenschaften entscheiden über Antwortmöglichkeiten und Würfe in Gesprächen. Ausrüstung, Wunden und Narben folgen.', 'muted small'));
     }
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
+  } else if (id === 'quest') {
+    body.append(p('Was du in Gesprächen erfährst, landet hier. Aus Gerüchten werden später Abenteuer.', 'muted small'));
+    const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
+    const show = (list) => {
+      ul.innerHTML = '';
+      if (!list.length) { ul.append(p('Noch keine Einträge. Hör dich im Dorf um – manche wissen mehr, als sie sagen.', 'muted small')); return; }
+      for (const j of list) { const li = document.createElement('li'); li.innerHTML = `<b>${esc(j.title)}</b>${j.npc ? ` <span class="muted small">· von ${esc(j.npc)}</span>` : ''}<br><span class="small">${esc(j.text)}</span>`; ul.append(li); }
+    };
+    show([...journalLocal.values()].reverse());
+    db.rpc('get_journal').then(({ data, error }) => { if (!error && Array.isArray(data) && active === 'quest') show(data); });
   } else if (id === 'bewohner') {
     const info = scene ? scene.village.info() : [];
     body.append(p(info.length ? `${info.length} Bewohner leben in deinem Dorf. Was sie von dir halten, zeigt sich an ihrem Verhalten.` : 'Noch wohnt niemand hier.', 'muted small'));
@@ -256,34 +268,98 @@ const BUILDINGS_NAME = (t) => t;
 function startTalk(p) {
   const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = ''; $('selcard').hidden = true; clearInterval(selTimer);
   const fr = scene.village.people.find((q) => q.id === p.freund);
-  const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude: [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map(withArticle), du: me?.name || 'du' });
+  const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
+  const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map(withArticle);
+  const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
+    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)) });
+  const online = p.id && p.id < 1000, conv = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
   const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
   const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
   head.append(portraitCanvas(p.plan, 110), right); box.append(head);
-  const opts = document.createElement('div'); opts.className = 'dl-opts'; box.append(opts);
-  let round = 0, topic = 'alltag';
-  const say = (who, text) => { const el = document.createElement('p'); el.className = who; el.textContent = text; log.append(el); log.scrollTop = log.scrollHeight; };
-  const end = () => { p.talking = false; box.hidden = true; box.innerHTML = ''; if (scene.selection?.person === p) showSelCard(scene.selection); };
+  const opts = document.createElement('ol'); opts.className = 'dl-opts'; box.append(opts);
+  let cur = null, left = t.patience, lastReact = 'neutral', busy = false, ideas = [];
+  const history = [];
+  const say = (who, text, cls) => { const el = document.createElement('p'); el.className = cls || who; el.textContent = text; log.append(el); log.scrollTop = log.scrollHeight; if (who === 'me' || who === 'npc') history.push({ wer: who === 'me' ? 'ich' : 'npc', text }); };
+  const note = (html) => { const el = document.createElement('p'); el.className = 'note'; el.innerHTML = html; log.append(el); log.scrollTop = log.scrollHeight; };
+  const end = () => { document.removeEventListener('keydown', onKey); p.talking = false; box.hidden = true; box.innerHTML = ''; if (scene.selection?.person === p) showSelCard(scene.selection); };
+  const finish = (react) => { opts.innerHTML = ''; setTimeout(() => { say('npc', t.bye(react)); const li = document.createElement('li'); li.append(btn('Gespräch beenden', false, end)); opts.append(li); }, 600); };
+  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-opt')[n - 1]?.click(); if (e.key === 'Escape') end(); };
+  document.addEventListener('keydown', onKey);
+  const addJournal = async (j) => {
+    if (!j) return; journalLocal.set(j.key, { ...j, npc: p.name, kind: 'geruecht', status: 'offen' });
+    if (online) { const { error } = await db.rpc('add_journal', { p_kind: 'geruecht', p_key: j.key, p_title: j.title, p_text: j.text, p_npc: p.id }); if (error) console.warn('Tagebuch:', error.message); }
+    note(`Tagebuch: <b>${esc(j.title)}</b>`);
+  };
+  const rollLine = (r) => `${esc(ATTRS[r.eigenschaft] || r.eigenschaft)}-Probe · Wurf <b>${r.wurf}</b> ${r.mod >= 0 ? '+' : '−'} ${Math.abs(r.mod)}${r.bonus ? ` + ${r.bonus} (${esc(HERKUNFT[herk].name)})` : ''} = ${r.gesamt} gegen ${r.dc} · <b class="${r.erfolg ? 'ok' : 'bad'}">${r.wurf === 20 ? 'Kritischer Erfolg' : r.wurf === 1 ? 'Patzer' : r.erfolg ? 'Erfolg' : 'Misserfolg'}</b>`;
+  const tone = async (tn, topic) => {
+    if (online) { const { data, error } = await db.rpc('talk_to_npc', { p_npc: p.id, p_tone: tn, p_topic: topic || 'alltag', p_conv: conv }); if (!error && data) return data; if (error) console.warn('Gespräch:', error.message); }
+    return { reaktion: { freundlich: 'freundlich', loben: 'erfreut', scherzen: Math.random() < 0.5 ? 'erfreut' : 'kuehl', helfen: 'erfreut', fragen: 'freundlich', kritisieren: 'kuehl' }[tn] };
+  };
+  const apply = (res) => { if (!res) return; if (res.reaktion) lastReact = p.lastReact = res.reaktion; if (res.stimmung) p.stimmung = res.stimmung; if (res.erinnerung) p.erinnerung = res.erinnerung; };
+  const after = () => { left--; busy = false; if (left <= 0 || lastReact === 'veraergert' || lastReact === 'kurz') return finish(lastReact); offer(); };
+  const item = (o, i) => {
+    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.kind === 'check' ? ' check' : o.kind === 'free' || o.kind === 'idea' ? ' free' : '');
+    b.innerHTML = `<span class="num">${i + 1}.</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}${esc(o.text)}${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}`;
+    b.onclick = () => { if (!busy) choose(o); }; li.append(b); return li;
+  };
   const offer = () => {
     opts.innerHTML = '';
-    for (const o of t.options()) { const b = document.createElement('button'); b.type = 'button'; b.className = 'px-btn dl-opt'; b.innerHTML = `<span class="small muted">${esc(o.label)}</span><br>${esc(o.text)}`; b.onclick = () => choose(o); opts.append(b); }
-    const bye = btn('Verabschieden', false, () => { opts.innerHTML = ''; say('npc', t.bye(p.lastReact || 'neutral')); setTimeout(end, 1400); }); bye.classList.add('dl-bye'); opts.append(bye);
+    const list = t.options(cur);
+    for (const idea of ideas) list.unshift({ kind: 'idea', tag: '[Idee]', text: idea });
+    if (online) list.push({ kind: 'free', tag: '[Eigene Worte]', text: 'Selbst etwas sagen …' });
+    list.push({ kind: 'bye', text: 'Verabschieden.' });
+    list.forEach((o, i) => opts.append(item(o, i)));
+  };
+  const freeForm = () => {
+    opts.innerHTML = '';
+    const li = document.createElement('li'); li.className = 'dl-free';
+    const f = document.createElement('form'); const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 300; inp.placeholder = `Was sagst du zu ${p.name}?`; inp.autocomplete = 'off';
+    const send = btn('Sagen', true, () => {}); send.type = 'submit'; const back = btn('Zurück', false, () => offer());
+    f.append(inp, send, back); li.append(f); opts.append(li); setTimeout(() => inp.focus(), 30);
+    f.onsubmit = (e) => { e.preventDefault(); const v = inp.value.trim(); if (v) freeSay(v); };
+  };
+  const freeSay = async (text) => {
+    busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', text);
+    let res = null;
+    try {
+      const { data, error } = await db.functions.invoke('npc-talk', { body: { npc: p.id, conv, text, verlauf: history.slice(-9, -1), gebaeude, umgebung: `${TIME_NAMES[scene.mood.time]}, ${SEASON_NAMES[scene.mood.season]}, ${WEATHER_NAMES[weatherNow] || 'klar'}` } });
+      if (error) console.warn('KI:', error.message); else res = data;
+    } catch (e) { console.warn('KI:', e); }
+    if (!res || res.fallback || !res.antwort) {
+      const why = { kein_schluessel: 'KI noch nicht eingerichtet', tageslimit: 'KI-Tageslimit erreicht', zu_schnell: 'kurz warten', gemini_limit: 'KI gerade ausgelastet' }[res?.grund] || 'KI gerade nicht erreichbar';
+      note(`<span class="muted">(${esc(why)} – ${esc(p.name)} antwortet aus dem Bauch heraus)</span>`);
+      const r = await tone('fragen', cur?.topic); apply(r); say('npc', t.reaction(r.reaktion)); return after();
+    }
+    if (res.probe) note(rollLine(res.probe));
+    apply(res); say('npc', res.antwort);
+    if (res.journal) note(`Tagebuch: <b>${esc(res.journal.title)}</b>`);
+    ideas = res.vorschlaege || [];
+    after();
   };
   const choose = async (o) => {
-    opts.innerHTML = '<p class="muted small">…</p>'; say('me', o.text);
-    let res = null;
-    if (p.id && p.id < 1000) { const { data, error } = await db.rpc('talk_to_npc', { p_npc: p.id, p_tone: o.tone, p_topic: topic }); if (!error && data && typeof data === 'object') res = data; else if (error) console.warn('Gespräch:', error.message); }
-    if (!res) res = { reaktion: { freundlich: 'freundlich', loben: 'erfreut', scherzen: Math.random() < 0.5 ? 'erfreut' : 'kuehl', helfen: 'erfreut', fragen: 'freundlich', kritisieren: 'kuehl' }[o.tone] };
-    p.lastReact = res.reaktion; if (res.stimmung) p.stimmung = res.stimmung; if (res.erinnerung) p.erinnerung = res.erinnerung;
-    setTimeout(() => {
-      say('npc', t.reaction(res.reaktion)); round++;
-      if (round >= 3 || res.reaktion === 'veraergert' || res.reaktion === 'kurz') { opts.innerHTML = ''; setTimeout(() => { say('npc', t.bye(res.reaktion)); opts.append(btn('Gespräch beenden', false, end)); }, 700); return; }
-      setTimeout(() => { const tl = t.topicLine(); topic = tl.topic; say('npc', tl.text); offer(); }, 800);
-    }, 450);
+    if (o.kind === 'bye') { opts.innerHTML = ''; say('me', o.text); say('npc', t.bye(lastReact)); setTimeout(end, 1500); return; }
+    if (o.kind === 'free') return freeForm();
+    if (o.kind === 'idea') return freeSay(o.text);
+    busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', o.text);
+    if (o.kind === 'topic') { cur = t.nextTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
+    if (o.kind === 'follow') {
+      t.markAsked(o.id); apply(await tone('fragen', cur?.topic));
+      setTimeout(async () => { say('npc', o.answer); if (o.journal) await addJournal(t.journal(o.journal)); after(); }, 500); return;
+    }
+    if (o.kind === 'check') {
+      t.markChecked(o.check); let r = null;
+      if (online) { const { data, error } = await db.rpc('talk_check', { p_npc: p.id, p_check: o.check, p_conv: conv }); if (!error && data) r = data; else if (error) console.warn('Probe:', error.message); }
+      if (!r) { const ch = CHECKS[o.check], w = 1 + Math.floor(Math.random() * 20), md = attrs[ch.attr] - 2, bo = herk === ch.fav ? 2 : 0; r = { wurf: w, mod: md, bonus: bo, dc: ch.dc, gesamt: w + md + bo, erfolg: w === 20 || (w !== 1 && w + md + bo >= ch.dc), eigenschaft: ch.attr, reaktion: 'neutral' }; }
+      note(rollLine(r)); apply(r);
+      setTimeout(async () => { say('npc', t.checkText(o.def, r.erfolg)); if (r.erfolg && o.def.j) await addJournal(t.journal(o.def.j)); after(); }, 700); return;
+    }
+    const r = await tone(o.tone, cur?.topic); apply(r);
+    setTimeout(() => { say('npc', t.reaction(r.reaktion)); if (left > 1 && r.reaktion !== 'veraergert' && r.reaktion !== 'kurz') { cur = t.nextTopic(); setTimeout(() => say('npc', cur.text), 500); setTimeout(after, 550); } else after(); }, 450);
   };
-  say('npc', t.opener()); const tl = t.topicLine(); topic = tl.topic; setTimeout(() => { say('npc', tl.text); offer(); }, 600);
+  say('npc', t.opener()); cur = t.nextTopic(); busy = true; setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 600);
 }
+const journalLocal = new Map();
 function updateChip() { if (!scene) return; $('mood-chip').textContent = `${SEASON_NAMES[scene.mood.season]} · ${TIME_NAMES[scene.mood.time]} · ${WEATHER_NAMES[weatherNow] || 'Klar'}`; }
 
 $('gear-btn').onclick = () => { $('gear-menu').hidden = !$('gear-menu').hidden; };

@@ -1,12 +1,13 @@
 // Charaktererstellung: Auswahl von Volk, Gesicht, Haut, Haaren, Bart, Augen und Umhang mit Live-Vorschau.
 import { setMood } from './core.js?v=1';
+import { HERKUNFT, ATTRS, charAttrs } from './rules.js?v=1';
 import { RACES, FACES, SKINS, HAIRS, HAIR_STYLES, BEARDS, EYES, CLOAKS, DEFAULT_LOOK, randomLook, planFromLook, portraitSprite, sheetData, heroSprite, SW, SH, PW, PH, HERO_W } from './chars.js?v=3';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let raf = 0;
 
 export function openCreator({ root, name, look, first, onSave, onCancel, restoreMood }) {
-  let L = { ...DEFAULT_LOOK, ...(look || {}) };
+  let L = { ...DEFAULT_LOOK, herkunft: 'waldlaeufer', ...(look || {}) };
   root.hidden = false;
   root.innerHTML = `
     <div class="cr-wrap">
@@ -41,6 +42,7 @@ export function openCreator({ root, name, look, first, onSave, onCancel, restore
     g.append(row); opts.append(g);
   };
   group('Volk', 'race', Object.entries(RACES).map(([k, r]) => [k, r.name]));
+  group('Herkunft', 'herkunft', Object.entries(HERKUNFT).map(([k, h]) => [k, h.name]));
   group('Gesicht', 'face', Object.entries(FACES).map(([k, n]) => [k, n]));
   group('Hautfarbe', 'skin', SKINS.map((c, i) => [i, `Ton ${i + 1}`, c]), true);
   group('Haarfarbe', 'hair', Object.entries(HAIRS).map(([k, c]) => [k, k, c]), true);
@@ -60,13 +62,14 @@ export function openCreator({ root, name, look, first, onSave, onCancel, restore
     const hx = hc.getContext('2d'); hx.clearRect(0, 0, 170, 120); hx.drawImage(tmp, 0, 150, 170, 120, 0, 0, 170, 120);
     restoreMood?.();
     root.querySelectorAll('.cr-options .px-btn').forEach((b) => b.classList.toggle('on', String(L[b.dataset.key]) === b.dataset.val));
-    root.querySelector('#cr-race').innerHTML = `<b>${esc(RACES[L.race].name)}</b>: ${esc(RACES[L.race].desc)}<br><span class="muted">Neigung (verdeckt): ${esc(RACES[L.race].neigung)}</span>`;
+    const at = charAttrs(L.race, L.herkunft), hk = HERKUNFT[L.herkunft];
+    root.querySelector('#cr-race').innerHTML = `<b>${esc(RACES[L.race].name)}</b>: ${esc(RACES[L.race].desc)}<br><b>${esc(hk.name)}</b>: ${esc(hk.desc)}<br><span class="attrs">${Object.entries(ATTRS).map(([k, n]) => `<span>${n} ${'●'.repeat(at[k])}${'○'.repeat(6 - at[k])}</span>`).join('')}</span><span class="muted small">Eigenschaften bestimmen, welche Antworten du in Gesprächen hast und wie gut deine Würfe gelingen.</span>`;
   }
   const dirs = [0, 2, 1, 3];
   const loop = (t) => { raf = requestAnimationFrame(loop); if (!sheet) return; const c = sc.getContext('2d'); c.clearRect(0, 0, SW, SH); const d = dirs[Math.floor(t / 2400) % 4], f = Math.floor(t / 220) % 4; c.drawImage(sheet, f * SW, d * SH, SW, SH, 0, 0, SW, SH); };
   cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
   refresh();
-  root.querySelector('#cr-random').onclick = () => { L = randomLook(); refresh(); };
+  root.querySelector('#cr-random').onclick = () => { L = { ...randomLook(), herkunft: L.herkunft }; refresh(); };
   const close = () => { cancelAnimationFrame(raf); root.hidden = true; root.innerHTML = ''; };
   if (!first) root.querySelector('#cr-cancel').onclick = () => { close(); onCancel?.(); };
   root.querySelector('#cr-save').onclick = async () => {

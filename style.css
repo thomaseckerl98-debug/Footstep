@@ -158,7 +158,20 @@ details.kat { margin: 6px 0; } details.kat summary { cursor: pointer; color: var
 .dl-log p.npc { color: var(--text); }
 .dl-log p.me { color: #c8d8a8; font-style: italic; padding-left: 14px; }
 .dl-log p.me::before { content: '» '; }
-.dl-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.dl-opt { text-align: left; font-size: .9rem; line-height: 1.3; padding: 8px 10px; }
-.dl-bye { grid-column: 1 / -1; }
-@media (max-width: 640px) { .selcard { right: 3vw; bottom: 86px; } .dialog { bottom: 86px; max-height: 70vh; } .dl-opts { grid-template-columns: 1fr; } .dl-head canvas.portrait { width: 64px !important; height: 64px !important; } }
+.dl-log p.note { font-size: .82rem; color: #b8a77a; border-left: 3px solid #6b5530; padding: 2px 0 2px 8px; }
+.dl-log p.note b.ok { color: #9fd18a; } .dl-log p.note b.bad { color: #e08a6a; }
+.dl-opts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow: auto; }
+.dl-opt { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; padding: 5px 10px; font-size: .92rem; line-height: 1.35; color: var(--text); border-left: 3px solid transparent; }
+.dl-opt:hover, .dl-opt:focus-visible { background: rgba(255, 220, 150, .08); border-left-color: var(--gold); color: #fff3d6; }
+.dl-opt .num { color: var(--gold); display: inline-block; min-width: 1.4em; }
+.dl-opt .tag { color: #d7b56d; font-size: .82rem; }
+.dl-opt.check .tag { color: #8fc0e0; }
+.dl-opt.free .tag { color: #c8d8a8; }
+.dl-opt .hint { color: #8a7c62; font-size: .78rem; }
+.dl-free form { display: flex; gap: 6px; padding: 4px 0; }
+.dl-free input { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; background: #1a140f; color: var(--text); border: 2px solid #4a3a26; }
+.cr-preview .attrs, .charbox .attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; margin: 6px 0; font-size: .82rem; }
+.attrs span { white-space: nowrap; letter-spacing: .5px; }
+.journal { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.journal li { border-left: 3px solid #6b5530; padding-left: 8px; }
+@media (max-width: 640px) { .selcard { right: 3vw; bottom: 86px; } .dialog { bottom: 86px; max-height: 70vh; } .dl-head canvas.portrait { width: 64px !important; height: 64px !important; } }
