@@ -10,6 +10,7 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=1';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
+import { openQuest } from './game/questui.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -172,7 +173,9 @@ function renderPanel(id) {
     }
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
   } else if (id === 'quest') {
-    body.append(p('Was du in Gesprächen erfährst, landet hier. Aus Gerüchten werden später Abenteuer.', 'muted small'));
+    renderAdventures(body);
+    body.append(h3('Tagebuch'));
+    body.append(p('Was du in Gesprächen erfährst, landet hier. Aus manchen Gerüchten werden Abenteuer.', 'muted small'));
     if (villageState?.auftraege?.length) {
       body.append(h3('Abmachungen'));
       const ab = document.createElement('ul'); ab.className = 'journal'; body.append(ab);
@@ -198,9 +201,8 @@ function renderPanel(id) {
       t.innerHTML = `<b>${esc(r.name)}</b> <span class="muted">· ${esc(r.job)}</span><br><span class="small">wirkt ${esc(r.stimmung)} · ${esc(r.activity)}</span><br><span class="small muted">${r.erinnerung ? 'Erinnert sich: ' + esc(r.erinnerung) : 'Noch keine gemeinsamen Erlebnisse.'}</span>`;
       li.append(cv, t); ul.append(li);
     }
-  } else {
-    const texts = { inventar: 'Hier liegen bald deine Ausrüstung und Gegenstände.' };
-    body.append(p(texts[id] || '', 'muted'));
+  } else if (id === 'inventar') {
+    renderInventory(body);
   }
   $('panel').hidden = false;
 }
@@ -279,6 +281,7 @@ function showSelCard(obj) {
 }
 const BUILDINGS_NAME = (t) => t;
 async function startTalk(p) {
+  if (questWin) return;
   const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = '<p class="muted small">…</p>'; $('selcard').hidden = true; clearInterval(selTimer);
   const online = p.id && p.id < 1000, conv = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
   // Was diese Figur weiß (nur Schlüssel, keine Geheimnisse) und ob die KI heute noch antworten kann
@@ -474,6 +477,80 @@ async function writeEncounterNote(p, history, highlights, spoken, aiUsed) {
 }
 const journalLocal = new Map();
 // Diplomatie: Notizbuch über Menschen – keine Zahlen, nur Eindrücke, Erlebtes, Gefallen
+/* ───────────── Abenteuer (Quests) und Inventar ───────────── */
+const bonusText = (b) => Object.entries(b || {}).map(([k, n]) => `${CHECKS[k]?.name || k} ${n > 0 ? '+' : '−'}${Math.abs(n)}`).join(', ');
+const companionCv = (id) => scene?.village.people.find((q) => q.id === id)?.cv || null;
+let questWin = null;
+function launchQuest(view) {
+  closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
+  questWin = openQuest({ db, box: $('questbox'), view, heroPlan: planFromLook(me?.look, me?.name), companionCv, CHECKS, ATTRS,
+    onClose: (changed) => { questWin = null; if (changed) loadVillageState(); if (active === 'quest' || active === 'inventar') renderPanel(active); } });
+}
+async function resumeQuest(run) {
+  const { data, error } = await db.rpc('quest_view', { p_run: run });
+  if (error) { console.warn('Quest:', error.message); return; }
+  launchQuest(data);
+}
+function renderAdventures(body) {
+  body.append(h3('Abenteuer'));
+  const wrap = document.createElement('div'); wrap.className = 'adventures'; wrap.append(p('…', 'muted small')); body.append(wrap);
+  db.rpc('quest_list').then(({ data, error }) => {
+    wrap.innerHTML = '';
+    if (error) { wrap.append(p('Konnte die Abenteuer nicht laden.', 'error')); return; }
+    if (data.laufend) {
+      const q = data.quests.find((x) => x.id === data.laufend.quest);
+      wrap.append(p(`Du bist mitten in „${q?.titel || 'einem Abenteuer'}“.`, 'small'), row(btn('Weiterspielen', true, () => resumeQuest(data.laufend.run))));
+      return;
+    }
+    for (const q of data.quests) {
+      const card = document.createElement('div'); card.className = 'adv';
+      card.innerHTML = `<b>${esc(q.titel)}</b>${q.erledigt ? ' <span class="muted small">· schon erlebt</span>' : ''}<br><span class="small">${esc(q.beschreibung)}</span>`;
+      if (!q.offen) { card.append(p(q.hinweis ? `Du weißt noch zu wenig darüber. Vielleicht erzählen dir ${q.hinweis} mehr.` : 'Du weißt noch zu wenig darüber.', 'muted small')); wrap.append(card); continue; }
+      const pick = document.createElement('div'); pick.className = 'pick';
+      pick.append(p('Wer kommt mit? (höchstens zwei – passende Berufe helfen bei Proben)', 'muted small'));
+      const chosen = new Set();
+      for (const b of data.begleiter) {
+        const l = document.createElement('label'); l.className = 'pick-row' + (b.bereit ? '' : ' off');
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.disabled = !b.bereit;
+        cb.onchange = () => { if (cb.checked) { if (chosen.size >= 2) { cb.checked = false; return; } chosen.add(b.id); } else chosen.delete(b.id); };
+        const t = document.createElement('span'); t.innerHTML = `${esc(b.name)} <span class="muted">· ${esc(b.beruf)} · ${esc(b.stimmung)}</span>${b.bereit ? '' : ' <span class="muted">(will nicht mit)</span>'}`;
+        l.append(cb, t); pick.append(l);
+      }
+      const msg = p('', 'small error');
+      pick.append(row(btn(q.erledigt ? 'Nochmal erleben (Testphase)' : 'Aufbrechen', true, async () => {
+        const { data: r, error: e } = await db.rpc('quest_start', { p_quest: q.id, p_begleiter: [...chosen] });
+        if (e) { msg.textContent = e.message; return; }
+        if (!r.ok) { msg.textContent = r.grund; return; }
+        launchQuest(r.view);
+      })), msg);
+      card.append(pick); wrap.append(card);
+    }
+  });
+}
+function renderInventory(body) {
+  const wrap = document.createElement('div'); wrap.append(p('…', 'muted small')); body.append(wrap);
+  db.rpc('get_inventory').then(({ data, error }) => {
+    wrap.innerHTML = '';
+    if (error) { wrap.append(p('Konnte das Inventar nicht laden.', 'error')); return; }
+    const z = data.zustand;
+    wrap.append(p(z?.zustand === 'verletzt' ? `Du bist verletzt (Proben −2) – heilt bis ${clock(z.bis)} Uhr.` : 'Du bist gesund.', z?.zustand === 'verletzt' ? 'error small' : 'small'));
+    const ART = { waffe: 'Waffen', ruestung: 'Rüstung', werkzeug: 'Werkzeug', kleidung: 'Kleidung', fund: 'Funde' };
+    for (const [art, name] of Object.entries(ART)) {
+      const list = data.items.filter((i) => i.art === art); if (!list.length) continue;
+      body.append(h3(name)); const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
+      for (const i of list) {
+        const eff = [bonusText(i.bonus), i.schutz ? `Schutz ${i.schutz}` : ''].filter(Boolean).join(' · ');
+        const li = document.createElement('li'); li.innerHTML = `<b>${esc(i.name)}</b>${i.menge > 1 ? ` ×${i.menge}` : ''}${eff ? ` <span class="small item-eff">${esc(eff)}</span>` : ''}<br><span class="small muted">${esc(i.beschreibung)}</span>`; ul.append(li);
+      }
+    }
+    if (data.chronik.length) {
+      body.append(h3('Chronik')); const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
+      for (const c of data.chronik) { const li = document.createElement('li'); li.className = 'small'; li.textContent = c.text; ul.append(li); }
+    }
+    body.append(p('Rüstung fängt Verletzungen ab. Waffen und Werkzeug erleichtern passende Proben und öffnen eigene Wahlmöglichkeiten in Abenteuern.', 'muted small'));
+  });
+}
+
 function renderPeople(body) {
   body.append(p('Was ich über die Menschen im Tal weiß. Ich schreibe auf, was wir erlebt haben – und was ich von ihnen halte.', 'muted small'));
   const rep = document.createElement('div'); rep.className = 'rep'; body.append(rep);

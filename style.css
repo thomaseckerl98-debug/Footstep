@@ -191,3 +191,21 @@ details.kat { margin: 6px 0; } details.kat summary { cursor: pointer; color: var
 .person .notes li { margin: 3px 0; }
 .person .notes li.fakt { color: #cfe0b8; }
 .person .notes li.gefallen { color: #e8c878; }
+
+/* ---------- Abenteuer (Quest-Fenster) ---------- */
+.quest { background: rgba(26, 19, 13, .985); left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 96vw); max-height: 94vh; max-height: 94dvh; display: flex; flex-direction: column; gap: 8px; z-index: 30; }
+.q-head { display: flex; justify-content: space-between; align-items: center; } .q-head b { color: var(--gold); font-size: 1.1rem; }
+.q-scene { width: 100%; aspect-ratio: 240 / 100; image-rendering: pixelated; border: 3px solid #140d09; background: #1a140f; flex: none; }
+.q-log { max-height: 30vh; }
+.q-log p.scene { color: #efe3c2; border-left: 3px solid var(--gold-d); padding-left: 8px; }
+.q-log p.npc { color: var(--text); }
+.q-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.q-travel { color: #c8d8a8; margin: 0; }
+.q-abort { font-size: .8rem; padding: 3px 8px; margin-left: auto; }
+.adv { border-left: 3px solid var(--wood-l); padding: 4px 0 6px 10px; margin-bottom: 10px; }
+.pick { margin-top: 6px; }
+.pick-row { display: flex; align-items: center; gap: 8px; margin: 2px 0; color: var(--text); font-size: .9rem; cursor: pointer; }
+.pick-row input { width: auto; display: inline-block; margin: 0; }
+.pick-row.off { opacity: .55; cursor: not-allowed; }
+.item-eff { color: #8fc0e0; }
+@media (max-width: 640px) { .quest { top: auto; bottom: 8px; transform: translateX(-50%); max-height: 88dvh; } .q-log { max-height: 24vh; } }
