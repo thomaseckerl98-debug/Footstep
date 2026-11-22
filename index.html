@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
   <!-- Anmeldung -->
@@ -26,9 +26,17 @@
             <input id="character" minlength="3" maxlength="24" autocomplete="nickname">
           </label>
           <label>E-Mail <input id="email" type="email" required autocomplete="email"></label>
-          <label>Passwort (mind. 8 Zeichen) <span class="pw-wrap"><input id="password" type="password" minlength="8" required autocomplete="current-password"><button type="button" id="pw-toggle" class="pw-toggle" aria-label="Passwort anzeigen" aria-pressed="false" title="Passwort anzeigen">Zeigen</button></span></label>
+          <label>Passwort (mind. 8 Zeichen) <span class="pw-wrap"><input id="password" type="password" minlength="8" required autocomplete="current-password"><button type="button" id="pw-toggle" class="pw-toggle" data-for="password" aria-label="Passwort anzeigen" aria-pressed="false" title="Passwort anzeigen">Zeigen</button></span></label>
           <button type="submit" id="submit-btn" class="px-btn primary">Anmelden</button>
+          <button type="button" id="forgot-btn" class="link-btn">Passwort vergessen?</button>
           <p id="auth-msg" class="msg" role="status"></p>
+        </form>
+        <form id="recover-form" hidden>
+          <p class="small">Leg ein neues Passwort fest.</p>
+          <input type="email" id="recover-user" autocomplete="username" hidden>
+          <label>Neues Passwort (mind. 8 Zeichen) <span class="pw-wrap"><input id="new-password" type="password" minlength="8" required autocomplete="new-password"><button type="button" class="pw-toggle" data-for="new-password" aria-label="Passwort anzeigen" aria-pressed="false" title="Passwort anzeigen">Zeigen</button></span></label>
+          <button type="submit" id="recover-btn" class="px-btn primary">Passwort speichern</button>
+          <p id="recover-msg" class="msg" role="status"></p>
         </form>
       </section>
     </main>
@@ -65,6 +73,6 @@
     <section class="ui quest px-frame" id="questbox" hidden></section>
   </div>
 
-  <script type="module" src="app.js?v=19"></script>
+  <script type="module" src="app.js?v=20"></script>
 </body>
 </html>

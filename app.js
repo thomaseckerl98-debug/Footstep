@@ -25,12 +25,39 @@ function setMode(next) {
   $('name-label').hidden = mode !== 'register';
   $('character').required = mode === 'register';
   $('submit-btn').textContent = mode === 'login' ? 'Anmelden' : 'Registrieren';
+  $('forgot-btn').hidden = mode !== 'login';
   $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
   showMsg('auth-msg', '');
 }
 function showMsg(id, text, type = '') { const el = $(id); el.textContent = text; el.className = 'msg ' + type; }
 $('tab-login').onclick = () => setMode('login');
-$('pw-toggle').onclick = () => { const i = $('password'), show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = $('pw-toggle'); b.textContent = show ? 'Verbergen' : 'Zeigen'; b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Passwort verbergen' : 'Passwort anzeigen'); b.title = b.getAttribute('aria-label'); i.focus(); };
+function setPwVisible(b, show) { const i = $(b.dataset.for); i.type = show ? 'text' : 'password'; b.textContent = show ? 'Verbergen' : 'Zeigen'; b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Passwort verbergen' : 'Passwort anzeigen'); b.title = b.getAttribute('aria-label'); }
+document.querySelectorAll('.pw-toggle').forEach((b) => { b.onclick = () => { setPwVisible(b, $(b.dataset.for).type === 'password'); $(b.dataset.for).focus(); }; });
+// Passwort vergessen: Mail mit Link zurück ins Spiel (?reset=1), dort neues Passwort festlegen
+let recovering = /[?&]reset=1/.test(location.search);
+$('forgot-btn').onclick = async () => {
+  const email = $('email').value.trim();
+  if (!email || !$('email').checkValidity()) { showMsg('auth-msg', 'Gib oben zuerst deine E-Mail-Adresse ein.', 'error'); $('email').focus(); return; }
+  $('forgot-btn').disabled = true; showMsg('auth-msg', '…');
+  try {
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname + '?reset=1' });
+    if (error) throw error;
+    showMsg('auth-msg', 'Falls es ein Konto mit dieser Adresse gibt, ist jetzt eine Mail mit einem Link unterwegs. Schau auch im Spam-Ordner nach.', 'ok');
+  } catch (err) { showMsg('auth-msg', translateError(err), 'error'); } finally { $('forgot-btn').disabled = false; }
+};
+function showRecover() { db.auth.getUser?.().then(({ data }) => { if (data?.user?.email) $('recover-user').value = data.user.email; }).catch(() => {}); $('auth-screen').hidden = false; $('game').hidden = true; $('auth-form').hidden = true; document.querySelector('.tabs').hidden = true; $('recover-form').hidden = false; setTimeout(() => $('new-password').focus(), 50); }
+$('recover-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = $('new-password').value; $('recover-btn').disabled = true; showMsg('recover-msg', '…');
+  try {
+    const { error } = await db.auth.updateUser({ password: pw });
+    if (error) throw error;
+    showMsg('recover-msg', 'Gespeichert. Du wirst angemeldet …', 'ok');
+    recovering = false; history.replaceState(null, '', location.pathname);
+    $('new-password').value = ''; setPwVisible(document.querySelector('[data-for=new-password]'), false);
+    setTimeout(() => { $('recover-form').hidden = true; $('auth-form').hidden = false; document.querySelector('.tabs').hidden = false; showMsg('recover-msg', ''); startGame(); }, 700);
+  } catch (err) { showMsg('recover-msg', /session|jwt|expired/i.test(err?.message || '') ? 'Der Link ist abgelaufen. Fordere bitte einen neuen an.' : translateError(err), 'error'); } finally { $('recover-btn').disabled = false; }
+});
 $('tab-register').onclick = () => setMode('register');
 $('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -622,6 +649,10 @@ async function startGame() {
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';
 }
-function stopGame() { $('game').hidden = true; $('auth-screen').hidden = false; $('password').value = ''; $('password').type = 'password'; $('pw-toggle').textContent = 'Zeigen'; $('pw-toggle').setAttribute('aria-pressed', 'false'); $('gear-menu').hidden = true; }
-db.auth.onAuthStateChange((_e, session) => { if (session) { if ($('game').hidden) startGame(); } else stopGame(); });
+function stopGame() { $('game').hidden = true; $('auth-screen').hidden = false; $('password').value = ''; setPwVisible($('pw-toggle'), false); $('gear-menu').hidden = true; }
+db.auth.onAuthStateChange((ev, session) => {
+  if (ev === 'PASSWORD_RECOVERY') recovering = true;
+  if (recovering) { if (session) showRecover(); return; }
+  if (session) { if ($('game').hidden) startGame(); } else stopGame();
+});
 setMode('login');

@@ -215,3 +215,6 @@ details.kat { margin: 6px 0; } details.kat summary { cursor: pointer; color: var
 .pw-wrap input { padding-right: 92px; }
 .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: transparent; border: 1px solid var(--muted); color: var(--muted); font: inherit; font-size: .8rem; padding: 3px 8px; border-radius: 3px; cursor: pointer; margin-top: 3px; }
 .pw-toggle:hover, .pw-toggle:focus-visible { color: #fff; border-color: #fff; }
+
+.link-btn { display: block; margin: 10px auto 0; background: none; border: none; color: var(--muted); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
+.link-btn:hover, .link-btn:focus-visible { color: var(--gold); }
