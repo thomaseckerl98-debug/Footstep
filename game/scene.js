@@ -6,7 +6,7 @@ import { VILLAGERS } from './villagers.js?v=1';
 import { Village, fieldSprite } from './life.js?v=6';
 import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
-import { drawExtra } from './extras.js?v=1';
+import { drawExtra, drawScaffold } from './extras.js?v=2';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
 const LAYOUT_KEY = 'mossheart_test_layout_v2';
@@ -33,7 +33,7 @@ export class Scene {
     this.weather = { kind: 'klar', target: 'klar', mix: 0, next: performance.now() + 120000 + Math.random() * 120000, forced: false };
     this.showPlots = false; this.showRoads = false; this.selected = null;
     this.layout = this.loadLayout();
-    this.sprites = []; this.hero = null; this.heroFrames = null; this.extras = [];
+    this.sprites = []; this.hero = null; this.heroFrames = null; this.extras = []; this.baustelle = null;
     this.particles = []; this.birds = null; this.nextBirds = performance.now() + 15000;
     this.pal = null; this.ready = false;
     this.village = new Village(); this.nature = new Nature(); this.showNames = false; this.residentsSet = false; this.selection = null; this.camTarget = null;
@@ -54,6 +54,7 @@ export class Scene {
   saveLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(this.layout)); } catch { /* */ } }
   // Anordnung aus der Datenbank übernehmen (ohne erneut zu speichern)
   setLayout(layout) { if (!Array.isArray(layout) || !layout.length || JSON.stringify(layout) === JSON.stringify(this.layout)) return; this.layout = layout.map((x) => x.slice()); this.saveLayout(); this.rebuildSprites(); }
+  setBaustelle(b) { const k = JSON.stringify(b); if (k === this._bauKey) return; this._bauKey = k; this.baustelle = b; this.rebuildSprites(); }
   setExtras(list) { const k = JSON.stringify(list || []); if (k === this._extrasKey) return; this._extrasKey = k; this.extras = list || []; this.rebuildSprites(); }
   resetLayout() { this.layout = DEFAULT_LAYOUT.map((x) => x.slice()); this.saveLayout(); this.rebuildSprites(); }
 
@@ -117,13 +118,29 @@ export class Scene {
     setMood(this.mood.time, this.mood.season);
     this.sprites = this.layout.map(([type, plotId]) => { const plot = PLOTS.find((p) => p.id === plotId); return type === 'feld' ? fieldSprite(plot) : buildingSprite(type, plot, this.pal); }).sort((a, b) => (a.type === 'feld' ? -1 : 0) - (b.type === 'feld' ? -1 : 0) || (a.y + a.h) - (b.y + b.h));
     const c = this.cv.village.getContext('2d'); c.clearRect(0, 0, W, H);
-    for (const s of this.sprites) {
+    // Baustelle eines neuen Gebäudes: wächst mit dem Fortschritt von unten nach oben (kein echtes Gebäude, nur Bild)
+    const B = this.baustelle, bplot = B && PLOTS.find((p) => p.id === B.plot);
+    let bau = null;
+    if (B && bplot && B.art === 'neu' && !this.layout.some((l) => l[1] === B.plot)) {
+      try { bau = B.gebaeude === 'feld' ? fieldSprite(bplot) : buildingSprite(B.gebaeude, bplot, this.pal); bau.isBau = true; } catch { bau = null; }
+    }
+    this.bauSprite = bau;
+    const order = bau ? [...this.sprites, bau].sort((a, b) => (a.y + a.h) - (b.y + b.h)) : this.sprites;
+    for (const s of order) {
       const tmp = document.createElement('canvas'); tmp.width = s.w; tmp.height = s.h;
       tmp.getContext('2d').putImageData(new ImageData(s.data, s.w, s.h), 0, 0);
-      s.canvas = tmp; c.drawImage(tmp, s.x, s.y);
+      s.canvas = tmp;
+      if (s.isBau) {
+        const f = 0.2 + 0.8 * Math.max(0, Math.min(1, B.fortschritt || 0)), vh = Math.max(4, Math.round(s.h * f));
+        c.save(); c.globalAlpha = 0.9; c.drawImage(tmp, 0, s.h - vh, s.w, vh, s.x, s.y + s.h - vh, s.w, vh); c.restore();
+        drawScaffold(c, s, bplot, 'neu', f);
+        continue;
+      }
+      c.drawImage(tmp, s.x, s.y);
       // Zusätze, die Bewohner gebaut haben (oder gerade bauen)
       const plot = PLOTS.find((p) => p.id === s.plotId);
       for (const e of this.extras) if (e.plot === s.plotId && e.gebaeude === s.type && plot) drawExtra(c, s, plot, e.zusatz, e.status);
+      if (B && B.art === 'ausbau' && B.plot === s.plotId && plot) drawScaffold(c, s, plot, 'ausbau', 1);
     }
     this.village.setSprites(this.sprites);
     this.filterGrass();
@@ -226,6 +243,8 @@ export class Scene {
     const v = this.village.hit(wx, wy);
     if (v) { this.hooks.onHover?.({ kind: 'villager', person: v, x: sx, y: sy }); this.root.style.cursor = 'pointer'; return; }
     const s = this.spriteAt(wx, wy);
+    const bs = this.bauSprite, onBau = !s && bs && wx >= bs.x && wx < bs.x + bs.w && wy >= bs.y + bs.h * 0.4 && wy < bs.y + bs.h + 4;
+    if (onBau) { this.hooks.onHover?.({ kind: 'baustelle', baustelle: this.baustelle, x: sx, y: sy }); this.root.style.cursor = 'default'; return; }
     const p = !s && this.showPlots ? this.plotAt(wx, wy) : null;
     this.hooks.onHover?.(s ? { kind: 'building', sprite: s, building: BUILDINGS[s.type], plot: PLOTS.find((q) => q.id === s.plotId), x: sx, y: sy } : p ? { kind: 'plot', plot: p, x: sx, y: sy } : null);
     this.root.style.cursor = s || p ? 'pointer' : 'default';

@@ -253,3 +253,14 @@ details.kat { margin: 6px 0; } details.kat summary { cursor: pointer; color: var
 .dl-opt.back { color: #c8b48a; border-top: 1px dashed #5a4630; margin-top: 4px; padding-top: 7px; }
 .dl-opt.back .txt::before { content: '↩ '; color: var(--gold); }
 .dl-opt.bye { color: var(--muted); }
+/* Dorf: Ampeln, Baustelle, Güter, Hinweise */
+.ampel { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 3px; vertical-align: middle; box-shadow: 0 0 0 1px rgba(0,0,0,.35); flex: none; }
+.ampel.gruen { background: #6fbf5a; } .ampel.gelb { background: #e2b33c; } .ampel.rot { background: #d0533f; }
+.ampel-list { list-style: none; padding: 0; margin: 4px 0 8px; }
+.ampel-list li, .gut { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,.08); }
+.ampel-list li .ampel, .gut .ampel { margin-top: 4px; }
+.bau-box { background: rgba(0,0,0,.18); border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: 8px 10px; margin: 4px 0 8px; }
+.bar { height: 8px; background: rgba(0,0,0,.35); border-radius: 4px; overflow: hidden; margin: 6px 0; }
+.bar span { display: block; height: 100%; background: linear-gradient(90deg, #8a6440, #c8a050); }
+details.kat summary .ampel { width: 8px; height: 8px; margin: 0 1px; }
+.toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(520px, 92vw); background: rgba(24,28,22,.95); color: #efe9d8; border: 1px solid rgba(200,160,80,.5); border-radius: 8px; padding: 10px 14px; font-size: 14px; line-height: 1.45; z-index: 60; box-shadow: 0 6px 24px rgba(0,0,0,.45); cursor: pointer; }

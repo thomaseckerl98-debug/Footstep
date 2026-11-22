@@ -5,13 +5,13 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const fill = (s, c) => s.replace(/\{(\w+)\}/g, (_, k) => c[k] ?? '');
 
 const GREET = {
-  'treu ergeben': ['{du}! Für dich lasse ich alles stehen und liegen.', 'Da bist du ja, {du}. Ich hab gehofft, dass du vorbeikommst.', 'Mein Dorfmeister! Was kann ich für dich tun?', 'Schön, dich zu sehen. Wirklich.'],
+  'treu ergeben': ['{du}! Für dich lasse ich alles stehen und liegen.', 'Da bist du ja, {du}. Ich hab gehofft, dass du vorbeikommst.', 'Komm her, setz dich zu mir. Was gibt es?', 'Schön, dich zu sehen. Wirklich.'],
   herzlich: ['{du}! Komm her, setz dich einen Moment.', 'Ah, {du}. Du kommst wie gerufen.', 'Hallo {du}! Gut siehst du aus.', 'Na, wenn das nicht {du} ist!'],
   freundlich: ['Hallo {du}.', 'Ah, {du}. Was gibt\'s?', 'Grüß dich, {du}.', 'Oh, hallo. Brauchst du etwas?'],
   zurückhaltend: ['Ja? …', 'Hm. {du}.', 'Was willst du?', 'Ich hab gerade viel zu tun, {du}.'],
   misstrauisch: ['Was willst du schon wieder?', 'Du schon wieder.', 'Sag, was du willst, und dann lass mich arbeiten.', 'Hm. Ich trau dir nicht ganz, {du}.'],
   feindselig: ['Verschwinde, {du}.', 'Mit dir rede ich nicht.', 'Geh mir aus den Augen.', 'Was bildest du dir ein, mich anzusprechen?'],
-  fremd: ['Seid gegrüßt, Fremder.', 'Oh – Ihr seid hier der Dorfmeister?', 'Guten Tag. Ich bin nur auf der Durchreise.', 'Hallo. Hübsches Dorf habt Ihr.'],
+  fremd: ['Seid gegrüßt, Fremder.', 'Oh – Ihr seid neu im Dorf, oder?', 'Guten Tag. Ich bin nur auf der Durchreise.', 'Hallo. Hübsches Dorf habt Ihr.'],
 };
 const TIME = { morgen: ['Früh auf heute?', 'Der Tau liegt noch auf dem Gras.', 'Der Morgen ist die beste Zeit.'], mittag: ['Die Sonne steht hoch.', 'Bald gibt\'s Essen.', 'Mitten am Tag, und ich bin schon so müde.'], abend: ['Langer Tag gewesen.', 'Das Abendlicht ist schön heute.', 'Gleich ist Feierabend.'], nacht: ['So spät noch unterwegs?', 'Die Sterne sind klar heute.', 'Eigentlich sollte ich längst schlafen.'] };
 const WESEN = {
@@ -99,13 +99,90 @@ const WORK_TREE = (g) => [
   N('w_teach', 'Würdest du es jemandem beibringen?', ['Wenn jemand Geduld hat – gern. Die meisten wollen nur schnell fertig werden.', 'Vielleicht. Aber erst muss ich jemanden finden, dem ich mein Werkzeug anvertraue.'], []),
   N('w_hard', 'Was ist das Schwerste daran?', ['Die Tage, an denen nichts gelingt. Und davon gibt es mehr, als man denkt.', 'Der Winter. Kalte Finger machen schlechte Arbeit.', 'Dass keiner sieht, wie viel Arbeit drinsteckt.'], []),
 ];
+// Berufsfäden: jede Berufsgruppe hat eigene Fragen, die tiefer gehen (↳)
+const JOB_TREE = {
+  schmiede: [
+    N('j_s1', 'Was schmiedest du am liebsten?', ['Pflugscharen. Klingt langweilig, aber ohne sie hungert das Dorf.', 'Messer. Ein gutes Messer begleitet einen Menschen ein Leben lang.'], ['j_s2']),
+    N('j_s2', 'Woran erkennst du guten Stahl?', ['Am Klang. Guter Stahl singt, schlechter scheppert.', 'An den Funken. Kurz und hell – dann taugt er.'], ['j_s3']),
+    N('j_s3', 'Gab es je ein Stück, das du bereust?', ['Einmal. Eine Klinge für einen Mann, der sie gegen seinen Bruder erhob. Seitdem frage ich, wofür.', 'Noch nicht. Aber ich fürchte den Tag.'], []),
+    N('j_s4', 'Was braucht die Esse, um richtig zu brennen?', ['Holzkohle. Mit nassem Holz frisst sie das Doppelte und wird trotzdem nicht heiß genug.', 'Kohle und Geduld. Und einen Blasebalg, der nicht pfeift.'], []),
+  ],
+  feld: [
+    N('j_f1', 'Was baust du an?', ['Roggen vor allem, der verträgt die Kälte hier oben. Dazu Rüben und Kohl.', 'Gerste und Roggen. Hafer, wenn Platz ist.'], ['j_f2']),
+    N('j_f2', 'Was ist das Schwerste daran?', ['Das Warten. Man sät und kann dann nur noch hoffen.', 'Der Hagel. Eine Stunde, und ein Jahr Arbeit liegt im Dreck.'], ['j_f3']),
+    N('j_f3', 'Und wenn eine Ernte ausfällt?', ['Dann tauschen wir mit den Nachbarn und essen Rüben, bis wir sie nicht mehr sehen können.', 'Dann zeigt sich, wer Freunde hat.'], []),
+    N('j_f4', 'Welche Zeit im Jahr magst du am liebsten?', ['Die Erntewoche. Alle helfen, und abends wird gefeiert.', 'Den ersten warmen Frühlingstag, wenn der Boden dampft.'], []),
+  ],
+  wald: [
+    N('j_w1', 'Wie suchst du dir einen Baum aus?', ['Gerade gewachsen, nicht zu jung. Und nie den ältesten im Hain.', 'Ich frage mich, was der Wald entbehren kann. Klingt seltsam, ist aber so.'], ['j_w2']),
+    N('j_w2', 'Warum nie den ältesten?', ['Weil er die anderen schützt, vor Wind und Schnee. Fällst du ihn, liegt im nächsten Sturm der halbe Hain.', 'Aus Respekt. Und weil mein Großvater es so gehalten hat.'], ['j_w3']),
+    N('j_w3', 'Wird der Wald nicht immer kleiner?', ['Am Rand schon. Wir pflanzen nach, wo wir schlagen. Nicht alle tun das.', 'Wenn wir nicht aufpassen, ja. Und dann holen sich die Tiere unsere Felder.'], ['j_w4']),
+    N('j_w4', 'Die Tiere?', ['Wo Wald fehlt, kommen Wölfe und Wildschweine ans Dorf. Sie sind nicht böse – nur hungrig.'], []),
+  ],
+  jagd: [
+    N('j_j1', 'Was jagst du am liebsten?', ['Rehe. Klug und vorsichtig – man muss klüger sein.', 'Hasen mit der Schlinge. Weniger Ruhm, mehr im Topf.'], ['j_j2']),
+    N('j_j2', 'Hast du im Wald je etwas gesehen, das du dir nicht erklären kannst?', ['Einen Fuchs, der mir drei Tage lang gefolgt ist. Nicht gejagt – gefolgt.', 'Eine Lichtung, auf der kein Vogel singt. Da geh ich nicht mehr hin.'], []),
+    N('j_j3', 'Wie viel darf man jagen?', ['Nie das Muttertier im Frühjahr. Nie mehr, als man tragen kann.', 'So viel, dass im nächsten Jahr noch genug da ist.'], ['j_j4']),
+    N('j_j4', 'Wie lernt man Spuren lesen?', ['Mit Geduld und kalten Füßen. Jahrelang.', 'Fang im eigenen Hof an: Wer war heute Nacht da? Katze, Marder oder Fuchs?'], []),
+  ],
+  wirt: [
+    N('j_r1', 'Was ist dein bestes Gericht?', ['Linseneintopf mit Speck. Wer den nicht mag, ist krank.', 'Forelle mit Kräuterbutter – wenn jemand fischt.'], []),
+    N('j_r2', 'Was erzählen dir die Leute abends?', ['Alles. Wer wen mag, wer wem was schuldet. Ich vergesse es sofort wieder. Offiziell.', 'Mehr, als ihnen am nächsten Morgen lieb ist.'], ['j_r3']),
+    N('j_r3', 'Und inoffiziell?', ['Inoffiziell sind hier mehr Leute verliebt, als es zugeben würden.', 'Gib mir einen aus, dann reden wir.'], []),
+    N('j_r4', 'Wer ist dein schwierigster Gast?', ['Der, der anschreiben lässt und dann wegzieht.', 'Barden. Singen gegen Freibier – und singen schlecht.'], []),
+  ],
+  heil: [
+    N('j_h1', 'Welches Kraut ist das wichtigste?', ['Schafgarbe. Stillt Blut, senkt Fieber und wächst überall.', 'Weidenrinde gegen Schmerzen. Aber mit Maß.'], ['j_h2']),
+    N('j_h2', 'Wer hat dir das beigebracht?', ['Meine Großmutter. Sie konnte am Geruch sagen, was einem fehlt.', 'Ein Wanderheiler, dem ich einen Winter lang die Tasche getragen habe.'], ['j_h3']),
+    N('j_h3', 'Gibt es etwas, das du nicht heilen kannst?', ['Viel zu viel. Fieber im tiefen Winter. Kummer.', 'Die Lungenkrankheit der Bergleute. Da hilft nur klare Luft – und Glück.'], ['j_h4']),
+    N('j_h4', 'Was tust du dann?', ['Dabeibleiben. Manchmal ist das das Einzige, was hilft.'], []),
+  ],
+  glaube: [
+    N('j_g1', 'Woran glaubst du?', ['An das, was bleibt, wenn wir gehen: Erinnerung, Arbeit, Kinder.', 'An die Ahnen. Sie haben dieses Tal urbar gemacht. Wir schulden ihnen etwas.'], ['j_g2']),
+    N('j_g2', 'Was kommt nach dem Tod?', ['Wir werden Teil des Waldes. Kein schlechter Gedanke.', 'Ich weiß es nicht. Wer es zu wissen behauptet, lügt.'], []),
+    N('j_g3', 'Wozu braucht ein Dorf jemanden wie dich?', ['Damit jemand zuhört, wenn keiner mehr reden will.', 'Für Hochzeiten, Abschiede und die Nächte dazwischen.'], []),
+    N('j_g4', 'Was erzählen die Alten über dieses Tal?', ['Dass es früher Moosherz hieß, weil das Moos hier selbst im Winter grün bleibt.', 'Dass hier einmal ein Dorf stand, an das sich niemand mehr erinnert.'], []),
+  ],
+  wache: [
+    N('j_a1', 'Was siehst du von oben?', ['Rauch aus dem Nachbardorf, Krähen über dem Wald. Und Ärger, bevor er da ist.', 'Meistens Nebel. Manchmal einen Reiter am Kamm.'], ['j_a2']),
+    N('j_a2', 'Hattest du je wirklich Angst?', ['Einmal. Fackeln am Waldrand, mitten in der Nacht. Es waren nur Köhler – gezittert habe ich trotzdem.', 'Jeden Tag ein bisschen. Wer keine Angst hat, passt nicht auf.'], ['j_a3']),
+    N('j_a3', 'Wie schützt man ein Dorf wie unseres?', ['Mit Augen zuerst. Wer früh warnt, muss weniger kämpfen.', 'Mit Freunden. Ein Bündnis ist besser als jede Mauer.'], []),
+    N('j_a4', 'Hast du gedient?', ['Zwei Jahre, für einen Herrn, an den ich nicht mehr denken will.', 'Nein. Ich hab es mir selbst beigebracht – mit Stöcken, gegen Bäume.'], []),
+  ],
+  wissen: [
+    N('j_k1', 'Was schreibst du gerade auf?', ['Die Geschichten der Alten, bevor sie mit ihnen sterben.', 'Wer wann was gebaut hat. Irgendwann will das jemand wissen.'], ['j_k2']),
+    N('j_k2', 'Was ist das Älteste, das du je gelesen hast?', ['Eine Karte des Tals. Unser Dorf fehlt darauf – dafür ist im Norden eine Burg eingezeichnet.', 'Einen Brief über einen harten Winter vor hundert Jahren. Er klingt wie heute.'], ['j_k3']),
+    N('j_k3', 'Eine Burg im Norden?', ['Ruinen inzwischen, heißt es. Vielleicht findest du sie eines Tages.'], []),
+    N('j_k4', 'Warum ist Wissen so wichtig?', ['Weil sich Fehler sonst wiederholen.', 'Weil man ohne Geschichte nur Leute ist, die zufällig nebeneinander wohnen.'], []),
+  ],
+  handel: [
+    N('j_t1', 'Was verkauft sich am besten?', ['Salz, Nadeln, Eisen – alles, was man nicht selbst machen kann.', 'Neuigkeiten. Wer welche mitbringt, verkauft alles andere leichter.'], ['j_t2']),
+    N('j_t2', 'Was haben wir, das andere wollen?', ['{gut_satz}'], ['j_t3']),
+    N('j_t3', 'Und was müssen wir uns von anderen holen?', ['{fehlt_satz}'], []),
+  ],
+  wasser: [
+    N('j_b1', 'Was weiß man am Wasser, das sonst keiner weiß?', ['Wer nachts zum Bach kommt – und warum.', 'Wann die Schneeschmelze kommt. Das Wasser riecht dann anders.'], ['j_b2']),
+    N('j_b2', 'Hat der Bach je Schaden angerichtet?', ['Vor sieben Jahren. Die Flut hat zwei Häuser mitgenommen.', 'Jedes Frühjahr ein bisschen. Er holt sich das Ufer zurück.'], []),
+    N('j_b3', 'Was wünschst du dir?', ['Einen Steg. Und einmal im Leben das Meer sehen.'], []),
+  ],
+  vieh: [
+    N('j_v1', 'Haben deine Tiere Namen?', ['Die alten schon. Die Leitziege heißt Hexe – sie weiß, warum.', 'Nur die, die ich nicht schlachten muss.'], ['j_v2']),
+    N('j_v2', 'Wovor hast du Angst?', ['Vor Wölfen im Winter. Und vor Krankheit im Stall – die nimmt alles.', 'Vor einem Sommer ohne Regen. Dann gibt es kein Heu.'], []),
+    N('j_v3', 'Was braucht ein guter Stall?', ['Trockenes Stroh, dichte Wände und jemanden, der nachts nach dem Rechten sieht.'], []),
+  ],
+  handwerk: [
+    N('j_c1', 'Woran arbeitest du gerade?', ['An etwas, das später jemand für selbstverständlich halten wird. So ist das mit gutem Handwerk.', 'An einem Auftrag für eine Hochzeit. Mehr verrate ich nicht.'], ['j_c2']),
+    N('j_c2', 'Was macht gute Arbeit aus?', ['Dass man sie nicht bemerkt, bis sie fehlt.', 'Dass sie länger hält als der, der sie gemacht hat.'], []),
+    N('j_c3', 'Woher bekommst du dein Material?', ['Aus dem Dorf, wenn es geht. Sonst vom Händler – und der nimmt, was er will.', '{fehlt_satz}'], []),
+  ],
+};
 const DORF_TREE = [
   N('d_miss', 'Was fehlt dem Dorf deiner Meinung nach?', ['Mehr Häuser. Wenn noch Leute kommen, wird es eng.', 'Eine Mauer. Oder wenigstens einen Zaun.', 'Ein Fest! Die Leute arbeiten nur noch.', 'Einen Brunnen näher am Platz.'], ['d_why']),
   N('d_why', 'Warum gerade das?', ['Weil ich jeden Tag sehe, wie es fehlt.', 'Weil sonst irgendwann die Ersten gehen. Und dann die Nächsten.'], ['d_help']),
   N('d_help', 'Würdest du mithelfen, wenn wir es angehen?', ['Wenn du vorangehst – ja.', 'Sag Bescheid. Ich bringe meine Hände mit.'], []),
   N('d_people', 'Wie kommst du mit den anderen hier aus?', ['{leute_satz}'], ['d_rival']),
   N('d_rival', 'Was ist zwischen dir und {rivale}?', ['Alte Geschichte. Es ging um Land – oder um Stolz, je nachdem, wen du fragst.', 'Ein Versprechen, das nicht gehalten wurde. Mehr sage ich dazu nicht.'], [], { braucht: 'rivale' }),
-  N('d_lead', 'Was hältst du davon, wie das Dorf geführt wird?', ['{fuehrung_satz}'], []),
+  N('d_lead', 'Was hältst du vom Dorfrat?', ['{fuehrung_satz}'], []),
 ];
 const WETTER_TREE = () => [
   N('t_morgen', 'Was meinst du, wie wird es morgen?', TOPIC_ANSWER.wetter.fragen, ['t_woher']),
@@ -126,7 +203,7 @@ const WRAP = ['Mehr gibt es dazu eigentlich nicht zu sagen.', 'Na ja. So ist das
 const OPT = {
   freundlich: ['Schön, dich zu sehen, {name}.', 'Wie geht es dir, {name}?', 'Ich wollte nur mal Hallo sagen.', 'Lass dich nicht stören – ich freu mich, dass du hier bist.'],
   loben: ['Du machst das wirklich gut, {name}.', 'Ohne dich wäre das Dorf ärmer.', 'Ich sehe, wie viel du arbeitest. Danke.', 'Das ist gute Arbeit.'],
-  scherzen: ['Na, heute schon was Vernünftiges gemacht? Ich auch nicht.', 'Wenn das so weitergeht, mache ich dich zum Dorfmeister.', 'Pass auf, sonst holen dich die Waldgeister!', 'Hast du heute in einen Eimer Essig gebissen?'],
+  scherzen: ['Na, heute schon was Vernünftiges gemacht? Ich auch nicht.', 'Wenn das so weitergeht, wählen sie dich noch in den Dorfrat.', 'Pass auf, sonst holen dich die Waldgeister!', 'Hast du heute in einen Eimer Essig gebissen?'],
   helfen: ['Kann ich dir zur Hand gehen?', 'Brauchst du etwas? Sag es einfach.', 'Lass mich mit anpacken.', 'Wenn dich etwas bedrückt, kannst du es mir sagen.'],
   fragen: ['Was gibt es Neues im Dorf?', 'Erzähl mal, wie läuft deine Arbeit?', 'Was denkst du über unser Dorf?', 'Woher kommst du eigentlich, {name}?'],
   kritisieren: ['Du könntest dich mehr anstrengen.', 'Das geht auch schneller, oder?', 'Ich erwarte mehr von dir.', 'So wird das nichts.'],
@@ -241,7 +318,7 @@ const WORK_CHECK = {
   feld: { id: 'anpacken', q: 'Gib mir eine Sense, ich helfe dir.', ok: 'Du kannst ja richtig zupacken! Danke.', fail: 'Äh … die Sense hält man andersherum. Aber danke für den guten Willen.' },
   wald: { id: 'anpacken', q: 'Ich helfe dir, den Stamm zu tragen.', ok: 'Hau ruck! Mit dir geht das ja wie nichts.', fail: 'Uff – lass los, lass los! Das wird nichts.' },
   jagd: { id: 'spuren', q: 'Zeig mir die Spuren, ich lese sie für dich.', ok: 'Du hast recht – der zieht zum Bach. Du hast ein gutes Auge.', fail: 'Nein, das ist eine Hasenspur. Aber danke.', alt: { id: 'flink', q: 'Ich bin schneller als jeder Fuchs. Ich fang ihn dir.', ok: 'Du hast ihn verscheucht! So schnell kam ich nicht mal mit dem Blick hinterher.', fail: 'Der Fuchs lacht heute noch über dich.' } },
-  wirt: { id: 'feilschen', q: 'Was hältst du von einem Preisnachlass für den Dorfmeister?', ok: 'Für dich … na gut, das nächste Bier geht aufs Haus.', fail: 'Nachlass? Ich bin doch kein Wohltätigkeitsverein.' },
+  wirt: { id: 'feilschen', q: 'Was hältst du von einem Nachbarschaftspreis?', ok: 'Für dich … na gut, das nächste Bier geht aufs Haus.', fail: 'Nachlass? Ich bin doch kein Wohltätigkeitsverein.' },
   heil: { id: 'heilkunde', q: 'Gegen Fieber hilft Weidenrinde mit Honig, oder?', ok: 'Du kennst dich aus! Endlich jemand, mit dem man fachsimpeln kann.', fail: 'Weidenrinde, ja – aber nicht so viel, sonst blutet der Magen.' },
   glaube: { id: 'altes_wissen', q: 'Ich habe gelesen, dieses Tal hieß früher anders.', ok: 'Ja, „Moosherz“! Woher weißt du das? Das wissen nur noch die Alten.', fail: 'Hm. Davon habe ich nie gehört.' },
   wissen: { id: 'altes_wissen', q: 'Ich habe gelesen, dieses Tal hieß früher anders.', ok: 'Ja, „Moosherz“! Du hast die alten Schriften gelesen? Beeindruckend.', fail: 'Wo hast du das gelesen? In meinen Büchern steht nichts davon.' },
@@ -285,10 +362,23 @@ export function buildTalk(ctx) {
   const asked = new Set(), checked = new Set(), unlocked = new Set();
   const known = (k) => !ctx.wissen || ctx.wissen.includes(k);
   const askedPersonal = new Set(ctx.gefragt || []);
-  const worry = pick(WORRY);
+  const worry = ctx.dorf?.hunger ? { line: 'Die Vorräte sind leer. Ich weiß nicht, wie lange wir das durchhalten.', tree: [
+    N('s_h1', 'Wie schlimm ist es?', ['Die Kinder fragen abends, ob es morgen etwas gibt. Was soll ich da sagen?', 'Wir teilen, was da ist. Aber es ist zu wenig.'], ['s_h2']),
+    N('s_h2', 'Was können wir tun?', ['Jagen, sammeln, tauschen. Jede Handvoll hilft. Wenn du draußen etwas findest – bring es mit.', 'Durchhalten. Und beim nächsten Mal früher Vorräte anlegen.'], []),
+  ] } : pick(WORRY);
   c.rivale_satz = fill(pick(ctx.rivale ? RIVALE_SATZ.mit : RIVALE_SATZ.ohne), c);
-  c.leute_satz = fill(ctx.rivale ? pick(['Mit den meisten gut. Mit {rivale} … reden wir lieber nicht.', '{freund_oder_viele} mag ich. {rivale} geht mir aus dem Weg – und ich {rivale}.']) : pick(['Gut. Man hilft sich hier, das ist das Schöne.', '{freund_oder_viele} ist mir am liebsten. Mit dem Rest komme ich aus.']), { ...c, freund_oder_viele: ctx.freund || 'Die meisten' });
-  c.fuehrung_satz = ['treu ergeben', 'herzlich', 'freundlich'].includes(ctx.stimmung) ? pick(['Du machst das gut. Die meisten sehen das so.', 'Besser als erwartet, ehrlich gesagt. Mach weiter so.']) : cold ? pick(['Ehrlich? Ich weiß nicht, ob du weißt, was du tust.', 'Darüber rede ich lieber nicht. Noch nicht.']) : pick(['Man wird sehen. Noch ist es früh.', 'Hm. Die Richtung stimmt. Das Tempo nicht immer.']);
+  c.leute_satz = fill(ctx.rivale ? pick(['Mit den meisten gut. Mit {rivale} … reden wir lieber nicht.', ctx.freund ? '{freund} mag ich sehr. {rivale} geht mir aus dem Weg – und ich {rivale}.' : 'Die meisten mag ich. {rivale} geht mir aus dem Weg – und ich {rivale}.']) : pick(['Gut. Man hilft sich hier, das ist das Schöne.', ctx.freund ? '{freund} ist mir am liebsten. Mit dem Rest komme ich aus.' : 'Die meisten mag ich. Mit dem Rest komme ich aus.']), { ...c, freund_oder_viele: ctx.freund || 'Die meisten' });
+  const st = ctx.dorf?.stimmung;
+  c.fuehrung_satz = st === 'ausgelassen' || st === 'zufrieden' ? pick(['Die machen das ordentlich. Es geht voran, und keiner muss hungern.', 'Gut. Die hören zu, wenn man etwas zu sagen hat.'])
+    : st === 'gedrückt' || st === 'verzweifelt' ? pick(['Ehrlich? Die reden viel und bauen wenig.', 'Die sollten sich mehr um die Vorräte kümmern als um ihre Pläne.'])
+    : pick(['Man wird sehen. Die Richtung stimmt, das Tempo nicht immer.', 'Die meisten Beschlüsse sind vernünftig. Manche nicht.']);
+  // Was im Dorf gerade los ist (aus dem Dorf-Kreislauf): Bau, Pläne, was es gibt und was fehlt
+  const D = ctx.dorf || null;
+  const liste = (a) => (a && a.length ? (a.length === 1 ? a[0] : a.slice(0, -1).join(', ') + ' und ' + a[a.length - 1]) : '');
+  c.bau = D?.bau || ''; c.plan = D?.plan || ''; c.plan_grund = D?.plan_grund || ''; c.werkstatt = D?.werkstatt || 'eine Werkstatt';
+  c.neu_bewohner = D?.neu_bewohner || ''; c.knapp = liste(D?.knapp);
+  c.gut_satz = D?.gruen?.length ? `${liste(D.gruen)}. Davon haben wir genug – vielleicht sogar zum Tauschen.` : 'Ehrlich? Noch nicht viel. Wir kommen gerade so über die Runden.';
+  c.fehlt_satz = D?.rot?.length ? `${liste(D.rot)} – das gibt es bei uns schlicht nicht. Wer das braucht, muss ins Nachbardorf.` : 'Im Moment kommen wir ganz gut allein zurecht.';
   let tonesUsed = 0;
 
   // Sichtbarkeit einer Probe: allgemeine immer, besondere nur mit passender Herkunft, Volk oder hoher Eigenschaft
@@ -326,9 +416,35 @@ export function buildTalk(ctx) {
     }
     if (tp === 'persoenlich') return { topic: tp, text: fill(pick(PERS_OPEN[ctx.wesen] || PERS_OPEN.sonst), c), nodes: [] };
     let line, nodes, check = null;
-    if (tp === 'arbeit') { line = pick(WORK[g]); nodes = WORK_TREE(g); }
+    if (tp === 'arbeit') {
+      line = pick(WORK[g]); nodes = [...WORK_TREE(g), ...(JOB_TREE[g] || [])];
+      if (D?.baut_mit && D.bau) {
+        line = pick([`Ich bin gerade beim Bau – ${D.bau_art === 'ausbau' ? 'das ' + D.bau_name + ' wird ausgebaut' : D.bau + ' entsteht'}. Jeden Tag ein Stück.`, `Viel zu tun. Wir bauen gerade ${D.bau_art === 'ausbau' ? 'am ' + D.bau_name : D.bau}.`]);
+        nodes.unshift(N('e_bau', 'Wie kommt ihr mit dem Bau voran?', D.knapp?.includes('Holz') ? ['Langsam. Holz ist knapp, oft warten wir auf die nächste Fuhre.', 'Es geht – wenn genug Holz da ist. Im Moment ist es das nicht.'] : ['Gut! Wenn nichts dazwischenkommt, sind wir bald fertig.', 'Es wächst. Komm doch mal vorbei und pack mit an.'], []));
+      } else if (D?.ohne_werkstatt) {
+        line = pick([`Ohne richtige Werkstatt ist das alles mühsam. Eine ${D.werkstatt} würde vieles ändern.`, 'Ich mache, was ich kann – aber mir fehlt der richtige Platz dafür.']);
+        nodes.unshift(N('e_ws', 'Was würde sich mit einer eigenen Werkstatt ändern?', [D.plan_name === D.werkstatt ? 'Alles! Und der Dorfrat will sie ja bald bauen. Ich kann es kaum erwarten.' : 'Ich könnte doppelt so viel schaffen. Ich hoffe, der Dorfrat sieht das auch so.'], []));
+      }
+    }
     else if (tp === 'wetter') { line = `${pick(WEATHER[ctx.weather] || WEATHER.klar)} ${pick(SEASON[ctx.season] || SEASON.sommer)}`; nodes = WETTER_TREE(); }
-    else if (tp === 'dorf') { line = pick(VILLAGE); nodes = DORF_TREE.filter((n) => !n.braucht || ctx[n.braucht]); }
+    else if (tp === 'dorf') {
+      line = pick(VILLAGE); nodes = DORF_TREE.filter((n) => (!n.braucht || ctx[n.braucht]) && !(D && ['d_miss', 'd_why', 'd_help'].includes(n.id)));
+      if (D) {
+        if (D.hunger) line = 'Die Vorräte sind leer. Die Leute hungern – so kann es nicht weitergehen.';
+        else if (D.selbst_neu) line = 'Ich bin ja erst seit Kurzem hier. Aber es gefällt mir. Glaube ich.';
+        else if (D.neu_gebaut && Math.random() < 0.6) line = `Hast du schon gehört? ${D.neu_gebaut}`;
+        else if (D.bau && Math.random() < 0.6) line = `Man hört es den ganzen Tag hämmern – ${D.bau_art === 'ausbau' ? 'das ' + D.bau_name + ' wird ausgebaut' : 'es wird ' + D.bau + ' gebaut'}.`;
+        const ex = [];
+        if (D.bau) ex.push(N('d_bau', 'Was wird da gerade gebaut?', [`${D.bau_art === 'ausbau' ? 'Das ' + D.bau_name + ' wird ausgebaut' : (D.bau.charAt(0).toUpperCase() + D.bau.slice(1)) + '. Der Dorfrat hat es so beschlossen'}. Ich finde, das war richtig.`, `${D.bau_art === 'ausbau' ? 'Das ' + D.bau_name + ' wird größer' : (D.bau.charAt(0).toUpperCase() + D.bau.slice(1))}. Wurde auch Zeit.`], []));
+        if (D.plan) ex.push(N('d_plan', 'Was hat der Dorfrat als Nächstes vor?', [`Als Nächstes soll ${D.plan} entstehen. ${D.plan_grund}`], ['d_plan2']));
+        if (D.plan) ex.push(N('d_plan2', 'Was fehlt dafür noch?', [D.knapp?.length ? `Vor allem ${liste(D.knapp)}. Sobald das da ist, geht es los.` : 'Eigentlich nichts mehr. Es kann bald losgehen.'], []));
+        if (D.rot?.length) ex.push(N('d_fehlt', 'Was fehlt uns im Dorf am meisten?', [`${D.rot[0]}. Gibt es hier einfach nicht. Wer das braucht, muss ins Nachbardorf.`], ['d_tausch']));
+        if (D.rot?.length) ex.push(N('d_tausch', 'Wo bekommen wir so etwas her?', ['Tauschen. Mit dem Dorf hinter dem Ostkamm vielleicht. Mit einem Marktplatz kämen die Händler zu uns.', 'Von fahrenden Händlern – wenn mal einer vorbeikommt. Oder jemand zieht her, der es kann.'], []));
+        if (D.gruen?.length) ex.push(N('d_gut', 'Worin sind wir gut?', ['{gut_satz}'], []));
+        if (D.neu_bewohner) ex.push(N('d_neu', `Kennst du schon ${D.neu_bewohner}?`, [`Ein bisschen. Scheint in Ordnung zu sein. Mal sehen, ob ${D.neu_bewohner} bleibt.`, `Wir haben kurz geredet. Neue Gesichter tun dem Dorf gut.`], []));
+        nodes = [...ex, ...nodes];
+      }
+    }
     else if (tp === 'freunde') { line = pick(FRIEND); nodes = FREUND_TREE(); }
     else { line = worry.line; nodes = [N('s_root', 'Was bedrückt dich wirklich?', SORGEN_ASK, []), ...worry.tree]; check = worry.check || null; }
     // Wurzeln: Knoten, die von keinem anderen freigeschaltet werden
@@ -343,9 +459,9 @@ export function buildTalk(ctx) {
     const out = [];
     const ab = ctx.abmachung;
     const dealOpts = () => {
-      if (ab && ab.status === 'wartet_holz') out.push({ kind: 'deliver', tag: '[Abmachung]', text: `Hier ist das Holz für ${ab.titel}.`, hint: `${ab.holz} Holz – du hast ${Math.floor(ctx.holz ?? 0)}` });
+      if (ab && ab.status === 'wartet_holz') out.push({ kind: 'deliver', tag: '[Abmachung]', text: `Hier ist das Holz für ${ab.titel}.`, hint: (ctx.holz ?? 0) >= ab.holz ? 'Holz aus dem Dorflager – ist da' : 'Holz aus dem Dorflager – reicht gerade nicht' });
       if (ab && ab.status === 'in_arbeit' && !asked.has('stand')) out.push({ kind: 'follow', id: 'stand', tag: '[Abmachung]', text: `Wie kommst du mit ${ab.titel} voran?`, answer: fill(pick(['Gut! {fertig} ist es fertig, versprochen.', 'Läuft. Ich arbeite jeden Tag daran – {fertig} kannst du es dir ansehen.']), { ...c, fertig: ctx.whenText?.(ab.faellig_at) || 'Bald' }) });
-      if (!ab) for (const d of (ctx.deals || []).slice(0, 2)) out.push({ kind: 'deal', tag: '[Auftrag]', vorlage: d.id, text: `Könntest du ${d.titel} anfertigen?`, hint: d.holz ? `${d.holz} Holz, ca. ${d.dauer_h} Std.` : `ca. ${d.dauer_h} Std.` });
+      if (!ab) for (const d of (ctx.deals || []).slice(0, 2)) out.push({ kind: 'deal', tag: '[Auftrag]', vorlage: d.id, text: `Könntest du ${d.titel} anfertigen?`, hint: (d.holz ? (d.holz <= 4 ? 'etwas Holz aus dem Lager' : 'Holz aus dem Lager') + ', ' : '') + (d.dauer_h <= 5 ? 'dauert ein paar Stunden' : d.dauer_h <= 9 ? 'dauert einen halben Tag' : 'dauert etwa einen Tag') });
     };
     if (!cur) {
       for (const h of hubTopics()) out.push({ kind: 'enter', topic: h.topic, label: h.label, text: h.text, visited: h.visited });

@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=9';
+import { Scene, realMood } from './game/scene.js?v=10';
 import { openCreator } from './game/creator.js?v=3';
-import { buildTalk } from './game/dialog.js?v=5';
+import { buildTalk } from './game/dialog.js?v=6';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
@@ -90,7 +90,7 @@ function translateError(err) {
 
 /* ───────────── Spiel-Oberfläche ───────────── */
 const MENUS = [
-  { id: 'dorf', name: 'Dorf', tip: 'Dein Dorf: Gebäude, Bauplätze und Ausbau.' },
+  { id: 'dorf', name: 'Dorf', tip: 'Wie es dem Dorf geht, was gerade gebaut wird und was es bei uns gibt.' },
   { id: 'bewohner', name: 'Bewohner', tip: 'Deine Dorfbewohner, ihre Berufe und Beziehungen.' },
   { id: 'charakter', name: 'Charakter', tip: 'Dein Held: Aussehen, Fähigkeiten, Erfahrungen.' },
   { id: 'inventar', name: 'Inventar', tip: 'Ausrüstung und Gegenstände.' },
@@ -147,34 +147,7 @@ function renderPanel(id) {
   const body = $('panel-body'); body.innerHTML = '';
   $('panel-title').textContent = MENUS.find((m) => m.id === id).name;
   if (id === 'dorf') {
-    body.append(p(village ? `${village.village_name} · Häuptling ${village.character_name}` : 'Dein Dorf'));
-    if (villageState) {
-      body.append(p(`Holz im Lager: ${Math.floor(villageState.holz)}`, 'small'));
-      if (villageState.auftraege.length) { body.append(h3('Aufträge im Dorf')); for (const a of villageState.auftraege) body.append(p(a.status === 'wartet_holz' ? `${a.npc}: ${a.titel} – wartet auf ${a.holz} Holz` : `${a.npc} arbeitet an: ${a.titel} – fertig ${whenText(a.faellig_at)}`, 'small')); }
-    }
-    body.append(p('Testmodus: Bauplätze anzeigen, dann einen freien Bauplatz anklicken, um aus dem Baukatalog zu bauen – oder ein Gebäude anklicken, um es zu verschieben, umzubauen oder abzureißen. Licht, Jahreszeit und Wetter kannst du unten ausprobieren.', 'muted small'));
-    if (scene.showPlots && (scene.selPlot != null || scene.selected != null)) renderBuildMenu(body);
-    body.append(h3('Ansicht'));
-    body.append(row(...[['dorf', 'Dorf'], ['grossdorf', 'Großes Dorf'], ['stadt', 'Stadt']].map(([z, n]) => btn(n, scene.zoom === z, () => { scene.setZoom(z); renderPanel('dorf'); }))));
-    body.append(h3('Gebäude umstellen'));
-    body.append(row(
-      btn(scene.showPlots ? 'Bauplätze ausblenden' : 'Bauplätze anzeigen', scene.showPlots, () => { scene.togglePlots(); renderPanel('dorf'); }),
-      btn(scene.showRoads ? 'Geplante Wege ausblenden' : 'Geplante Wege anzeigen', scene.showRoads, () => { scene.toggleRoads(); renderPanel('dorf'); }),
-      btn('Anordnung zurücksetzen', false, () => scene.resetLayout()),
-      btn(scene.showNames ? 'Namen ausblenden' : 'Namen anzeigen', scene.showNames, () => { scene.toggleNames(); renderPanel('dorf'); }),
-    ));
-    body.append(p(scene.showPlots
-      ? (scene.selected ? `Gebäude auf Bauplatz ${scene.selected} gewählt. Jetzt einen anderen Bauplatz anklicken.` : 'Klicke ein Gebäude oder das Feld an und danach einen Bauplatz (gelbe Ringe). Steht dort schon ein Gebäude, werden beide getauscht.')
-      : `Es gibt ${PLOTS.length} vorberechnete Bauplätze. Tipp: Für mehr Bauplätze auf „Großes Dorf“ oder „Stadt“ zoomen.`, 'muted small'));
-    body.append(h3('Tageszeit'));
-    body.append(row(btn('Echtzeit', scene.auto, () => { const m = realMood(); scene.setMood(m.time, m.season, true); renderPanel('dorf'); }),
-      ...Object.entries(TIME_NAMES).map(([k, n]) => btn(n, !scene.auto && scene.mood.time === k, () => { scene.setMood(k, scene.mood.season); renderPanel('dorf'); }))));
-    body.append(h3('Jahreszeit'));
-    body.append(row(...Object.entries(SEASON_NAMES).map(([k, n]) => btn(n, scene.mood.season === k, () => { scene.setMood(scene.mood.time, k); renderPanel('dorf'); }))));
-    body.append(h3('Wetter'));
-    body.append(row(btn('Automatisch', !scene.weather.forced, () => { scene.setWeather('auto'); renderPanel('dorf'); }),
-      ...Object.entries(WEATHER_NAMES).map(([k, n]) => btn(n, scene.weather.forced && scene.weather.target === k, () => { scene.setWeather(k); renderPanel('dorf'); }))));
-    body.append(p('Hinweis: Jede neue Kombination aus Tageszeit und Jahreszeit wird beim ersten Mal ein paar Sekunden gezeichnet und danach im Browser gespeichert.', 'muted small'));
+    renderDorf(body);
   } else if (id === 'diplomatie') {
     renderPeople(body);
   } else if (id === 'karte') {
@@ -209,7 +182,7 @@ function renderPanel(id) {
     if (villageState?.auftraege?.length) {
       body.append(h3('Abmachungen'));
       const ab = document.createElement('ul'); ab.className = 'journal'; body.append(ab);
-      for (const a of villageState.auftraege) { const li = document.createElement('li'); li.innerHTML = `<b>${esc(a.npc)}: ${esc(a.titel)}</b><br><span class="small">${a.status === 'wartet_holz' ? `Wartet darauf, dass ich ${a.holz} Holz bringe.` : `In Arbeit – fertig ${esc(whenText(a.faellig_at))}.`}</span>`; ab.append(li); }
+      for (const a of villageState.auftraege) { const li = document.createElement('li'); li.innerHTML = `<b>${esc(a.npc)}: ${esc(a.titel)}</b><br><span class="small">${a.status === 'wartet_holz' ? 'Wartet darauf, dass ich Holz aus dem Dorflager bringe.' : `In Arbeit – fertig ${esc(whenText(a.faellig_at))}.`}</span>`; ab.append(li); }
       body.append(h3('Gerüchte und Hinweise'));
     }
     const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
@@ -236,33 +209,114 @@ function renderPanel(id) {
   }
   $('panel').hidden = false;
 }
-const RANK = { S: 1, M: 2, L: 3 };
-function renderBuildMenu(body) {
-  const plotId = scene.selPlot ?? scene.selected, plot = PLOTS.find((q) => q.id === plotId), cur = scene.typeAt(plotId);
-  const box = document.createElement('div'); box.className = 'buildbox'; body.append(box);
-  const head = document.createElement('h3'); head.textContent = cur ? `Bauplatz ${plotId}: ${CATALOG[cur]?.name || cur}` : `Bauplatz ${plotId} (Platz bis Größe ${plot.size})`; box.append(head);
-  if (cur) {
-    for (const line of summary(cur)) box.append(p(line, 'small'));
-    for (const f of CATALOG[cur]?.folgen || []) box.append(p('• ' + f, 'small muted'));
-    box.append(row(btn('Abreißen', false, () => scene.removeBuilding(plotId)), btn('Abbrechen', false, () => { scene.selected = null; scene.selPlot = null; scene.drawMarks(); renderPanel('dorf'); })));
-    box.append(p('Zum Verschieben jetzt einen anderen Bauplatz anklicken – oder unten umbauen:', 'muted small'));
-  } else box.append(p('Was soll hier entstehen? (Testmodus: sofort fertig. Im echten Spiel kostet es Rohstoffe und Bauzeit.)', 'muted small'));
-  for (const [kat, kname] of Object.entries(KATEGORIEN)) {
-    const items = Object.entries(CATALOG).filter(([, c]) => c.kat === kat); if (!items.length) continue;
-    const det = document.createElement('details'); det.className = 'kat'; const sum = document.createElement('summary'); sum.textContent = `${kname} (${items.length})`; det.append(sum);
-    for (const [id, c] of items) {
-      const it = document.createElement('div'); it.className = 'bitem' + (id === cur ? ' cur' : '');
-      const fits = RANK[c.size] <= RANK[plot.size];
-      const t = document.createElement('div');
-      t.innerHTML = `<b>${esc(c.name)}</b> <span class="muted small">· Größe ${c.size} · ${Object.entries(c.kosten).map(([k, v]) => v + ' ' + k).join(', ')} · ${c.bauzeit} h${c.benoetigt ? ' · braucht ' + c.benoetigt.map((b) => CATALOG[b]?.name || b).join(', ') : ''}</span>`;
-      for (const line of summary(id)) { const q = document.createElement('div'); q.className = 'small'; q.textContent = line; t.append(q); }
-      for (const f of c.folgen) { const q = document.createElement('div'); q.className = 'small muted'; q.textContent = '• ' + f; t.append(q); }
-      const b = btn(id === cur ? 'Steht hier' : fits ? (cur ? 'Umbauen' : 'Bauen') : 'Zu groß', false, () => scene.placeBuilding(id, plotId)); b.disabled = !fits || id === cur;
-      it.append(t, b); det.append(it);
-    }
-    box.append(det);
+/* ───────────── Dorf: Ampeln statt Zahlen ───────────── */
+const SEASON_DE = { fruehling: 'Frühling', sommer: 'Sommer', herbst: 'Herbst', winter: 'Winter' };
+const AMPEL_WORT = { gruen: 'kein Problem', gelb: 'geht, dauert', rot: 'gibt es nicht' };
+const stufeWort = (l) => (l >= 6 ? 'prächtig ausgebaut' : l >= 4 ? 'aus Stein' : l === 3 ? 'gut ausgebaut' : l === 2 ? 'ausgebaut' : 'einfach');
+const groß = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+const nom = (dat) => (dat || '').replace(/^einen /, 'ein ');
+const liste = (a) => (a && a.length ? (a.length === 1 ? a[0] : a.slice(0, -1).join(', ') + ' und ' + a[a.length - 1]) : '');
+const dot = (a, title) => { const d = document.createElement('span'); d.className = 'ampel ' + a; if (title) d.title = title; return d; };
+function agoText(iso) {
+  const d = new Date(iso), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), diff = Math.round((day(now) - day(d)) / 86400000);
+  if (now - d < 3600000) return 'gerade eben';
+  if (diff === 0) return 'heute'; if (diff === 1) return 'gestern'; if (diff === 2) return 'vorgestern';
+  return 'am ' + d.toLocaleDateString('de-DE', { weekday: 'long' });
+}
+function toast(html, ms = 6000) {
+  let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast ui'; document.body.append(t); t.onclick = () => { t.hidden = true; }; }
+  t.innerHTML = html; t.hidden = false; clearTimeout(t._tm); t._tm = setTimeout(() => { t.hidden = true; }, ms);
+}
+async function mithelfen() {
+  const { data, error } = await db.rpc('dorf_mithelfen');
+  if (error) return toast('Das hat nicht geklappt: ' + esc(error.message));
+  if (!data.ok) return toast(data.grund === 'muede' ? `Du hast vorhin schon mit angepackt. Wieder ${esc(whenText(data.ab))}.` : 'Gerade gibt es keine Baustelle.');
+  toast(esc(data.text)); await loadVillageState();
+}
+async function showVorschlaege(box) {
+  box.innerHTML = '<p class="muted small">Der Dorfrat überlegt …</p>';
+  const { data, error } = await db.rpc('dorf_vorschlaege');
+  if (error) { box.innerHTML = `<p class="error">${esc(error.message)}</p>`; return; }
+  box.innerHTML = '';
+  box.append(p('Was sollte als Nächstes entstehen? Der Dorfrat hört auf dich – einmal am Tag.', 'small muted'));
+  for (const v of data || []) {
+    const it = document.createElement('div'); it.className = 'bitem';
+    const t = document.createElement('div'); t.innerHTML = `<b>${esc(v.art === 'ausbau' ? v.name + ' ausbauen' : v.name)}</b><br><span class="small muted">${esc(v.grund)}</span>`;
+    const b = btn('Vorschlagen', false, async () => {
+      const r = await db.rpc('dorf_vorschlagen', { p_gebaeude: v.gebaeude });
+      if (r.error) return toast(esc(r.error.message));
+      toast(r.data.ok ? esc(r.data.text) : r.data.grund === 'schon_heute' ? 'Du hast heute schon etwas vorgeschlagen.' : 'Das geht gerade nicht.');
+      await loadVillageState();
+    });
+    it.append(t, b); box.append(it);
   }
-  box.append(p(STUFEN, 'muted small'));
+  if (!(data || []).length) box.append(p('Gerade gibt es nichts, was der Dorfrat bauen könnte.', 'small muted'));
+}
+function renderDorf(body) {
+  const D = villageState?.dorf;
+  body.append(p(village ? village.village_name : 'Dein Dorf'));
+  if (!D) { body.append(p('Einen Moment – das Dorf wird gerade erfasst …', 'muted small')); return; }
+  body.append(p(`${SEASON_DE[D.jahreszeit] || ''} · Die Stimmung ist ${D.stimmung}.`, 'small muted'));
+  // Baustelle
+  body.append(h3('Gerade im Bau'));
+  if (D.bau) {
+    const b = D.bau, box = document.createElement('div'); box.className = 'bau-box';
+    box.innerHTML = `<b>${esc(b.art === 'ausbau' ? b.name + ' wird ausgebaut' : groß(nom(b.dat)) + ' entsteht')}</b>
+      <div class="bar"><span style="width:${Math.round(b.fortschritt * 100)}%"></span></div>
+      <span class="small">${esc(b.baumeister || 'Die Bewohner')} ${b.baumeister && b.baumeister.includes(' und ') ? 'bauen' : 'baut'} daran. Fertig vermutlich ${esc(whenText(b.fertig_etwa))}.</span><br>
+      <span class="small muted">${esc(b.grund || '')}</span>`;
+    const hb = btn(D.hilfe_ab ? `Wieder mithelfen ${whenText(D.hilfe_ab)}` : 'Mit anpacken', false, mithelfen); hb.disabled = !!D.hilfe_ab;
+    box.append(row(hb)); body.append(box);
+  } else body.append(p(D.plan ? 'Die Baustelle ruht – es fehlt noch Material.' : 'Gerade wird nichts gebaut.', 'small'));
+  // Plan
+  if (D.plan) {
+    body.append(h3('Als Nächstes geplant'));
+    const pl = D.plan;
+    body.append(p(pl.art === 'ausbau' ? `${pl.name} ausbauen` : groß(nom(pl.dat)), ''));
+    body.append(p(pl.grund || '', 'small muted'));
+    body.append(p(pl.fehlt?.length ? `Es fehlt noch an ${liste(pl.fehlt)}.` : 'Das Material liegt bereit – es geht los, sobald die Baustelle frei ist.', 'small'));
+  }
+  const vbox = document.createElement('div');
+  const vb = btn(D.vorschlag_ab ? `Nächster Vorschlag ${whenText(D.vorschlag_ab)}` : 'Im Dorfrat etwas vorschlagen', false, () => showVorschlaege(vbox)); vb.disabled = !!D.vorschlag_ab;
+  body.append(row(vb), vbox);
+  // Ampeln
+  body.append(h3('Wie es dem Dorf geht'));
+  const ul = document.createElement('ul'); ul.className = 'ampel-list'; body.append(ul);
+  for (const a of D.ampeln || []) { const li = document.createElement('li'); li.append(dot(a.ampel)); const t = document.createElement('div'); t.innerHTML = `<b>${esc(a.name)}</b><br><span class="small">${esc(a.text)}</span>`; li.append(t); ul.append(li); }
+  // Güter
+  body.append(h3('Was es bei uns gibt'));
+  body.append(p('Grün: kein Problem · Gelb: geht, dauert · Rot: gibt es bei uns nicht', 'small muted'));
+  for (const [kat, name] of [['essen', 'Essen und Vorräte'], ['bau', 'Baumaterial'], ['handwerk', 'Handwerk']]) {
+    const items = (D.gueter || []).filter((g) => g.kat === kat); if (!items.length) continue;
+    const det = document.createElement('details'); det.className = 'kat'; if (kat === 'essen') det.open = true;
+    const sum = document.createElement('summary'); sum.append(name + ' '); for (const g of items) sum.append(dot(g.ampel, g.name)); det.append(sum);
+    for (const g of items) { const it = document.createElement('div'); it.className = 'gut'; it.append(dot(g.ampel)); const t = document.createElement('div'); t.innerHTML = `<b>${esc(g.name)}</b> <span class="small muted">– ${AMPEL_WORT[g.ampel]}</span><br><span class="small">${esc(g.text)}</span>`; it.append(t); det.append(it); }
+    body.append(det);
+  }
+  // Chronik
+  body.append(h3('Dorfchronik'));
+  const cl = document.createElement('ul'); cl.className = 'journal'; body.append(cl);
+  for (const e of D.chronik || []) { const li = document.createElement('li'); li.innerHTML = `<span class="small muted">${esc(agoText(e.at))}</span><br><span class="small">${esc(e.text)}</span>`; cl.append(li); }
+  // Ansicht und Testwerkzeuge
+  const det = document.createElement('details'); det.className = 'kat'; const sum = document.createElement('summary'); sum.textContent = 'Ansicht und Testwerkzeuge'; det.append(sum); body.append(det);
+  det.append(h3('Ansicht'));
+  det.append(row(...[['dorf', 'Dorf'], ['grossdorf', 'Großes Dorf'], ['stadt', 'Stadt']].map(([z, n]) => btn(n, scene.zoom === z, () => { scene.setZoom(z); renderPanel('dorf'); })),
+    btn(scene.showNames ? 'Namen ausblenden' : 'Namen anzeigen', scene.showNames, () => { scene.toggleNames(); renderPanel('dorf'); })));
+  det.append(h3('Tageszeit'));
+  det.append(row(btn('Echtzeit', scene.auto, () => { const m = realMood(); scene.setMood(m.time, m.season, true); renderPanel('dorf'); }),
+    ...Object.entries(TIME_NAMES).map(([k, n]) => btn(n, !scene.auto && scene.mood.time === k, () => { scene.setMood(k, scene.mood.season); renderPanel('dorf'); }))));
+  det.append(h3('Jahreszeit (nur Ansicht)'));
+  det.append(row(...Object.entries(SEASON_NAMES).map(([k, n]) => btn(n, scene.mood.season === k, () => { scene.setMood(scene.mood.time, k); renderPanel('dorf'); }))));
+  det.append(h3('Wetter'));
+  det.append(row(btn('Automatisch', !scene.weather.forced, () => { scene.setWeather('auto'); renderPanel('dorf'); }),
+    ...Object.entries(WEATHER_NAMES).map(([k, n]) => btn(n, scene.weather.forced && scene.weather.target === k, () => { scene.setWeather(k); renderPanel('dorf'); }))));
+}
+// Gebäude in Worten: Stufe, wer dort arbeitet, was es bewirkt
+function buildingInfo(s) {
+  const c = CATALOG[s.type], lvl = villageState?.dorf?.stufen?.[String(s.plotId)] || 1;
+  const workers = scene.village.people.filter((q) => !q.wanderer && scene.village.spriteOf(scene.village.placeFor(q)) === s).map((q) => q.name);
+  const bau = villageState?.baustelle && villageState.baustelle.plot === s.plotId && villageState.baustelle.art === 'ausbau';
+  return { name: c?.name || s.type, lvl, stufe: stufeWort(lvl), workers, folge: c?.folgen?.[0] || '', bau };
 }
 function showCreator(first) {
   hideTip();
@@ -297,15 +351,23 @@ function showSelCard(obj) {
     const quest = btn('Auf Quest mitnehmen', false, () => {}); quest.disabled = true; quest.title = 'Quests werden nach dem Tutorial freigeschaltet';
     card.append(row(btn('Ansprechen', false, () => startTalk(p)), quest, btn('Kamera folgen', false, () => scene.select(obj))));
   } else {
-    const s = obj.sprite, c = CATALOG[s.type], plot = PLOTS.find((q) => q.id === s.plotId);
-    const h = document.createElement('div'); h.innerHTML = `<b>${esc(c?.name || BUILDINGS_NAME(s.type))}</b><br><span class="small muted">Bauplatz ${plot?.id} · Stufe 1</span>`; card.append(h);
-    for (const line of c ? summary(s.type) : []) card.append(p(line, 'small'));
-    const workers = scene.village.people.filter((q) => scene.village.spriteOf(scene.village.placeFor(q)) === s), dwellers = scene.village.people.filter((q) => q.home === s);
-    if (workers.length) card.append(p('Arbeiten hier: ' + workers.map((q) => q.name).join(', '), 'small'));
+    const s = obj.sprite, bi = buildingInfo(s);
+    const h = document.createElement('div'); h.innerHTML = `<b>${esc(bi.name)}</b><br><span class="small muted">${esc(groß(bi.stufe))}${bi.bau ? ' · wird gerade ausgebaut' : ''}</span>`; card.append(h);
+    const dwellers = scene.village.people.filter((q) => q.home === s);
+    if (bi.workers.length) card.append(p('Arbeiten hier: ' + bi.workers.join(', '), 'small'));
     if (dwellers.length) card.append(p('Wohnen hier: ' + dwellers.map((q) => q.name).join(', '), 'small'));
-    if (c?.folgen?.[0]) card.append(p('• ' + c.folgen[0], 'small muted'));
-    const up = btn('Ausbauen', false, () => {}); up.disabled = true; up.title = 'Echtes Bauen folgt im nächsten Schritt';
-    const team = btn('Bewohner ansehen', false, () => openMenu('bewohner')); team.disabled = !workers.length && !dwellers.length;
+    if (bi.folge) card.append(p('• ' + bi.folge, 'small muted'));
+    const D = villageState?.dorf;
+    const up = bi.bau ? btn(D?.hilfe_ab ? 'Heute schon mitgeholfen' : 'Mit anpacken', false, mithelfen)
+      : btn('Ausbau vorschlagen', false, async () => {
+        const r = await db.rpc('dorf_vorschlagen', { p_gebaeude: s.type });
+        if (r.error) return toast(esc(r.error.message));
+        toast(r.data.ok ? esc(r.data.text) : r.data.grund === 'schon_heute' ? 'Du hast heute schon etwas im Dorfrat vorgeschlagen.' : 'Der Dorfrat sieht dafür gerade keinen Grund – oder das Lager ist zu klein dafür.');
+        loadVillageState();
+      });
+    if (bi.bau && D?.hilfe_ab) up.disabled = true;
+    if (!bi.bau && D?.vorschlag_ab) { up.disabled = true; up.title = 'Du hast heute schon etwas vorgeschlagen'; }
+    const team = btn('Bewohner ansehen', false, () => openMenu('diplomatie')); team.disabled = !bi.workers.length && !dwellers.length;
     card.append(row(up, team));
   }
 }
@@ -325,7 +387,7 @@ async function startTalk(p) {
   const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
   const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map((g) => ({ nom: withArticle(g), akk: withArticleAkk(g) }));
   const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
-    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, rivale: brief?.rivale || null, whenText });
+    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, rivale: brief?.rivale || null, dorf: brief?.dorf || null, whenText });
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
   const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
   const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
@@ -420,7 +482,7 @@ async function startTalk(p) {
     apply(res); say('npc', res.antwort);
     if (res.zusage) { note(`Zusage: <b>${esc(res.zusage.text)}</b> <span class="muted">(im Notizbuch unter Diplomatie)</span>`); highlights.push(`${p.name} hat mir etwas zugesagt: ${res.zusage.text}.`); }
     if (res.journal) { note(`Tagebuch: <b>${esc(res.journal.title)}</b>`); highlights.push(`Ich habe etwas erfahren: ${res.journal.title}.`); }
-    if (res.auftrag?.ok) { note(`Abmachung: <b>${esc(p.name)} macht ${esc(res.auftrag.titel)}</b>${res.auftrag.holz ? ` · bring ${res.auftrag.holz} Holz` : ` · fertig ${esc(whenText(res.auftrag.faellig_at))}`} <span class="muted">(Tagebuch)</span>`); highlights.push(`Wir haben eine Abmachung: ${p.name} macht ${res.auftrag.titel}.`); const st = await db.rpc('get_npc_brief', { p_npc: p.id }); if (!st.error) { brief = st.data; t.setDeal(brief.abmachung, brief.holz); } loadVillageState(); }
+    if (res.auftrag?.ok) { note(`Abmachung: <b>${esc(p.name)} macht ${esc(res.auftrag.titel)}</b>${res.auftrag.holz ? ' · braucht Holz aus dem Dorflager' : ` · fertig ${esc(whenText(res.auftrag.faellig_at))}`} <span class="muted">(Tagebuch)</span>`); highlights.push(`Wir haben eine Abmachung: ${p.name} macht ${res.auftrag.titel}.`); const st = await db.rpc('get_npc_brief', { p_npc: p.id }); if (!st.error) { brief = st.data; t.setDeal(brief.abmachung, brief.holz); } loadVillageState(); }
     ideas = res.vorschlaege || [];
     after();
   };
@@ -447,8 +509,8 @@ async function startTalk(p) {
       setTimeout(async () => {
         say('npc', t.dealText(r, o.kind));
         if (r.ok) {
-          if (o.kind === 'deal') { const d = brief.auftrag_optionen.find((x) => x.id === o.vorlage); note(`Abmachung: <b>${esc(p.name)} macht ${esc(d?.titel || '')}</b>${r.holz ? ` · bring ${r.holz} Holz` : ''} <span class="muted">(Tagebuch)</span>`); highlights.push(`Wir haben eine Abmachung: ${p.name} macht ${d?.titel}.`); brief.abmachung = { id: null, titel: d?.titel, holz: r.holz, status: r.status, faellig_at: r.faellig_at }; brief.auftrag_optionen = []; }
-          else { note(`Holz übergeben · <b>fertig ${esc(whenText(r.faellig_at))}</b>`); highlights.push(`Ich habe ${p.name} das Holz gebracht.`); brief.abmachung.status = 'in_arbeit'; brief.abmachung.faellig_at = r.faellig_at; brief.holz = r.holz; }
+          if (o.kind === 'deal') { const d = brief.auftrag_optionen.find((x) => x.id === o.vorlage); note(`Abmachung: <b>${esc(p.name)} macht ${esc(d?.titel || '')}</b>${r.holz ? ' · braucht Holz aus dem Dorflager' : ''} <span class="muted">(Tagebuch)</span>`); highlights.push(`Wir haben eine Abmachung: ${p.name} macht ${d?.titel}.`); brief.abmachung = { id: null, titel: d?.titel, holz: r.holz, status: r.status, faellig_at: r.faellig_at }; brief.auftrag_optionen = []; }
+          else { note(`Holz aus dem Lager geholt · <b>fertig ${esc(whenText(r.faellig_at))}</b>`); highlights.push(`Ich habe ${p.name} Holz aus dem Lager gebracht.`); brief.abmachung.status = 'in_arbeit'; brief.abmachung.faellig_at = r.faellig_at; brief.holz = r.holz; }
           t.setDeal?.(brief.abmachung, brief.holz); await loadVillageState();
           if (o.kind === 'deal' && r.status === 'wartet_holz') { const st = await db.rpc('get_npc_brief', { p_npc: p.id }); if (!st.error) { brief.abmachung = st.data.abmachung; t.setDeal?.(brief.abmachung, st.data.holz); } }
         }
@@ -482,7 +544,7 @@ async function startTalk(p) {
 }
 if (location.hostname === 'localhost') window.__dev = { startTalk: (i = 0) => startTalk(scene.village.people.filter((q) => q.id)[i]), scene: () => scene };
 let aiState = { verfuegbar: true };
-let villageState = null, layoutSynced = false, layoutTimer = 0;
+let villageState = null, layoutSynced = false, newsShown = false;
 // „Morgen früh“, „heute gegen 18 Uhr“ … aus einem Zeitpunkt
 function whenText(iso) {
   if (!iso) return 'bald';
@@ -499,8 +561,14 @@ async function loadVillageState() {
   if (error || !data) { if (error) console.warn('Dorf:', error.message); return; }
   villageState = data;
   if (Array.isArray(data.layout) && data.layout.length) scene.setLayout(data.layout);
-  else await db.rpc('set_layout', { p_layout: scene.layout });
+  scene.setBaustelle?.(data.baustelle || null);
   layoutSynced = true;
+  // Neuigkeiten seit dem letzten Besuch (einmal pro Sitzung)
+  if (!newsShown && data.dorf?.neu?.length) {
+    newsShown = true;
+    toast(`<b>Seit deinem letzten Besuch:</b><br>${data.dorf.neu.map((e) => '• ' + esc(e.text)).join('<br>')}`, 14000);
+    db.rpc('dorf_gesehen');
+  } else if (!newsShown) { newsShown = true; db.rpc('dorf_gesehen'); }
   const bau = data.auftraege.filter((a) => a.status === 'in_arbeit').map((a) => ({ plot: a.plot, gebaeude: a.gebaeude, zusatz: a.zusatz, status: 'bau' }));
   scene.setExtras([...data.extras, ...bau]);
   scene.village?.setTasks(data.auftraege.filter((a) => a.status === 'in_arbeit').map((a) => ({ npc_id: a.npc_id, plot: a.plot, text: `arbeitet an: ${a.titel}` })));
@@ -770,14 +838,15 @@ async function startGame() {
       onHover: (h) => {
         if (!h) return hideTip();
         if (h.kind === 'villager') { const p = h.person; return showTip(p.wanderer ? `<b>${esc(p.name)}</b><br>Wanderer · ${esc(p.job)}<div class="tt-actions">${esc(p.activity)}</div>` : `<b>${esc(p.name)}</b><br>${esc(p.job)} · wirkt ${esc(p.stimmung)}<div class="tt-actions">${esc(p.activity || '')}${p.erinnerung ? '<br>Erinnert sich: ' + esc(p.erinnerung) : ''}</div>`, { x: h.x, y: h.y }); }
-        if (h.kind === 'building') showTip(`<b>${h.building.name}</b><br>${CATALOG[h.sprite.type] ? summary(h.sprite.type).map(esc).join('<br>') : h.building.desc}<br><span class="muted">Gebäudegröße ${h.building.size} · Bauplatz ${h.plot.id} (Platz bis ${h.plot.size})${h.plot.shadow ? ' · im Bergschatten' : ''}</span><div class="tt-actions">Stufe 1 · fertig<br>Ausbauen · Bewohner zuweisen (bald)</div>`, { x: h.x, y: h.y });
+        if (h.kind === 'building') { const bi = buildingInfo(h.sprite); return showTip(`<b>${esc(bi.name)}</b> <span class="muted">· ${esc(bi.stufe)}</span><br>${bi.workers.length ? 'Hier arbeiten: ' + esc(bi.workers.join(', ')) + '<br>' : ''}<span class="small">${esc(bi.folge)}</span>${bi.bau ? '<div class="tt-actions">Wird gerade ausgebaut</div>' : ''}`, { x: h.x, y: h.y }); }
+        if (h.kind === 'baustelle') return showTip(`<b>Baustelle</b><br>Hier entsteht ${esc(CATALOG[h.baustelle.gebaeude]?.name || '')}.<div class="tt-actions">${esc(villageState?.dorf?.bau?.baumeister || 'Die Bewohner')} bauen daran.</div>`, { x: h.x, y: h.y });
         else showTip(`<b>Bauplatz ${h.plot.id}</b><br>Platz bis Größe ${h.plot.size}${h.plot.shadow ? ' · im Bergschatten' : ''}<div class="tt-actions">frei</div>`, { x: h.x, y: h.y });
       },
       onReady: () => updateChip(),
       onSelectObject: (obj) => showSelCard(obj),
       onPlots: (on) => $('game').classList.toggle('placing', on),
       onSelect: () => { if (!$('panel').hidden && active === 'dorf') renderPanel('dorf'); },
-      onLayout: (layout) => { const k = JSON.stringify(layout); if (!layoutSynced || k === JSON.stringify(villageState?.layout)) return; clearTimeout(layoutTimer); layoutTimer = setTimeout(() => db.rpc('set_layout', { p_layout: layout }).then(({ error }) => { if (error) console.warn('Anordnung:', error.message); else if (villageState) villageState.layout = JSON.parse(k); }), 800); },
+      onLayout: () => {},
     });
     window.mossheart = scene; // für Tests in der Konsole
   }

@@ -84,3 +84,20 @@ export function drawExtra(c, sprite, plot, zusatz, status) {
     for (let k = 0; k < 3; k++) R(px - k, py - k * 2, 10, 2, k % 2 ? WOOD_L : WOOD);
   }
 }
+
+// Baustelle: Gerüst aus Stangen und Laufbrettern, Bretterstapel davor. f = wie weit der Bau ist (0..1).
+export function drawScaffold(c, sprite, plot, art, f) {
+  const s = plot.s, R = (xx, yy, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(xx), Math.round(yy), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
+  const POLE = tone('#6b4a2e'), PLANK = tone('#a37a50'), PLANK_D = tone('#7a5634'), ROPE = tone('#c8b08a');
+  const x0 = sprite.x + 2, x1 = sprite.x + sprite.w - 3, bottom = sprite.y + sprite.h - 2;
+  const top = art === 'ausbau' ? sprite.y + sprite.h * 0.15 : sprite.y + sprite.h * (1 - Math.max(0.25, f)) - 4 * s;
+  const n = Math.max(2, Math.round((x1 - x0) / (12 * s)));
+  for (let i = 0; i <= n; i++) { const xx = x0 + ((x1 - x0) * i) / n; R(xx, top, 1, bottom - top, POLE); }
+  for (let yy = bottom - 8 * s; yy > top + 2; yy -= 9 * s) { R(x0 - 1, yy, x1 - x0 + 3, 2, PLANK); R(x0 - 1, yy + 2, x1 - x0 + 3, 1, PLANK_D); }
+  // Diagonale Streben und ein Seil
+  for (let k = 0; k < (bottom - top) * 0.8; k += 2) R(x0 + (k * (x1 - x0)) / ((bottom - top) * 1.6), bottom - k, 1, 1, POLE);
+  R(x1 - 1, top - 3 * s, 1, 3 * s, ROPE);
+  // Bretterstapel neben der Baustelle
+  const sx = sprite.x + sprite.w + 2, sy = plot.y + 2;
+  for (let k = 0; k < 3; k++) { R(sx, sy - k * 2, 12 * s, 2, k % 2 ? PLANK : PLANK_D); }
+}
