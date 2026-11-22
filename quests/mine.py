@@ -50,6 +50,9 @@ S['eingang'] = {'ort': 'mine', 'text': 'Der Eingang ist halb verschüttet, die H
    'misserfolg': {'text': 'Das Harz will nicht brennen. Ihr müsst im Halbdunkel gehen.', 'folgen': {'flag': ['dunkel']}, 'weiter': 'stollen'}},
   {'text': 'Ohne Licht hinein', 'weiter': 'stollen', 'folgen': {'flag': ['dunkel']}}]}
 S['stollen'] = {'ort': 'stollen', 'text': 'Ihr tastet euch tiefer. An einer Abzweigung: frische Kratzspuren und ein Geräusch wie Metall auf Stein. Jemand ist hier.', 'optionen': [
+  {'text': 'Erst den Seitengang absuchen – die alten Bergleute haben hier gelagert', 'tag': '[Spuren lesen]', 'wenn': {'nicht_flag': 'gesucht'}, 'probe': {'id': 'spuren', 'dc': 12, 'mod': {'dunkel': 2}},
+   'erfolg': {'text': 'Hinter eingestürzten Brettern steht eine verrottete Kiste. Darin, in geöltes Tuch gewickelt, liegt etwas, das die Jahre überstanden hat.', 'folgen': {'flag': ['gesucht'], 'beute': {'stufe': 2, 'chance': 1, 'text': 'Was die Bergleute hier zurückgelassen haben, gehört jetzt dir.'}}, 'weiter': 'stollen'},
+   'misserfolg': {'text': 'Nur Schutt und Rattenkot. Und das Hämmern weiter vorne ist verstummt.', 'folgen': {'flag': ['gesucht']}, 'weiter': 'ueberrascht'}},
   {'text': 'Leise näherschleichen', 'tag': '[Schleichen]', 'probe': {'id': 'flink', 'dc': 12, 'mod': {'dunkel': 2}},
    'erfolg': {'text': 'Du schleichst bis an einen Felsvorsprung und hörst einen Mann murmeln: „… nur noch ein Stück, dann reicht es für die Medizin, Lene …“', 'folgen': {'flag': ['belauscht']}, 'weiter': 'fremder'},
    'misserfolg': {'text': 'Ein Stein knirscht unter deinem Fuß. Das Hämmern verstummt.', 'weiter': 'ueberrascht'}},
@@ -73,21 +76,33 @@ S['fremder'] = {'ort': 'stollen', 'text': 'Ein abgemagerter Mann mit Staub im Ba
    'erfolg': {'text': 'Brun schluckt. „Du meinst das ernst?“ Er nickt langsam. „Ich hole Lene. Dann kommen wir.“', 'folgen': {'flag': ['brun_ok'], 'begleiter_sym': 2, 'chronik': ['brun_eingeladen', 'Ich habe Brun und seine kranke Tochter Lene in unser Dorf eingeladen.'], 'journal': ['brun_kommt', 'Brun will kommen', 'Der Bergmann Brun will mit seiner kranken Tochter Lene in unser Dorf ziehen. Er kennt die Mine wie kein anderer.']}, 'weiter': 'einsturz'},
    'misserfolg': {'text': '„Schöne Worte“, sagt Brun. „Die hab ich schon oft gehört.“', 'folgen': {'flag': ['brun_ok']}, 'weiter': 'einsturz'}},
   {'text': '„Verschwinde. Die Mine gehört unserem Dorf.“', 'tag': '[Einschüchtern]', 'probe': {'id': 'einschuechtern', 'dc': 11},
-   'erfolg': {'text': 'Brun weicht zurück, rafft seinen Beutel und geht. Ein paar Brocken Erz bleiben liegen.', 'folgen': {'item_plus': {'silbererz': 2}, 'begleiter_sym': -2, 'chronik': ['brun_vertrieben', 'Ich habe Brun aus der Mine gejagt, obwohl seine Tochter krank ist.']}, 'weiter': 'einsturz'},
+   'erfolg': {'text': 'Brun weicht zurück, rafft seinen Beutel und geht. Ein paar Brocken Erz bleiben liegen.', 'folgen': {'flag': ['brun_weg'], 'item_plus': {'silbererz': 2}, 'begleiter_sym': -2, 'chronik': ['brun_vertrieben', 'Ich habe Brun aus der Mine gejagt, obwohl seine Tochter krank ist.']}, 'weiter': 'einsturz'},
    'misserfolg': {'text': 'Brun spuckt aus. „Versuch’s doch.“ Im selben Moment bebt der Boden.', 'folgen': {'flag': ['brun_feind'], 'chronik': ['brun_feind', 'Brun, der Bergmann aus Erzklamm, ist nicht gut auf mich zu sprechen.']}, 'weiter': 'einsturz'}}]}
 S['einsturz'] = {'ort': 'stollen', 'gefahr': True, 'text': 'Ein dumpfes Grollen. Staub rieselt aus der Decke – dann kracht ein Balken. Der Stollen bricht ein!', 'optionen': [
   {'text': 'Alle zum Ausgang!', 'tag': '[Flink]', 'probe': {'id': 'flink', 'dc': 13, 'mod': {'gesichert': -3, 'dunkel': 2, 'erschoepft': 2}},
-   'erfolg': {'text': 'Ihr stürzt ins Freie, hinter euch donnern die Felsen.', 'folgen': {'begleiter_loy': 2}, 'weiter': 'draussen'},
-   'misserfolg': {'text': 'Ein Brocken trifft dich an der Schulter, aber du kommst raus.', 'folgen': {'gefahr': True}, 'weiter': 'draussen'}},
+   'erfolg': {'text': 'Ihr stürzt ins Freie, hinter euch donnern die Felsen.', 'folgen': {'begleiter_loy': 2}, 'weiter': 'nach_einsturz'},
+   'misserfolg': {'text': 'Ein Brocken trifft dich an der Schulter, aber du kommst raus.', 'folgen': {'gefahr': True}, 'weiter': 'nach_einsturz'}},
   {'text': '{bb} soll die Decke abstützen', 'tag': '[{bb}]', 'wenn': {'begleiter_beruf': STARK}, 'probe': {'id': 'anpacken', 'dc': 11, 'mod': {'gesichert': -3}},
-   'erfolg': {'text': '{bb} stemmt sich gegen den Balken. „Lauft!“ Ihr schafft es – {bb} als Letzte(r), mit einem schiefen Grinsen.', 'folgen': {'begleiter_loy': 3, 'begleiter_sym': 4, 'chronik': ['mine_gerettet', 'In der Mine hat {bb} uns alle beim Einsturz gerettet.'], 'notiz': 'Beim Einsturz der Mine hat {bb} die Decke gehalten, bis wir draußen waren. Das vergesse ich nicht.'}, 'weiter': 'draussen'},
-   'misserfolg': {'text': 'Der Balken gibt nach. Ihr kommt raus, aber nicht ohne Blessuren.', 'folgen': {'gefahr': True, 'begleiter_loy': 1}, 'weiter': 'draussen'}},
+   'erfolg': {'text': '{bb} stemmt sich gegen den Balken. „Lauft!“ Ihr schafft es – {bb} zuletzt, mit einem schiefen Grinsen.', 'folgen': {'begleiter_loy': 3, 'begleiter_sym': 4, 'chronik': ['mine_gerettet', 'In der Mine hat {bb} uns alle beim Einsturz gerettet.'], 'notiz': 'Beim Einsturz der Mine hat {bb} die Decke gehalten, bis wir draußen waren. Das vergesse ich nicht.'}, 'weiter': 'nach_einsturz'},
+   'misserfolg': {'text': 'Der Balken gibt nach. Ihr kommt raus, aber nicht ohne Blessuren.', 'folgen': {'gefahr': True, 'begleiter_loy': 1}, 'weiter': 'nach_einsturz'}},
   {'text': 'Den Balken selbst stemmen', 'tag': '[Anpacken]', 'probe': {'id': 'anpacken', 'dc': 13, 'mod': {'gesichert': -3}},
-   'erfolg': {'text': 'Du hältst den Balken, bis alle draußen sind. Dann lässt du los und springst.', 'folgen': {'begleiter_sym': 4, 'begleiter_loy': 3, 'notiz': 'In der Mine habe ich die Decke gehalten, bis alle draußen waren.'}, 'weiter': 'draussen'},
-   'misserfolg': {'text': 'Der Balken ist zu schwer. Er drückt dich zu Boden, bevor du dich befreist.', 'folgen': {'gefahr': True}, 'weiter': 'draussen'}},
+   'erfolg': {'text': 'Du hältst den Balken, bis alle draußen sind. Dann lässt du los und springst.', 'folgen': {'begleiter_sym': 4, 'begleiter_loy': 3, 'notiz': 'In der Mine habe ich die Decke gehalten, bis alle draußen waren.'}, 'weiter': 'nach_einsturz'},
+   'misserfolg': {'text': 'Der Balken ist zu schwer. Er drückt dich zu Boden, bevor du dich befreist.', 'folgen': {'gefahr': True}, 'weiter': 'nach_einsturz'}},
   {'text': 'Brun mitreißen', 'tag': '[Flink]', 'wenn': {'flag': 'brun_ok'}, 'probe': {'id': 'flink', 'dc': 12, 'mod': {'gesichert': -2}},
-   'erfolg': {'text': 'Du packst Brun am Arm. Gemeinsam stolpert ihr ins Licht.', 'folgen': {'chronik': ['brun_gerettet', 'Ich habe Brun beim Einsturz der Mine das Leben gerettet.']}, 'weiter': 'draussen'},
-   'misserfolg': {'text': 'Ihr kommt beide raus – du mit einer blutenden Stirn.', 'folgen': {'gefahr': True, 'chronik': ['brun_gerettet', 'Ich habe Brun beim Einsturz der Mine das Leben gerettet.']}, 'weiter': 'draussen'}}]}
+   'erfolg': {'text': 'Du packst Brun am Arm. Gemeinsam stolpert ihr ins Licht.', 'folgen': {'flag': ['brun_gerettet'], 'chronik': ['brun_gerettet', 'Ich habe Brun beim Einsturz der Mine das Leben gerettet.']}, 'weiter': 'nach_einsturz'},
+   'misserfolg': {'text': 'Ihr kommt beide raus – du mit einer blutenden Stirn.', 'folgen': {'flag': ['brun_gerettet'], 'gefahr': True, 'chronik': ['brun_gerettet', 'Ich habe Brun beim Einsturz der Mine das Leben gerettet.']}, 'weiter': 'nach_einsturz'}}]}
+S['nach_einsturz'] = {'ort': 'mine', 'text': 'Draußen legt sich der Staub. Ihr hustet, blinzelt ins Licht, zählt durch – alle da. Und Brun?', 'optionen': [
+  {'text': 'Zu Brun gehen', 'wenn': {'flag': 'brun_gerettet'}, 'weiter': 'draussen',
+   'ergebnis': 'Brun sitzt auf einem Stein, Staub im Bart, und starrt auf den verschütteten Eingang. Dann nestelt er etwas aus seinem Hemd. „Das wollte ich für Lenes Medizin verkaufen. Aber ohne dich läge ich jetzt da drin.“ Er drückt es dir in die Hand und schließt deine Finger darum. „Ich finde einen anderen Weg. Versprochen.“',
+   'folgen': {'beute': {'stufe': 2, 'chance': 1, 'art': 'talisman', 'text': 'Bruns Geschenk:'}, 'chronik': ['brun_dank', 'Brun hat mir nach dem Einsturz etwas geschenkt, das er eigentlich für die Medizin seiner Tochter verkaufen wollte.'], 'journal': ['brun_tochter', 'Bruns Tochter Lene', 'Brun aus Erzklamm braucht Medizin für seine kranke Tochter Lene. Vielleicht kann ich helfen.']}},
+  {'text': 'Nach Brun rufen', 'wenn': {'flag': 'brun_ok', 'nicht_flag': 'brun_gerettet'}, 'weiter': 'draussen',
+   'ergebnis': 'Lange nichts. Dann Husten, ein Fluch – und aus einem schmalen Nebenschacht kriecht Brun, die Stirn blutig, aber lebendig. Er sieht dich an, nickt einmal und humpelt den Hang hinunter Richtung Erzklamm.',
+   'folgen': {'chronik': ['brun_ueberlebt', 'Brun hat den Einsturz der Mine überlebt und ist nach Erzklamm zurückgehumpelt.'], 'journal': ['brun_tochter', 'Bruns Tochter Lene', 'Brun aus Erzklamm braucht Medizin für seine kranke Tochter Lene.']}},
+  {'text': 'Nach Brun sehen', 'wenn': {'flag': 'brun_feind'}, 'weiter': 'draussen',
+   'ergebnis': 'Von Brun keine Spur. Ob er es durch einen anderen Schacht hinausgeschafft hat oder unter den Felsen liegt, wirst du heute nicht erfahren.',
+   'folgen': {'chronik': ['brun_verschollen', 'Seit dem Einsturz der Mine weiß niemand, was aus Brun geworden ist.']}},
+  {'text': 'Durchatmen', 'wenn': {'flag': 'brun_weg'}, 'weiter': 'draussen',
+   'ergebnis': 'Brun war längst fort, als die Decke kam. Vielleicht war das sein Glück. Vielleicht deins.'}]}
 S['draussen'] = {'ort': 'wald', 'text': 'Draußen. Staub, Sonnenlicht, Vogelgezwitscher. Hinter euch ist der Stollen verschüttet – vorerst. Ihr macht euch auf den Heimweg.', 'reise': {'minuten': 1, 'weiter': 'lagerfeuer'}}
 S['lagerfeuer'] = {'ort': 'feuer', 'text': 'Am Abend sitzt du {mit} am Feuer am Waldrand. Die Funken steigen in den Nachthimmel.', 'optionen': [
   {'text': '„Danke dir, {b1}. Ohne dich hätte ich das nicht geschafft.“', 'tag': '[{b1}]', 'wenn': {'begleiter': True}, 'weiter': 'ende', 'ergebnis': '{b1} schaut ins Feuer. „Für dich doch.“ Es ist ein stilles, gutes Schweigen.', 'folgen': {'begleiter_sym': 5, 'begleiter_loy': 2, 'notiz': 'Am Lagerfeuer nach der Mine habe ich {b1} gedankt. Ein guter Moment.'}},

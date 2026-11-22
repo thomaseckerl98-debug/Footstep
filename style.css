@@ -228,3 +228,28 @@ details.kat { margin: 6px 0; } details.kat summary { cursor: pointer; color: var
 .r-legendaer { border-left-color: #e08a2c; background: rgba(224,138,44,.08); } .r-legendaer .loot-r { color: #f2a64e; }
 .journal.gear li { margin-bottom: 8px; }
 .gear-drop { display: inline; margin: 4px 0 0; font-size: .75rem; }
+
+/* Quest-Brett */
+.adv { margin-bottom: 10px; }
+.adv .q-slot { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border: 1px solid currentColor; border-radius: 2px; }
+.q-leicht .q-slot { color: #7fd06c; } .q-mittel .q-slot { color: #e8c25a; } .q-schwer .q-slot { color: #e0704e; } .q-indiv .q-slot { color: #c592ef; }
+.adv-run { border-left: 3px solid var(--gold); padding-left: 8px; }
+.q-goal { width: 100%; box-sizing: border-box; margin: 8px 0 4px; font: inherit; font-size: .9rem; background: rgba(0,0,0,.35); color: inherit; border: 1px solid var(--muted); padding: 6px; resize: vertical; }
+
+/* Gespräch: Themen-Übersicht und Folgefragen */
+.dl-section { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: #b8a77a; padding: 4px 10px 2px; }
+.dl-section b { color: var(--gold); }
+.dl-topics ul { list-style: none; margin: 2px 0 6px; padding: 0 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.dl-topic { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; width: 100%; height: 100%; cursor: pointer; padding: 6px 8px 7px; background: rgba(255,255,255,.04); border: 1px solid #5a4630; border-top: 3px solid var(--gold); position: relative; }
+.dl-topic:hover, .dl-topic:focus-visible { background: rgba(232,194,90,.12); border-color: var(--gold); }
+.dl-topic .num { position: absolute; top: 4px; right: 6px; font-size: .7rem; color: var(--muted); }
+.dl-topic .tl { font-weight: bold; color: var(--gold); font-size: .92rem; }
+.dl-topic .tq { font-size: .8rem; color: var(--text); opacity: .85; }
+.dl-topic .tv { font-size: .7rem; color: var(--muted); }
+.dl-topic.visited { border-top-color: #6b5530; opacity: .7; }
+.dl-topic.visited .tl { color: #c8b48a; }
+.dl-opt.deeper { padding-left: 22px; }
+.dl-opt .arrow { color: var(--gold); }
+.dl-opt.back { color: #c8b48a; border-top: 1px dashed #5a4630; margin-top: 4px; padding-top: 7px; }
+.dl-opt.back .txt::before { content: '↩ '; color: var(--gold); }
+.dl-opt.bye { color: var(--muted); }

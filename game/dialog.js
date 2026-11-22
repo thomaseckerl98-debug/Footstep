@@ -60,7 +60,69 @@ const WEATHER = {
 const SEASON = { fruehling: ['Der Frühling riecht nach Neuanfang.', 'Überall blüht es.'], sommer: ['Lange Tage, kurze Nächte.', 'Im Sommer ist das Leben leichter.'], herbst: ['Die Blätter färben sich schon.', 'Bald ist Erntezeit.'], winter: ['Der Winter ist lang hier oben.', 'Die Vorräte müssen reichen.'] };
 const VILLAGE = ['Seit {gebaeude} steht, ist hier mehr los.', 'Ich bin froh über {gebaeude_akk}. Das hat uns gefehlt.', 'Das Dorf wächst. Manchmal erkenne ich es kaum wieder.', 'Wir bräuchten mehr Wohnraum, wenn noch Leute kommen.', 'Ich finde, {gebaeude} steht an einer seltsamen Stelle.', 'Die Leute reden viel über {gebaeude_akk}.'];
 const FRIEND = ['{freund} und ich haben gestern lange geredet.', '{freund} und ich kennen uns schon ewig.', '{freund} hat mir geholfen, als es mir schlecht ging.', 'Ohne {freund} wäre ich längst weitergezogen.', '{freund} ist der einzige, der mich versteht.'];
-const WORRY = ['Ich weiß nicht, ob wir den Winter schaffen.', 'Ich schlafe schlecht in letzter Zeit.', 'Manchmal frage ich mich, ob es woanders besser wäre.', 'Es wird viel geredet im Dorf. Nicht alles ist gut.', 'Ich habe das Gefühl, keiner sieht, was ich hier leiste.'];
+// Gesprächsfäden: jede Frage (Knoten) hat Antworten; „nach“ schaltet tiefere Fragen frei. So entsteht ein Gespräch mit Tiefe.
+const N = (id, q, a, nach = [], extra = {}) => ({ id, q, a: Array.isArray(a) ? a : [a], nach, ...extra });
+const WORRY = [
+  { line: 'Ich weiß nicht, ob wir den Winter schaffen.', tree: [
+    N('s_w1', 'Was fehlt uns denn?', ['Holz, Vorräte, ein dichtes Dach über jedem Kopf. Such dir was aus.', 'Vorräte vor allem. Wenn der Schnee früh kommt, wird es eng.'], ['s_w2', 's_w3']),
+    N('s_w2', 'Was würdest du an meiner Stelle tun?', ['Einen Vorratsspeicher bauen. Und jeden Sack zählen, bevor der Frost kommt.', 'Mit den Nachbarn reden. Allein kommt hier keiner durch einen harten Winter.'], []),
+    N('s_w3', 'War es schon mal so knapp?', ['Vor drei Wintern. Wir haben Rinde gekocht. Das will ich nie wieder.', 'Einmal. Da sind zwei Familien gegangen und nie zurückgekommen.'], ['s_w4']),
+    N('s_w4', 'Wer ist damals gegangen?', ['Leute, die heute in Furtenau wohnen sollen. Ob es ihnen besser geht, weiß keiner.'], []),
+  ] },
+  { line: 'Ich schlafe schlecht in letzter Zeit.', tree: [
+    N('s_s1', 'Woran liegt das?', ['Träume. Und Geräusche nachts, die ich mir nicht erklären kann.', 'Zu viele Gedanken. Und das Knacken im Gebälk.'], ['s_s2']),
+    N('s_s2', 'Was für Geräusche?', ['Schritte am Waldrand. Wenn ich nachsehe, ist niemand da.', 'Ein Pfeifen, ganz leise, wie ein Signal. Vielleicht bilde ich es mir ein.'], ['s_s3']),
+    N('s_s3', 'Hast du es jemandem erzählt?', ['Nein. Die halten mich sonst für verrückt. Du bist der Erste.', 'Der Wache. Die hat nur gelacht.'], []),
+  ] },
+  { line: 'Manchmal frage ich mich, ob es woanders besser wäre.', tree: [
+    N('s_g1', 'Denkst du daran zu gehen?', ['Manchmal. Wenn der Tag lang war und keiner danke sagt.', 'Nicht wirklich. Aber der Gedanke kommt immer wieder.'], ['s_g2', 's_g3']),
+    N('s_g2', 'Wohin würdest du gehen?', ['Nach Salzwacht, ans Meer. Ich habe das Meer noch nie gesehen.', 'Über die Berge. Einfach, um zu wissen, was dahinter liegt.'], []),
+    N('s_g3', 'Was hält dich hier?', ['Die Leute. Ein paar zumindest.', 'Ehrlich? Dass ich nicht weiß, ob es woanders wirklich besser ist.'], []),
+  ], check: { id: 'ueberreden', q: 'Bleib. Hier wirst du gebraucht – mehr, als du denkst.', ok: 'Meinst du das ernst? … Dann bleibe ich. Fürs Erste.', fail: 'Gebraucht? Das sagen alle, bis man weg ist.' } },
+  { line: 'Es wird viel geredet im Dorf. Nicht alles ist gut.', tree: [
+    N('s_r1', 'Was wird denn geredet?', ['Über dich, ehrlich gesagt. Manche fragen sich, ob du weißt, was du tust.', 'Dass nicht alle hier ihren Teil beitragen. Namen nennt natürlich keiner laut.', 'Dass es Streit um Land und Vorräte geben wird, wenn das Dorf weiter wächst.'], ['s_r2', 's_r3']),
+    N('s_r2', 'Wer sagt so etwas?', ['{rivale_satz}'], ['s_r4']),
+    N('s_r3', 'Und was denkst du selbst?', ['Ich denke, Gerede ist billig. Taten zählen.', 'Ich warte ab. Noch hast du mich nicht enttäuscht.'], []),
+    N('s_r4', 'Soll ich mit dieser Person reden?', ['Wenn du es tust, dann ohne meinen Namen. Bitte.', 'Lieber nicht sofort. Lass es erst ruhen.'], []),
+  ], check: { id: 'menschenkenntnis', q: 'Du redest nicht nur von den anderen, oder?', ok: 'Nein … ich habe selbst Zweifel. Nicht an dir. An allem hier.', fail: 'Was willst du damit sagen?' } },
+  { line: 'Ich habe das Gefühl, keiner sieht, was ich hier leiste.', tree: [
+    N('s_l1', 'Was machst du alles, was keiner sieht?', ['Früh aufstehen, bevor alle anderen. Dinge reparieren, die keiner kaputt gesehen hat.', 'Ich springe ein, wo jemand fehlt. Jeden Tag.'], ['s_l2']),
+    N('s_l2', 'Was würdest du dir wünschen?', ['Einmal gefragt werden statt nur gerufen.', 'Ein Danke. Mehr nicht.'], []),
+  ] },
+];
+const RIVALE_SATZ = { mit: ['{rivale} vor allem. Aber das hast du nicht von mir.', 'Frag {rivale}. Die Zunge sitzt da locker.'], ohne: ['Ich nenne keine Namen. Das macht nur Ärger.', 'Mal der eine, mal die andere. Wie das so ist.'] };
+const WORK_TREE = (g) => [
+  N('w_need', 'Was brauchst du am dringendsten?', NEED[g], ['w_need2']),
+  N('w_need2', 'Und wenn du es hättest – was würde sich ändern?', ['Ich könnte mehr schaffen. Und vielleicht mal einen Abend frei nehmen.', 'Dann müsste ich nicht jeden Tag improvisieren. Das zehrt.', 'Dann könnte ich endlich etwas machen, worauf ich wirklich stolz bin.'], ['w_proud']),
+  N('w_proud', 'Worauf bist du bei deiner Arbeit am meisten stolz?', ['Auf das erste Stück, das wirklich gut war. Ich hab es heute noch.', 'Dass sich die Leute auf mich verlassen können. Das ist mehr wert als jedes Lob.', 'Auf meine Hände. Sie haben mehr gelernt als mein Kopf.'], []),
+  N('w_how', 'Wie bist du zu deinem Handwerk gekommen?', TOPIC_ANSWER.arbeit.fragen, ['w_teach']),
+  N('w_teach', 'Würdest du es jemandem beibringen?', ['Wenn jemand Geduld hat – gern. Die meisten wollen nur schnell fertig werden.', 'Vielleicht. Aber erst muss ich jemanden finden, dem ich mein Werkzeug anvertraue.'], []),
+  N('w_hard', 'Was ist das Schwerste daran?', ['Die Tage, an denen nichts gelingt. Und davon gibt es mehr, als man denkt.', 'Der Winter. Kalte Finger machen schlechte Arbeit.', 'Dass keiner sieht, wie viel Arbeit drinsteckt.'], []),
+];
+const DORF_TREE = [
+  N('d_miss', 'Was fehlt dem Dorf deiner Meinung nach?', ['Mehr Häuser. Wenn noch Leute kommen, wird es eng.', 'Eine Mauer. Oder wenigstens einen Zaun.', 'Ein Fest! Die Leute arbeiten nur noch.', 'Einen Brunnen näher am Platz.'], ['d_why']),
+  N('d_why', 'Warum gerade das?', ['Weil ich jeden Tag sehe, wie es fehlt.', 'Weil sonst irgendwann die Ersten gehen. Und dann die Nächsten.'], ['d_help']),
+  N('d_help', 'Würdest du mithelfen, wenn wir es angehen?', ['Wenn du vorangehst – ja.', 'Sag Bescheid. Ich bringe meine Hände mit.'], []),
+  N('d_people', 'Wie kommst du mit den anderen hier aus?', ['{leute_satz}'], ['d_rival']),
+  N('d_rival', 'Was ist zwischen dir und {rivale}?', ['Alte Geschichte. Es ging um Land – oder um Stolz, je nachdem, wen du fragst.', 'Ein Versprechen, das nicht gehalten wurde. Mehr sage ich dazu nicht.'], [], { braucht: 'rivale' }),
+  N('d_lead', 'Was hältst du davon, wie das Dorf geführt wird?', ['{fuehrung_satz}'], []),
+];
+const WETTER_TREE = () => [
+  N('t_morgen', 'Was meinst du, wie wird es morgen?', TOPIC_ANSWER.wetter.fragen, ['t_woher']),
+  N('t_woher', 'Woran erkennst du das?', ['An den Schwalben. Und am Knie meiner Großmutter – das lügt nie.', 'Am Rauch. Steigt er gerade, bleibt es schön. Kriecht er, kommt Regen.'], []),
+  N('t_winter', 'Wie war der letzte Winter hier?', ['Hart. Der Schnee lag bis zu den Fensterläden.', 'Lang. Im Frühjahr waren alle dünner und stiller.'], ['t_durch']),
+  N('t_durch', 'Was hat euch durchgebracht?', ['Zusammenhalt. Und Rübensuppe. Sehr viel Rübensuppe.', 'Dass wir die Vorräte geteilt haben. Auch mit denen, die wenig hatten.'], []),
+];
+const FREUND_TREE = () => [
+  N('f_wie', 'Wie habt ihr euch kennengelernt?', TOPIC_ANSWER.freunde.fragen, ['f_mag']),
+  N('f_mag', 'Was magst du an {freund}?', ['Dass {freund} nie lügt. Auch wenn es weh tut.', 'Das Lachen. Man hört es durchs halbe Dorf.', 'Dass {freund} da ist, wenn es drauf ankommt. Ohne viele Worte.'], []),
+  N('f_glueck', 'Ist {freund} glücklich hier?', ['Glaube schon. Aber frag am besten selbst.', 'Manchmal wirkt {freund} abwesend. Ich weiß nicht, warum.'], []),
+];
+const HUB = {
+  geruechte: { label: 'Neuigkeiten', q: 'Was gibt es Neues?' }, arbeit: { label: 'Arbeit', q: 'Wie läuft die Arbeit?' }, dorf: { label: 'Das Dorf', q: 'Was hältst du von unserem Dorf?' },
+  wetter: { label: 'Wetter', q: 'Was sagst du zum Wetter?' }, freunde: { label: '{freund}', q: 'Wie geht es {freund}?' }, sorgen: { label: 'Sorgen', q: 'Du wirkst bedrückt. Was ist los?' }, persoenlich: { label: 'Über dich', q: 'Erzähl mir etwas von dir.' },
+};
+const WRAP = ['Mehr gibt es dazu eigentlich nicht zu sagen.', 'Na ja. So ist das eben.', 'Das war’s, glaube ich.', 'Genug davon. Was liegt dir sonst auf dem Herzen?'];
 const OPT = {
   freundlich: ['Schön, dich zu sehen, {name}.', 'Wie geht es dir, {name}?', 'Ich wollte nur mal Hallo sagen.', 'Lass dich nicht stören – ich freu mich, dass du hier bist.'],
   loben: ['Du machst das wirklich gut, {name}.', 'Ohne dich wäre das Dorf ärmer.', 'Ich sehe, wie viel du arbeitest. Danke.', 'Das ist gute Arbeit.'],
@@ -217,11 +279,17 @@ export function buildTalk(ctx) {
   const cold = ['zurückhaltend', 'misstrauisch', 'feindselig'].includes(ctx.stimmung);
   const topics = ['geruechte', 'arbeit', 'dorf', 'wetter'];
   if (ctx.freund) topics.push('freunde');
-  if (cold || ctx.wesen === 'ängstlich' || Math.random() < 0.3) topics.push('sorgen');
-  const usedTopics = new Set(), usedRumors = new Set();
-  const asked = new Set(), checked = new Set();
+  if (cold || ctx.wesen === 'ängstlich' || Math.random() < 0.35) topics.push('sorgen');
+  topics.push('persoenlich');
+  const visited = new Set(), usedRumors = new Set();
+  const asked = new Set(), checked = new Set(), unlocked = new Set();
   const known = (k) => !ctx.wissen || ctx.wissen.includes(k);
-  const askedPersonal = new Set(ctx.gefragt || []); let personalUsed = false;
+  const askedPersonal = new Set(ctx.gefragt || []);
+  const worry = pick(WORRY);
+  c.rivale_satz = fill(pick(ctx.rivale ? RIVALE_SATZ.mit : RIVALE_SATZ.ohne), c);
+  c.leute_satz = fill(ctx.rivale ? pick(['Mit den meisten gut. Mit {rivale} … reden wir lieber nicht.', '{freund_oder_viele} mag ich. {rivale} geht mir aus dem Weg – und ich {rivale}.']) : pick(['Gut. Man hilft sich hier, das ist das Schöne.', '{freund_oder_viele} ist mir am liebsten. Mit dem Rest komme ich aus.']), { ...c, freund_oder_viele: ctx.freund || 'Die meisten' });
+  c.fuehrung_satz = ['treu ergeben', 'herzlich', 'freundlich'].includes(ctx.stimmung) ? pick(['Du machst das gut. Die meisten sehen das so.', 'Besser als erwartet, ehrlich gesagt. Mach weiter so.']) : cold ? pick(['Ehrlich? Ich weiß nicht, ob du weißt, was du tust.', 'Darüber rede ich lieber nicht. Noch nicht.']) : pick(['Man wird sehen. Noch ist es früh.', 'Hm. Die Richtung stimmt. Das Tempo nicht immer.']);
+  let tonesUsed = 0;
 
   // Sichtbarkeit einer Probe: allgemeine immer, besondere nur mit passender Herkunft, Volk oder hoher Eigenschaft
   const visible = (id) => {
@@ -238,60 +306,87 @@ export function buildTalk(ctx) {
     return { kind: 'check', check: def.id, def, tag: v.tags.map((t) => `[${t}]`).join(' '), hint: v.odds, text: fill(q, c), ...extra };
   };
 
-  const nextTopic = () => {
-    const free = topics.filter((t) => !usedTopics.has(t) || t === 'geruechte');
-    let tp = pick(free.length ? free : ['wetter']);
-    if (tp === 'geruechte' && usedRumors.size >= 2) tp = pick(topics.filter((t) => t !== 'geruechte')) || 'wetter';
-    usedTopics.add(tp);
+  // Themen-Übersicht („Hub“): von hier aus wird jedes Gespräch eröffnet
+  const rumorLeft = () => RUMORS.some((x) => known(x.key) && !usedRumors.has(x.key)) && usedRumors.size < 3;
+  const hubTopics = () => topics.filter((tp) => tp !== 'persoenlich' || askedPersonal.size < 4).map((tp) => ({
+    topic: tp, label: fill(HUB[tp].label, c), text: fill(HUB[tp].q, c),
+    visited: visited.has(tp) && !(tp === 'geruechte' && rumorLeft()),
+  }));
+  // Ein Thema betreten: die Figur antwortet mit dem Einstieg, danach gibt es Folgefragen
+  const enterTopic = (tp) => {
+    visited.add(tp);
     if (tp === 'geruechte') {
       const r = pick(RUMORS.filter((x) => known(x.key) && !usedRumors.has(x.key)));
-      if (!r) { usedRumors.add('_'); return { topic: 'geruechte', text: pick(NO_RUMOR) }; }
-      usedRumors.add(r.key); return { topic: tp, text: r.line, rumor: r };
+      if (!r || usedRumors.size >= 3) { usedRumors.add('_'); return { topic: 'geruechte', text: pick(NO_RUMOR), nodes: [] }; }
+      usedRumors.add(r.key);
+      const nodes = r.follow.map(([q, a], k) => N(r.key + k, q, a, k === 0 ? [r.key + '_wer'] : [], { journal: k === 0 ? r.j : null }));
+      nodes.push(N(r.key + '_wer', 'Wer könnte mehr darüber wissen?', [`Frag mal ${r.wer}.`, `Am ehesten ${r.wer}. Ich hab es auch nur gehört.`], []));
+      for (const n of nodes) if (!n.id.endsWith('_wer')) unlocked.add(n.id);
+      return { topic: tp, text: r.line, rumor: r, nodes, child: new Set([r.key + '_wer']) };
     }
-    const line = tp === 'arbeit' ? pick(WORK[g]) : tp === 'wetter' ? `${pick(WEATHER[ctx.weather] || WEATHER.klar)} ${pick(SEASON[ctx.season] || SEASON.sommer)}` : tp === 'dorf' ? pick(VILLAGE) : tp === 'freunde' ? pick(FRIEND) : pick(WORRY);
-    return { topic: tp, text: fill(line, c) };
+    if (tp === 'persoenlich') return { topic: tp, text: fill(pick(PERS_OPEN[ctx.wesen] || PERS_OPEN.sonst), c), nodes: [] };
+    let line, nodes, check = null;
+    if (tp === 'arbeit') { line = pick(WORK[g]); nodes = WORK_TREE(g); }
+    else if (tp === 'wetter') { line = `${pick(WEATHER[ctx.weather] || WEATHER.klar)} ${pick(SEASON[ctx.season] || SEASON.sommer)}`; nodes = WETTER_TREE(); }
+    else if (tp === 'dorf') { line = pick(VILLAGE); nodes = DORF_TREE.filter((n) => !n.braucht || ctx[n.braucht]); }
+    else if (tp === 'freunde') { line = pick(FRIEND); nodes = FREUND_TREE(); }
+    else { line = worry.line; nodes = [N('s_root', 'Was bedrückt dich wirklich?', SORGEN_ASK, []), ...worry.tree]; check = worry.check || null; }
+    // Wurzeln: Knoten, die von keinem anderen freigeschaltet werden
+    const child = new Set(nodes.flatMap((n) => n.nach));
+    for (const n of nodes) if (!child.has(n.id)) unlocked.add(n.id);
+    return { topic: tp, text: fill(line, c), nodes, check, child };
   };
+  const nextTopic = () => enterTopic(pick(topics.filter((t) => !visited.has(t))) || 'wetter');
 
-  // Antwortmöglichkeiten zum aktuellen Thema – untereinander, so viele, wie Charakter und Thema hergeben
+  // Antwortmöglichkeiten: im Hub die Themen, in einem Thema dessen Folgefragen
   const options = (cur) => {
     const out = [];
-    const follow = (id, q, ans, extra = {}) => { if (!asked.has(id)) out.push({ kind: 'follow', id, text: fill(q, c), answer: fill(pick(ans), c), ...extra }); };
-    if (cur.rumor) {
-      cur.rumor.follow.forEach(([q, a], i) => follow(cur.rumor.key + i, q, a, { journal: i === 0 ? cur.rumor.j : null }));
-      for (const def of cur.rumor.checks) {
-        const d = def.j && !known(def.j[0]) ? { ...def, ok: `Ehrlich? Mehr weiß ich darüber nicht. Frag mal ${cur.rumor.wer}.`, j: null } : def;
-        const o = checkOpt(d); if (o) out.push(o);
-      }
-    } else if (cur.topic === 'arbeit') {
-      follow('need', 'Was brauchst du am dringendsten?', NEED[g]);
-      const wc = WORK_CHECK[g]; for (const def of [wc, wc.alt].filter(Boolean)) { const o = checkOpt(def); if (o) out.push(o); }
-    } else if (cur.topic === 'persoenlich') {
+    const ab = ctx.abmachung;
+    const dealOpts = () => {
+      if (ab && ab.status === 'wartet_holz') out.push({ kind: 'deliver', tag: '[Abmachung]', text: `Hier ist das Holz für ${ab.titel}.`, hint: `${ab.holz} Holz – du hast ${Math.floor(ctx.holz ?? 0)}` });
+      if (ab && ab.status === 'in_arbeit' && !asked.has('stand')) out.push({ kind: 'follow', id: 'stand', tag: '[Abmachung]', text: `Wie kommst du mit ${ab.titel} voran?`, answer: fill(pick(['Gut! {fertig} ist es fertig, versprochen.', 'Läuft. Ich arbeite jeden Tag daran – {fertig} kannst du es dir ansehen.']), { ...c, fertig: ctx.whenText?.(ab.faellig_at) || 'Bald' }) });
+      if (!ab) for (const d of (ctx.deals || []).slice(0, 2)) out.push({ kind: 'deal', tag: '[Auftrag]', vorlage: d.id, text: `Könntest du ${d.titel} anfertigen?`, hint: d.holz ? `${d.holz} Holz, ca. ${d.dauer_h} Std.` : `ca. ${d.dauer_h} Std.` });
+    };
+    if (!cur) {
+      for (const h of hubTopics()) out.push({ kind: 'enter', topic: h.topic, label: h.label, text: h.text, visited: h.visited });
+      dealOpts();
+      if (cold) for (const def of COLD_CHECKS) { const o = checkOpt(def); if (o) out.push(o); }
+      return out;
+    }
+    for (const n of cur.nodes || []) {
+      if (asked.has(n.id) || !unlocked.has(n.id)) continue;
+      out.push({ kind: 'follow', id: n.id, text: fill(n.q, c), answer: fill(pick(n.a), c), nach: n.nach, journal: n.journal || null, deeper: !!cur.child?.has(n.id) });
+    }
+    if (cur.rumor) for (const def of cur.rumor.checks) {
+      const d = def.j && !known(def.j[0]) ? { ...def, ok: `Ehrlich? Mehr weiß ich darüber nicht. Frag mal ${cur.rumor.wer}.`, j: null } : def;
+      const o = checkOpt(d); if (o) out.push(o);
+    }
+    if (cur.topic === 'arbeit') { const wc = WORK_CHECK[g]; for (const def of [wc, wc.alt].filter(Boolean)) { const o = checkOpt(def); if (o) out.push(o); } dealOpts(); }
+    if (cur.topic === 'persoenlich') {
       for (const [k, q] of Object.entries(PERS_Q)) if (!askedPersonal.has(k)) out.push({ kind: 'personal', what: k, text: q });
       if (!askedPersonal.has('geheimnis')) { const o = checkOpt(GEHEIM_CHECK); if (o) out.push(o); }
-    } else if (cur.topic === 'sorgen') {
-      follow('sorgen', 'Was bedrückt dich wirklich?', SORGEN_ASK);
-      for (const def of SORGEN_CHECKS) { const o = checkOpt(def); if (o) out.push(o); }
-    } else if (cur.topic === 'dorf') {
-      follow('dorf', 'Was fehlt dem Dorf deiner Meinung nach?', DORF_ASK);
-      const o = checkOpt(DORF_CHECK); if (o) out.push(o);
-    } else if (cur.topic === 'wetter' && (ctx.herkunft === 'waldlaeufer' || ctx.race === 'elf')) {
+    }
+    if (cur.topic === 'sorgen') { for (const def of [...SORGEN_CHECKS, cur.check].filter(Boolean)) { const o = checkOpt(def); if (o) out.push(o); } }
+    if (cur.topic === 'dorf') { const o = checkOpt(DORF_CHECK); if (o) out.push(o); }
+    if (cur.topic === 'wetter' && (ctx.herkunft === 'waldlaeufer' || ctx.race === 'elf')) {
       const o = checkOpt({ id: 'spuren', q: 'Riechst du das? Der Wind dreht. Morgen schlägt das Wetter um.', ok: 'Tatsächlich … jetzt, wo du es sagst. Du hast feine Sinne.', fail: 'Ich rieche nur den Misthaufen.' }); if (o) out.push(o);
     }
-    // Abmachungen: Holz liefern, nach dem Stand fragen, neue Aufträge vergeben
-    const ab = ctx.abmachung;
-    if (ab && ab.status === 'wartet_holz') out.unshift({ kind: 'deliver', tag: '[Abmachung]', text: `Hier ist das Holz für ${ab.titel}.`, hint: `${ab.holz} Holz – du hast ${Math.floor(ctx.holz ?? 0)}` });
-    if (ab && ab.status === 'in_arbeit' && !asked.has('stand')) out.unshift({ kind: 'follow', id: 'stand', tag: '[Abmachung]', text: `Wie kommst du mit ${ab.titel} voran?`, answer: fill(pick(['Gut! {fertig} ist es fertig, versprochen.', 'Läuft. Ich arbeite jeden Tag daran – {fertig} kannst du es dir ansehen.']), { ...c, fertig: ctx.whenText?.(ab.faellig_at) || 'Bald' }) });
-    if (!ab && cur.topic !== 'sorgen') for (const d of (ctx.deals || []).slice(0, 2)) out.push({ kind: 'deal', tag: '[Auftrag]', vorlage: d.id, text: `Könntest du ${d.titel} anfertigen?`, hint: d.holz ? `${d.holz} Holz, ca. ${d.dauer_h} Std.` : `ca. ${d.dauer_h} Std.` });
-    if (cold) for (const def of COLD_CHECKS) { const o = checkOpt(def); if (o) out.push(o); }
-    // Tonfall – drei zufällige
-    const tones = ['freundlich', 'loben', 'scherzen', 'helfen', 'fragen', 'kritisieren'].sort(() => Math.random() - 0.5).slice(0, 3);
-    for (const t of tones) out.push({ kind: 'tone', tone: t, tag: `[${TONE_LABEL[t]}]`, text: fill(pick(TOPIC_REPLY[cur.topic]?.[t] || OPT[t]), c) });
-    if (!personalUsed && cur.topic !== 'persoenlich') out.push({ kind: 'personal_topic', text: 'Erzähl mir etwas von dir.' });
-    out.push({ kind: 'topic', text: 'Erzähl mir etwas anderes.' });
+    if (cur.topic === 'geruechte' && rumorLeft()) out.push({ kind: 'enter', topic: 'geruechte', inline: true, text: 'Hast du noch mehr gehört?' });
+    // Haltung zeigen – höchstens zwei Mal pro Thema, damit es ein Gespräch bleibt und kein Abfragen
+    if (tonesUsed < 2) {
+      const tones = ['freundlich', 'loben', 'scherzen', 'helfen', 'fragen', 'kritisieren'].sort(() => Math.random() - 0.5).slice(0, 2);
+      for (const t of tones) out.push({ kind: 'tone', tone: t, tag: `[${TONE_LABEL[t]}]`, text: fill(pick(TOPIC_REPLY[cur.topic]?.[t] || OPT[t]), c) });
+    }
     return out;
   };
+  // Hat ein Thema noch echten Gesprächsstoff (Folgefragen, Proben)?
+  const exhausted = (cur) => !options(cur).some((o) => o.kind !== 'tone' && !(o.kind === 'enter' && o.inline));
+  const unlock = (ids) => { for (const id of ids || []) unlocked.add(id); };
+  const resetThread = () => { tonesUsed = 0; };
+  const useTone = () => { tonesUsed++; };
+  const wrap = () => fill(pick(WRAP), c);
   const markAsked = (id) => asked.add(id), markChecked = (id) => checked.add(id), markPersonal = (k) => askedPersonal.add(k);
-  const personalTopic = () => { personalUsed = true; return { topic: 'persoenlich', text: fill(pick(PERS_OPEN[ctx.wesen] || PERS_OPEN.sonst), c) }; };
+  const personalTopic = () => enterTopic('persoenlich');
   const refuse = () => fill(pick(REFUSE[ctx.wesen] || REFUSE.sonst), c);
   const checkText = (def, ok) => fill(ok ? def.ok : def.fail, c);
   const journal = (j) => (j ? { key: j[0], title: j[1], text: fill(j[2], c) } : null);
@@ -319,5 +414,5 @@ export function buildTalk(ctx) {
   const setDeal = (ab, holz) => { ctx.abmachung = ab; if (holz != null) ctx.holz = holz; ctx.deals = []; };
   const bye = (react) => fill(pick(BYE[react === 'erfreut' || react === 'freundlich' ? 'gut' : react === 'veraergert' || react === 'kuehl' ? 'schlecht' : 'mittel']), c);
   const patience = { 'treu ergeben': 10, herzlich: 9, freundlich: 7, fremd: 6, zurückhaltend: 5, misstrauisch: 4, feindselig: 2 }[ctx.stimmung] ?? 6;
-  return { opener, nextTopic, options, markAsked, markChecked, markPersonal, personalTopic, refuse, transition, dealText, setDeal, checkText, journal, reaction, bye, patience: patience + (ctx.wesen === 'gesellig' ? 2 : ctx.wesen === 'wortkarg' ? -2 : 0) };
+  return { opener, nextTopic, enterTopic, hubTopics, exhausted, unlock, resetThread, useTone, wrap, options, markAsked, markChecked, markPersonal, personalTopic, refuse, transition, dealText, setDeal, checkText, journal, reaction, bye, patience: patience + (ctx.wesen === 'gesellig' ? 2 : ctx.wesen === 'wortkarg' ? -2 : 0) };
 }

@@ -26,6 +26,10 @@ export const ICONS = {
     '................', '..oooooooooooo..', '.oPppppppppppPo.', '..opppppppppo...', '..opPPPpPPPpo...', '..oppppppppppo..',
     '..opPPpPPPPpo...', '..oppppppppppo..', '..opPPPPpPPpo...', '..oppppppppppo..', '..opPPpPPPPpo...', '..oppppppppppo..',
     '.oPppppppppppPo.', '..oooooooooooo..', '................', '................'],
+  quests: [
+    '................', '.oooooooooooooo.', '.obbbbbbbbbbbbo.', '.obpxppbbpxppbo.', '.obpPPpbbpPPpbo.', '.obppppbbppppbo.',
+    '.obpPPpbbpPPpbo.', '.obppppbbppppbo.', '.obbbbbbbbbbbbo.', '.obbbpxpppbbbbo.', '.obbbpPPPpbbbbo.', '.obbbpppppbbbbo.',
+    '.oooooooooooooo.', '...oBo....oBo...', '...oBo....oBo...', '...ooo....ooo...'],
   karte: [
     '................', '.ooooo.ooooo.oo.', '.oppmo.oppmo.oo.', '.opmMo.omMpo.oo.', '.omMmo.oppmo.oo.', '.opmpo.opxpo.oo.',
     '.oppmo.omxmo.oo.', '.omupo.oxxxo.oo.', '.ouupo.opxpo.oo.', '.ouumo.oppmo.oo.', '.opmmo.omMmo.oo.', '.oppmo.oppmo.oo.',

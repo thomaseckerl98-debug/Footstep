@@ -2,15 +2,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
 import { Scene, realMood } from './game/scene.js?v=9';
 import { openCreator } from './game/creator.js?v=3';
-import { buildTalk } from './game/dialog.js?v=4';
+import { buildTalk } from './game/dialog.js?v=5';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
-import { drawIcon } from './game/icons.js?v=1';
+import { drawIcon } from './game/icons.js?v=2';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=2';
+import { openQuest } from './game/questui.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -94,6 +94,7 @@ const MENUS = [
   { id: 'bewohner', name: 'Bewohner', tip: 'Deine Dorfbewohner, ihre Berufe und Beziehungen.' },
   { id: 'charakter', name: 'Charakter', tip: 'Dein Held: Aussehen, Fähigkeiten, Erfahrungen.' },
   { id: 'inventar', name: 'Inventar', tip: 'Ausrüstung und Gegenstände.' },
+  { id: 'quests', name: 'Quests', tip: 'Abenteuer: täglich Leicht, Mittel, Schwer – und dein eigenes, von der KI erzähltes Abenteuer.' },
   { id: 'quest', name: 'Tagebuch', tip: 'Gerüchte, Hinweise und Aufträge aus deinen Gesprächen.' },
   { id: 'karte', name: 'Karte', tip: 'Die Weltkarte mit allen Dörfern.' },
   { id: 'diplomatie', name: 'Diplomatie', tip: 'Dein Notizbuch über die Menschen im Tal: Eindrücke, Erlebtes, Gefallen.' },
@@ -200,8 +201,9 @@ function renderPanel(id) {
       body.append(p('Eigenschaften entscheiden über Antwortmöglichkeiten und Würfe in Gesprächen. Ausrüstung, Wunden und Narben folgen.', 'muted small'));
     }
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
+  } else if (id === 'quests') {
+    renderQuests(body);
   } else if (id === 'quest') {
-    renderAdventures(body);
     body.append(h3('Tagebuch'));
     body.append(p('Was du in Gesprächen erfährst, landet hier. Aus manchen Gerüchten werden Abenteuer.', 'muted small'));
     if (villageState?.auftraege?.length) {
@@ -323,13 +325,13 @@ async function startTalk(p) {
   const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
   const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map((g) => ({ nom: withArticle(g), akk: withArticleAkk(g) }));
   const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
-    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, whenText });
+    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, rivale: brief?.rivale || null, whenText });
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
   const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
   const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
   head.append(portraitCanvas(p.plan, 110), right); box.append(head);
   const opts = document.createElement('ol'); opts.className = 'dl-opts'; box.append(opts);
-  let cur = null, left = t.patience, lastReact = 'neutral', busy = false, ideas = [], spoken = 0, aiUsed = 0, closed = false;
+  let cur = null, left = t.patience + 6, lastReact = 'neutral', busy = false, ideas = [], spoken = 0, aiUsed = 0, closed = false;
   const history = [], highlights = [];
   const say = (who, text, cls) => { const el = document.createElement('p'); el.className = cls || who; el.textContent = text; log.append(el); log.scrollTop = log.scrollHeight; if (who === 'me' || who === 'npc') history.push({ wer: who === 'me' ? 'ich' : 'npc', text }); if (who === 'me') spoken++; };
   const note = (html) => { const el = document.createElement('p'); el.className = 'note'; el.innerHTML = html; log.append(el); log.scrollTop = log.scrollHeight; };
@@ -340,7 +342,7 @@ async function startTalk(p) {
     if (online && spoken >= 2) writeEncounterNote(p, history, highlights, spoken, aiUsed);
   };
   const finish = (react) => { opts.innerHTML = ''; setTimeout(() => { say('npc', t.bye(react)); const li = document.createElement('li'); li.append(btn('Gespräch beenden', false, end)); opts.append(li); }, 600); };
-  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-opt:not(:disabled)')[n - 1]?.click(); if (e.key === 'Escape') end(); };
+  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-topic, button.dl-opt:not(:disabled)')[n - 1]?.click(); if (e.key === 'Escape') end(); };
   document.addEventListener('keydown', onKey);
   const addJournal = async (j) => {
     if (!j) return; journalLocal.set(j.key, { ...j, npc: p.name, kind: 'geruecht', status: 'offen' }); highlights.push(`Ich habe etwas erfahren: ${j.title}.`);
@@ -353,19 +355,39 @@ async function startTalk(p) {
     return { reaktion: { freundlich: 'freundlich', loben: 'erfreut', scherzen: Math.random() < 0.5 ? 'erfreut' : 'kuehl', helfen: 'erfreut', fragen: 'freundlich', kritisieren: 'kuehl' }[tn] };
   };
   const apply = (res) => { if (!res) return; if (res.reaktion) lastReact = p.lastReact = res.reaktion; if (res.stimmung) p.stimmung = res.stimmung; if (res.erinnerung) p.erinnerung = res.erinnerung; };
-  const after = () => { left--; busy = false; if (left <= 0 || lastReact === 'veraergert' || lastReact === 'kurz') return finish(lastReact); offer(); };
+  const after = () => {
+    left--; busy = false; if (left <= 0 || lastReact === 'veraergert' || lastReact === 'kurz') return finish(lastReact);
+    // Ist ein Thema ausgeschöpft, rundet die Figur es ab und es geht zurück zur Themen-Übersicht
+    if (cur && t.exhausted(cur)) { busy = true; setTimeout(() => { say('npc', t.wrap()); cur = null; busy = false; offer(); }, 650); return; }
+    offer();
+  };
   const item = (o, i) => {
-    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.kind === 'check' ? ' check' : o.kind === 'free' || o.kind === 'idea' ? ' free' : '') + (o.off ? ' off' : '');
-    b.innerHTML = `<span class="num">${o.off ? '–' : i + 1 + '.'}</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}${o.why ? `<span class="why">${esc(o.why)}</span>` : ''}`;
+    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.kind === 'check' ? ' check' : o.kind === 'free' || o.kind === 'idea' ? ' free' : '') + (o.kind === 'hub' ? ' back' : '') + (o.kind === 'bye' ? ' bye' : '') + (o.deeper ? ' deeper' : '') + (o.off ? ' off' : '');
+    b.innerHTML = `<span class="num">${o.off ? '–' : i + 1 + '.'}</span> ${o.deeper ? '<span class="arrow">↳</span> ' : ''}${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}${o.why ? `<span class="why">${esc(o.why)}</span>` : ''}`;
     if (o.off) b.disabled = true; else b.onclick = () => { if (!busy) choose(o); };
     li.append(b); return li;
+  };
+  const topicCard = (o, i) => {
+    const li = document.createElement('li'); li.className = 'dl-topic-li'; const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-topic' + (o.visited ? ' visited' : '');
+    b.innerHTML = `<span class="num">${i + 1}</span><span class="tl">${esc(o.label)}</span><span class="tq">${esc(o.text)}</span>${o.visited ? '<span class="tv">besprochen</span>' : ''}`;
+    b.onclick = () => { if (!busy) choose(o); }; li.append(b); return li;
   };
   const offer = () => {
     opts.innerHTML = '';
     const list = t.options(cur);
     if (aiState.verfuegbar) for (const idea of ideas) list.unshift({ kind: 'idea', tag: '[Idee · 1 Inspiration]', text: idea });
     let n = 0;
-    for (const o of list) opts.append(item(o, n++));
+    const head = document.createElement('li'); head.className = 'dl-section';
+    if (!cur) {
+      head.textContent = 'Worüber möchtest du reden?'; opts.append(head);
+      const grid = document.createElement('li'); grid.className = 'dl-topics'; const ul = document.createElement('ul'); grid.append(ul); opts.append(grid);
+      for (const o of list.filter((x) => x.kind === 'enter')) ul.append(topicCard(o, n++));
+      for (const o of list.filter((x) => x.kind !== 'enter')) opts.append(item(o, n++));
+    } else {
+      head.innerHTML = `Thema: <b>${esc(t.hubTopics().find((h) => h.topic === cur.topic)?.label || '')}</b>`; opts.append(head);
+      for (const o of list) opts.append(item(o, n++));
+      opts.append(item({ kind: 'hub', text: 'Über etwas anderes reden …' }, n++));
+    }
     if (online) {
       const insp = typeof aiState.rest === 'number' ? ` · Inspiration ${aiState.rest}/${aiState.max || 10}` : '';
       if (aiState.verfuegbar) opts.append(item({ kind: 'free', tag: `[Eigene Worte${insp}]`, text: 'Selbst etwas sagen …' }, n++));
@@ -414,7 +436,11 @@ async function startTalk(p) {
     if (o.kind === 'free') return freeForm();
     if (o.kind === 'idea') return freeSay(o.text);
     busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', o.text);
-    if (o.kind === 'topic') { cur = t.nextTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
+    if (o.kind === 'hub') { cur = null; setTimeout(() => { busy = false; offer(); }, 250); return; }
+    if (o.kind === 'enter') {
+      cur = t.enterTopic(o.topic); t.resetThread();
+      setTimeout(() => { say('npc', cur.text); busy = false; if (t.exhausted(cur) && cur.topic === 'geruechte') { cur = null; } offer(); }, 500); return;
+    }
     if (o.kind === 'deal' || o.kind === 'deliver') {
       let r = { ok: false, grund: 'offline' };
       if (online) { const { data, error } = o.kind === 'deal' ? await db.rpc('create_deal', { p_npc: p.id, p_vorlage: o.vorlage }) : await db.rpc('deliver_deal', { p_deal: brief.abmachung.id }); if (!error && data) r = data; else if (error) console.warn('Abmachung:', error.message); }
@@ -429,10 +455,9 @@ async function startTalk(p) {
         after();
       }, 600); return;
     }
-    if (o.kind === 'personal_topic') { cur = t.personalTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
     if (o.kind === 'personal') { apply(await tone('fragen', 'persoenlich')); setTimeout(async () => { await personal(o.what); after(); }, 500); return; }
     if (o.kind === 'follow') {
-      t.markAsked(o.id); apply(await tone('fragen', cur?.topic));
+      t.markAsked(o.id); t.unlock(o.nach); apply(await tone('fragen', cur?.topic));
       setTimeout(async () => { say('npc', o.answer); if (o.journal) await addJournal(t.journal(o.journal)); after(); }, 500); return;
     }
     if (o.kind === 'check') {
@@ -446,15 +471,16 @@ async function startTalk(p) {
         after();
       }, 700); return;
     }
-    const r = await tone(o.tone, cur?.topic); apply(r);
-    setTimeout(() => { say('npc', t.reaction(r.reaktion, o.tone, cur?.topic)); if (left > 1 && r.reaktion !== 'veraergert' && r.reaktion !== 'kurz') { cur = t.nextTopic(); setTimeout(() => say('npc', t.transition(cur.text)), 700); setTimeout(after, 750); } else after(); }, 450);
+    t.useTone(); const r = await tone(o.tone, cur?.topic); apply(r);
+    setTimeout(() => { say('npc', t.reaction(r.reaktion, o.tone, cur?.topic)); after(); }, 450);
   };
   say('npc', t.opener());
   // Hat die Figur etwas über dich gehört? Dann spricht sie es vielleicht an.
   const heard = brief?.gehoert?.[0];
   if (heard && Math.random() < 0.6) setTimeout(() => say('npc', `Ich hab da was gehört … ${heard} Stimmt das?`), 300);
-  cur = t.nextTopic(); busy = true; setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, heard ? 1100 : 600);
+  cur = null; busy = true; setTimeout(() => { busy = false; offer(); }, heard ? 900 : 400);
 }
+if (location.hostname === 'localhost') window.__dev = { startTalk: (i = 0) => startTalk(scene.village.people.filter((q) => q.id)[i]), scene: () => scene };
 let aiState = { verfuegbar: true };
 let villageState = null, layoutSynced = false, layoutTimer = 0;
 // „Morgen früh“, „heute gegen 18 Uhr“ … aus einem Zeitpunkt
@@ -514,12 +540,110 @@ let questWin = null;
 function launchQuest(view) {
   closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
   questWin = openQuest({ db, box: $('questbox'), view, heroPlan: planFromLook(me?.look, me?.name), companionCv, CHECKS, ATTRS,
-    onClose: (changed) => { questWin = null; if (changed) loadVillageState(); if (active === 'quest' || active === 'inventar') renderPanel(active); } });
+    onClose: (changed) => { questWin = null; if (changed) loadVillageState(); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
 }
 async function resumeQuest(run) {
   const { data, error } = await db.rpc('quest_view', { p_run: run });
   if (error) { console.warn('Quest:', error.message); return; }
   launchQuest(data);
+}
+// Begleiter-Auswahl (höchstens zwei, wer eine Rolle spielt, kann nicht mit)
+function companionPicker(list, blocked = new Set()) {
+  const pick = document.createElement('div'); pick.className = 'pick'; const chosen = new Set();
+  pick.append(p('Wer kommt mit? (höchstens zwei – passende Berufe helfen bei Proben)', 'muted small'));
+  for (const b of list) {
+    const ok = b.bereit && !blocked.has(b.id);
+    const l = document.createElement('label'); l.className = 'pick-row' + (ok ? '' : ' off');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.disabled = !ok;
+    cb.onchange = () => { if (cb.checked) { if (chosen.size >= 2) { cb.checked = false; return; } chosen.add(b.id); } else chosen.delete(b.id); };
+    const t = document.createElement('span'); t.innerHTML = `${esc(b.name)} <span class="muted">· ${esc(b.beruf)} · ${esc(b.stimmung)}</span>${blocked.has(b.id) ? ' <span class="muted">(spielt in der Geschichte mit)</span>' : b.bereit ? '' : ' <span class="muted">(will nicht mit)</span>'}`;
+    l.append(cb, t); pick.append(l);
+  }
+  return { el: pick, chosen };
+}
+const SLOT = { einfach: ['Leicht', 'q-leicht'], mittel: ['Mittel', 'q-mittel'], schwer: ['Schwer', 'q-schwer'], individuell: ['Individuell', 'q-indiv'] };
+function renderQuests(body) {
+  const wrap = document.createElement('div'); wrap.className = 'adventures'; wrap.append(p('…', 'muted small')); body.append(wrap);
+  Promise.all([db.rpc('quest_board'), db.rpc('quest_list')]).then(([b, l]) => {
+    wrap.innerHTML = '';
+    if (b.error || l.error) { wrap.append(p('Konnte die Quests nicht laden.', 'error')); return; }
+    const board = b.data, list = l.data;
+    if (list.laufend) {
+      const run = (board.angebote || []).find((o) => o.run === list.laufend.run);
+      const q = list.quests.find((x) => x.id === list.laufend.quest);
+      const card = document.createElement('div'); card.className = 'adv adv-run';
+      card.innerHTML = `<b>Unterwegs: ${esc(list.laufend.titel || run?.titel || q?.titel || 'ein Abenteuer')}</b>`;
+      card.append(row(btn('Weiterspielen', true, () => resumeQuest(list.laufend.run)), btn('Abbrechen', false, async () => { await db.rpc('quest_abort', { p_run: list.laufend.run }); renderPanel('quests'); })));
+      wrap.append(card);
+    }
+    wrap.append(h3('Heute am Brett'));
+    wrap.append(p(`Jeden Tag neu (ab Mitternacht). Die Geschichten spielen mit echten Bewohnern deines Dorfes – was du tust, merken sie sich.`, 'muted small'));
+    for (const o of board.angebote.filter((x) => x.slot !== 'individuell')) {
+      const [lab, cls] = SLOT[o.slot];
+      const card = document.createElement('div'); card.className = 'adv ' + cls;
+      card.innerHTML = `<span class="q-slot">${lab}</span> <b>${esc(o.titel)}</b>${o.status === 'erledigt' ? ' <span class="muted small">· erledigt</span>' : o.status === 'angenommen' ? ' <span class="muted small">· läuft</span>' : ''}<br><span class="small">${esc(o.kurz)}</span><br><span class="muted small">Beteiligt: ${o.rollen.map((r) => `${esc(r.name)} (${esc(r.beruf)})`).join(', ')}</span>`;
+      if (o.status === 'offen' && !list.laufend) {
+        const open = btn('Ansehen', false, () => {
+          open.remove();
+          const pk = companionPicker(list.begleiter, new Set(o.rollen.map((r) => r.id))); const msg = p('', 'small error');
+          card.append(pk.el, row(btn('Aufbrechen', true, async () => {
+            const { data: r, error: e } = await db.rpc('quest_take', { p_angebot: o.id, p_begleiter: [...pk.chosen] });
+            if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
+            launchQuest(r.view);
+          })), msg);
+        });
+        card.append(row(open));
+      }
+      wrap.append(card);
+    }
+    // Eigenes Abenteuer (KI)
+    const ind = board.angebote.find((x) => x.slot === 'individuell');
+    wrap.append(h3('Individuell'));
+    const ic = document.createElement('div'); ic.className = 'adv q-indiv';
+    if (ind && ind.status !== 'fehlgeschlagen') {
+      ic.innerHTML = `<span class="q-slot">Individuell</span> <b>${esc(ind.titel)}</b><br><span class="small">Ziel: ${esc(ind.ziel || '')}</span><br><span class="muted small">${ind.status === 'erledigt' ? 'Heute schon erlebt. Morgen kannst du ein neues Ziel setzen.' : ind.status === 'wird_geschrieben' ? 'Die Geschichte wird gerade geschrieben …' : 'Läuft.'}</span>`;
+    } else {
+      ic.innerHTML = `<span class="q-slot">Individuell</span> <b>Dein eigenes Abenteuer</b><br><span class="small">Setz dir ein Ziel – die KI baut daraus eine Geschichte mit Wendungen, Entscheidungen und Folgen, während du aufbrichst. Einmal pro Tag.</span>`;
+      const ta = document.createElement('textarea'); ta.className = 'q-goal'; ta.maxLength = 200; ta.rows = 2; ta.placeholder = 'z. B. „Ein Bündnis mit dem Dorf am Fluss schließen“ oder „Herausfinden, was mit Bruns Tochter ist“';
+      ic.append(ta);
+      if (list.laufend) ic.append(p('Erst das laufende Abenteuer beenden.', 'muted small'));
+      else {
+        const pk = companionPicker(list.begleiter); const msg = p('', 'small error');
+        ic.append(pk.el, row(btn('Abenteuer erschaffen', true, async () => {
+          const ziel = ta.value.trim(); if (ziel.length < 8) { msg.textContent = 'Beschreib dein Ziel in ein paar Worten.'; return; }
+          msg.textContent = '';
+          const { data: r, error: e } = await db.rpc('quest_custom_start', { p_ziel: ziel, p_begleiter: [...pk.chosen] });
+          if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
+          launchQuest(r.view);
+          db.functions.invoke('quest-weaver', { body: { run: r.view.run } }).then(({ data: w, error: we }) => {
+            if (we || !w?.ok) console.warn('Quest-Weber:', we?.message || w?.grund);
+          });
+        })), msg);
+      }
+    }
+    wrap.append(ic);
+    // Größere Geschichten
+    if (list.quests.length) {
+      wrap.append(h3('Geschichten'));
+      for (const q of list.quests) {
+        const card = document.createElement('div'); card.className = 'adv';
+        card.innerHTML = `<b>${esc(q.titel)}</b>${q.erledigt ? ' <span class="muted small">· schon erlebt</span>' : ''}<br><span class="small">${esc(q.beschreibung)}</span>`;
+        if (!q.offen) { card.append(p(q.hinweis ? `Du weißt noch zu wenig darüber. Vielleicht erzählen dir ${q.hinweis} mehr.` : 'Du weißt noch zu wenig darüber.', 'muted small')); wrap.append(card); continue; }
+        if (!list.laufend) {
+          const open = btn('Ansehen', false, () => {
+            open.remove(); const pk = companionPicker(list.begleiter); const msg = p('', 'small error');
+            card.append(pk.el, row(btn(q.erledigt ? 'Nochmal erleben (Testphase)' : 'Aufbrechen', true, async () => {
+              const { data: r, error: e } = await db.rpc('quest_start', { p_quest: q.id, p_begleiter: [...pk.chosen] });
+              if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
+              launchQuest(r.view);
+            })), msg);
+          });
+          card.append(row(open));
+        }
+        wrap.append(card);
+      }
+    }
+  });
 }
 function renderAdventures(body) {
   body.append(h3('Abenteuer'));

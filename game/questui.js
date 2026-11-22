@@ -130,6 +130,19 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
       };
       tick(); tickTimer = setInterval(tick, 500); return;
     }
+    // Eigenes Abenteuer: Die Erzählerin schreibt noch – kurz warten und dann von selbst weitermachen
+    if (v.szene === '__ki_start' && v.quest === 'Eigenes Abenteuer') {
+      const st = document.createElement('p'); st.className = 'small q-travel'; st.textContent = 'Die Geschichte nimmt Gestalt an …'; foot.append(st);
+      const poll = async () => {
+        if (closed) return;
+        const { data } = await db.rpc('quest_view', { p_run: v.run });
+        if (closed) return;
+        if (data && (data.quest !== 'Eigenes Abenteuer' || data.szene !== '__ki_start')) { v = data; v.letztes = data.letztes && data.letztes.text ? data.letztes : null; render(!v.letztes); return; }
+        autoTimer = setTimeout(poll, 4000);
+      };
+      autoTimer = setTimeout(poll, 3000);
+      return;
+    }
     v.optionen.forEach((o, i) => {
       const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.probe ? ' check' : '');
       b.innerHTML = `<span class="num">${i + 1}.</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}`;
