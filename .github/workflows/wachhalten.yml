@@ -1,0 +1,19 @@
+# Hält das kostenlose Supabase-Projekt aktiv (Supabase pausiert Projekte nach einer Woche ohne Aktivität).
+# Ruft alle 2 Tage die harmlose Funktion ping() auf – mit dem öffentlichen (publishable) Schlüssel aus config.js.
+name: Datenbank wachhalten
+on:
+  schedule:
+    - cron: '17 6 */2 * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Supabase anpingen
+        run: |
+          URL=$(sed -n "s/.*SUPABASE_URL = '\([^']*\)'.*/\1/p" config.js)
+          KEY=$(sed -n "s/.*SUPABASE_ANON_KEY = '\([^']*\)'.*/\1/p" config.js)
+          curl -fsS -X POST "$URL/rest/v1/rpc/ping" -H "apikey: $KEY" -H "Content-Type: application/json" -d '{}'
