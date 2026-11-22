@@ -30,6 +30,7 @@ function setMode(next) {
 }
 function showMsg(id, text, type = '') { const el = $(id); el.textContent = text; el.className = 'msg ' + type; }
 $('tab-login').onclick = () => setMode('login');
+$('pw-toggle').onclick = () => { const i = $('password'), show = i.type === 'password'; i.type = show ? 'text' : 'password'; const b = $('pw-toggle'); b.textContent = show ? 'Verbergen' : 'Zeigen'; b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Passwort verbergen' : 'Passwort anzeigen'); b.title = b.getAttribute('aria-label'); i.focus(); };
 $('tab-register').onclick = () => setMode('register');
 $('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -335,12 +336,13 @@ async function startTalk(p) {
   const offer = () => {
     opts.innerHTML = '';
     const list = t.options(cur);
-    if (aiState.verfuegbar) for (const idea of ideas) list.unshift({ kind: 'idea', tag: '[Idee]', text: idea });
+    if (aiState.verfuegbar) for (const idea of ideas) list.unshift({ kind: 'idea', tag: '[Idee · 1 Inspiration]', text: idea });
     let n = 0;
     for (const o of list) opts.append(item(o, n++));
     if (online) {
-      if (aiState.verfuegbar) opts.append(item({ kind: 'free', tag: '[Eigene Worte]', text: 'Selbst etwas sagen …' }, n++));
-      else opts.append(item({ kind: 'free', off: true, tag: '[Eigene Worte]', text: 'Selbst etwas sagen …', why: aiWhy(aiState) }, n));
+      const insp = typeof aiState.rest === 'number' ? ` · Inspiration ${aiState.rest}/${aiState.max || 10}` : '';
+      if (aiState.verfuegbar) opts.append(item({ kind: 'free', tag: `[Eigene Worte${insp}]`, text: 'Selbst etwas sagen …' }, n++));
+      else opts.append(item({ kind: 'free', off: true, tag: `[Eigene Worte${insp}]`, text: 'Selbst etwas sagen …', why: aiWhy(aiState) }, n));
     }
     opts.append(item({ kind: 'bye', text: 'Verabschieden.' }, n));
   };
@@ -360,11 +362,11 @@ async function startTalk(p) {
       if (error) console.warn('KI:', error.message); else res = data;
     } catch (e) { console.warn('KI:', e); }
     if (!res || res.fallback || !res.antwort) {
-      if (res && ['gemini_limit', 'tageslimit'].includes(res.grund) && !res.kurz) aiState = { verfuegbar: false, grund: res.grund, bis: res.bis };
+      if (res && ['gemini_limit', 'tageslimit', 'inspiration'].includes(res.grund) && !res.kurz) aiState = { ...aiState, verfuegbar: false, ki: res.grund === 'inspiration', grund: res.grund, bis: res.bis, rest: res.grund === 'inspiration' ? 0 : aiState.rest };
       note(`<span class="muted">(${esc(aiWhy(res || {}))} – ${esc(p.name)} antwortet aus dem Bauch heraus)</span>`);
       const r = await tone('fragen', cur?.topic); apply(r); say('npc', t.reaction(r.reaktion)); return after();
     }
-    aiUsed++; if (typeof res.rest === 'number') aiState.rest = res.rest;
+    aiUsed++; if (typeof res.rest === 'number') { aiState.rest = res.rest; if (res.rest <= 0) aiState = { ...aiState, verfuegbar: false, ki: true, grund: 'inspiration', bis: null }; }
     if (res.probe) { note(rollLine(res.probe)); highlights.push(res.probe.erfolg ? `Mein Versuch (${CHECKS[res.probe.id]?.name}) gelang.` : `Mein Versuch (${CHECKS[res.probe.id]?.name}) ging daneben.`); }
     apply(res); say('npc', res.antwort);
     if (res.zusage) { note(`Zusage: <b>${esc(res.zusage.text)}</b> <span class="muted">(im Notizbuch unter Diplomatie)</span>`); highlights.push(`${p.name} hat mir etwas zugesagt: ${res.zusage.text}.`); }
@@ -456,18 +458,19 @@ function aiWhy(st) {
   if (st.grund === 'gemini_limit' && st.bis) return `KI-Kontingent erschöpft – bis ca. ${clock(st.bis)} Uhr nur vorgegebene Antworten`;
   if (st.grund === 'gemini_limit') return 'KI gerade ausgelastet – kurz warten';
   if (st.grund === 'gemini_ueberlastet') return 'Googles KI ist gerade überlastet – gleich nochmal versuchen';
-  if (st.grund === 'tageslimit') return `Deine 60 freien Antworten für heute sind verbraucht – ab ca. ${clock(st.bis)} Uhr wieder`;
+  if (st.grund === 'inspiration') return 'Deine 10 Inspirationen für heute sind verbraucht – ab Mitternacht wieder';
+  if (st.grund === 'tageslimit') return 'Für heute genug KI genutzt – ab Mitternacht wieder';
   if (st.grund === 'kein_schluessel') return 'KI noch nicht eingerichtet';
   if (st.grund === 'zu_schnell') return 'kurz durchatmen';
   return 'KI gerade nicht erreichbar';
 }
 // Nach jedem Gespräch: eine Notiz ins Notizbuch über diese Person (mit KI persönlich formuliert, sonst aus den Höhepunkten)
 async function writeEncounterNote(p, history, highlights, spoken, aiUsed) {
-  if (aiState.verfuegbar && (aiUsed > 0 || spoken >= 4)) {
+  if (aiState.ki !== false && (aiUsed > 0 || spoken >= 4)) {
     try {
       const { data } = await db.functions.invoke('npc-talk', { body: { modus: 'abschluss', npc: p.id, verlauf: history.slice(-16) } });
       if (data?.notiz) return;
-      if (data?.grund && ['gemini_limit', 'tageslimit'].includes(data.grund) && data.bis) aiState = { verfuegbar: false, grund: data.grund, bis: data.bis };
+      if (data?.grund && ['gemini_limit', 'tageslimit'].includes(data.grund) && data.bis) aiState = { ...aiState, verfuegbar: false, ki: false, grund: data.grund, bis: data.bis };
     } catch (e) { console.warn('Notiz:', e); }
   }
   const mood = { 'treu ergeben': 'Ich spüre, dass ich mich auf ' + p.name + ' verlassen kann.', herzlich: 'Ich hatte ein gutes Gefühl dabei.', freundlich: 'Ein angenehmes Gespräch.', zurückhaltend: p.name + ' blieb mir gegenüber reserviert.', misstrauisch: p.name + ' traut mir nicht über den Weg.', feindselig: p.name + ' war offen feindselig.' }[p.stimmung] || '';
@@ -619,6 +622,6 @@ async function startGame() {
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';
 }
-function stopGame() { $('game').hidden = true; $('auth-screen').hidden = false; $('password').value = ''; $('gear-menu').hidden = true; }
+function stopGame() { $('game').hidden = true; $('auth-screen').hidden = false; $('password').value = ''; $('password').type = 'password'; $('pw-toggle').textContent = 'Zeigen'; $('pw-toggle').setAttribute('aria-pressed', 'false'); $('gear-menu').hidden = true; }
 db.auth.onAuthStateChange((_e, session) => { if (session) { if ($('game').hidden) startGame(); } else stopGame(); });
 setMode('login');

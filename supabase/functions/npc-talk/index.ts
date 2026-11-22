@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
 
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) return json({ fallback: true, grund: "kein_schluessel" });
-  const q = await db.rpc("ai_take_quota");
+  const q = await db.rpc("ai_take_quota", { p_art: mode === "abschluss" ? "notiz" : "inspiration" });
   if (q.error) return json({ error: q.error.message }, 401);
   if (!q.data?.ok) return json({ fallback: true, grund: q.data?.grund || "limit", bis: q.data?.bis || null });
   const rest = q.data.rest;
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
   const user = `${ctxText}\nBisheriges Gespräch:\n${verlauf.join("\n") || "(Beginn)"}\n<held>${text}</held>`;
   const schema = JSON.parse(JSON.stringify(SCHEMA)); schema.properties.auftrag = { type: "STRING", enum: [...opts.map((o) => o.id), "keiner"], description: "Nur wenn der Held die Figur um eine dieser Arbeiten bittet (oder sie selbst anbietet) und sie zusagt: die id aus auftrag_optionen. Sonst 'keiner'." }; schema.required.push("auftrag");
   const g = await gemini(key, RULES, user, schema, 0.9, db, token);
-  if (g.error) return json({ fallback: true, grund: g.error, bis: (g as any).bis || null, kurz: (g as any).kurz || false });
+  if (g.error) { await db.rpc("ai_refund", { p_token: token }); return json({ fallback: true, grund: g.error, bis: (g as any).bis || null, kurz: (g as any).kurz || false, erstattet: true }); }
   const out = g.data;
 
   const res: any = { antwort: clip(out.antwort, 500), vorschlaege: (out.vorschlaege || []).slice(0, 3).map((s: any) => clip(s, 140)).filter(Boolean), rest };
