@@ -1,0 +1,85 @@
+# Folge-Quest "Medizin für Lene" (nach der Mine, wenn Brun überlebt hat). Erzeugt quests/lene.json.
+import json
+HEIL = ['Heilerin', 'Kräuterfrau', 'Alchemist']
+S = {}
+S['aufbruch'] = {'ort': 'dorf', 'text': 'Erzklamm liegt einen halben Tagesmarsch hinter dem Pass, dort, wo das Tal eng wird und die Hänge grau sind vom Abraum. Irgendwo dort wartet Brun – und Lene. Du packst {mit} das Nötigste.', 'optionen': [
+  {'text': 'Über den Pass gehen', 'weiter': 'reise'},
+  {'text': 'Vorher Kräuter und Tücher einpacken', 'wenn': {'item': 'kraeutertasche'}, 'weiter': 'reise', 'folgen': {'flag': ['kraeuter']}, 'ergebnis': 'In deiner Kräutertasche klappern Fläschchen und getrocknete Bündel.'}]}
+S['reise'] = {'ort': 'wald', 'text': 'Der Weg führt über den Pass, vorbei am verschütteten Eingang der Mine. Danach wird der Wald lichter, die Bäume krumm, der Boden grau.', 'reise': {'minuten': 3, 'weiter': 'erzklamm', 'begegnung': {'chance': 0.5, 'szenen': ['b_kumpel', 'b_karren']}}}
+S['b_kumpel'] = {'ort': 'wald', 'text': 'Am Wegrand hocken drei ausgemergelte Männer mit Hacken über der Schulter. „Nach Erzklamm? Da gibt’s nichts mehr. Außer Husten.“ Einer mustert dein Bündel.', 'optionen': [
+  {'text': 'Brot mit ihnen teilen', 'weiter': 'erzklamm', 'ergebnis': 'Sie essen schweigend. Dann sagt der Älteste: „Bruns Hütte ist die letzte am Bach. Grüß ihn. Er ist ein guter Kerl.“', 'folgen': {'flag': ['weg_bekannt'], 'dorf': {'nahrung': -2}}},
+  {'text': 'Weitergehen, die Hand am Gürtel', 'tag': '[Einschüchtern]', 'probe': {'id': 'einschuechtern', 'dc': 10},
+   'erfolg': {'text': 'Sie sehen weg. Niemand folgt dir.', 'weiter': 'erzklamm'},
+   'misserfolg': {'text': 'Einer steht auf, setzt sich aber wieder, als er sieht, dass du nicht allein bist – oder es zumindest so aussieht.', 'weiter': 'erzklamm'}}]}
+S['b_karren'] = {'ort': 'wald', 'text': 'Ein Karren steckt mit gebrochener Achse im Schlamm. Eine Frau zerrt fluchend an einem Maultier. Auf dem Karren: Säcke mit Kohle.', 'optionen': [
+  {'text': 'Mit anpacken', 'tag': '[Anpacken]', 'probe': {'id': 'anpacken', 'dc': 11},
+   'erfolg': {'text': 'Mit vereinten Kräften hebt ihr den Karren aus dem Loch. Die Frau wischt sich die Hände ab. „Die Kohle ist für den Heiler in Erzklamm. Oswin. Pass auf bei dem – er nimmt mehr, als er gibt.“', 'folgen': {'flag': ['oswin_warnung']}, 'weiter': 'erzklamm'},
+   'misserfolg': {'text': 'Der Karren rührt sich kaum. Am Ende hilft ihr gemeinsam, ihn leer zu räumen und neu zu beladen. Es kostet Zeit.', 'weiter': 'erzklamm'}},
+  {'text': 'Vorbeigehen', 'weiter': 'erzklamm'}]}
+S['erzklamm'] = {'ort': 'dorf', 'text': 'Erzklamm ist halb leer. Rauch aus einer Schmelzhütte legt sich wie ein grauer Deckel über die Dächer. In der letzten Hütte am Bach brennt Licht. Brun öffnet – und erstarrt, als er dich erkennt.', 'optionen': [
+  {'text': '„Ich habe gesagt, ich helfe. Hier bin ich.“', 'weiter': 'lene', 'ergebnis': 'Bruns Kinn zittert. Er tritt beiseite und lässt dich hinein.'},
+  {'text': '„Ich habe dir einen Platz in unserem Dorf versprochen.“', 'wenn': {'wissen': 'brun_kommt'}, 'weiter': 'lene', 'folgen': {'flag': ['versprochen']}, 'ergebnis': '„Du hast es nicht vergessen“, sagt Brun leise. „Komm rein. Sieh sie dir erst an.“'}]}
+S['lene'] = {'ort': 'dorf', 'text': 'Auf einem Strohsack unter einer Decke liegt ein Mädchen von vielleicht zehn Jahren, blass, mit roten Flecken auf den Wangen. Jeder Atemzug pfeift. Lene sieht dich an. „Bist du die Person aus der Mine? Papa erzählt jeden Abend davon.“', 'optionen': [
+  {'text': 'Sie untersuchen', 'tag': '[Heilkunde]', 'probe': {'id': 'heilkunde', 'dc': 12, 'mod': {'kraeuter': -2}},
+   'erfolg': {'text': 'Lungenfieber. Kein Fluch, keine Seuche. Sie braucht Wärme, Alantwurzel gegen den Husten – und vor allem Luft ohne diesen Rauch.', 'folgen': {'flag': ['diagnose']}, 'weiter': 'beratung'},
+   'misserfolg': {'text': 'Du hörst das Pfeifen, fühlst die heiße Stirn. Was es genau ist, kannst du nicht sagen.', 'weiter': 'beratung'}},
+  {'text': '{bb} soll sie ansehen', 'tag': '[{bb}]', 'wenn': {'begleiter_beruf': HEIL}, 'weiter': 'beratung', 'ergebnis': '{bb} legt das Ohr an Lenes Rücken und lauscht lange. „Lungenfieber. Alantwurzel hilft gegen den Husten. Aber solange sie diesen Rauch atmet, wird es nicht besser.“', 'folgen': {'flag': ['diagnose'], 'begleiter_sym': 3}},
+  {'text': 'Ihr eine Geschichte aus der Mine erzählen', 'weiter': 'beratung', 'ergebnis': 'Du erzählst vom Einsturz – ein bisschen heldenhafter, als es war. Lene lacht und hustet und lacht wieder. Brun dreht sich zur Wand.', 'folgen': {'flag': ['vertrauen']}}]}
+S['beratung'] = {'ort': 'dorf', 'text': 'Brun zieht dich vor die Tür. „Oswin, der Heiler unten im Ort, hat einen Trank. Drei Silberstücke das Fläschchen. Ich habe noch eins. Für eins.“ Er lacht bitter.', 'optionen': [
+  {'text': 'Zu Oswin gehen', 'weiter': 'oswin'},
+  {'text': 'Selbst nach Alantwurzel suchen', 'wenn': {'flag': 'diagnose'}, 'weiter': 'suche'},
+  {'text': '„Der Rauch macht sie krank. Sie muss hier weg.“', 'wenn': {'flag': 'diagnose'}, 'weiter': 'umzug'}]}
+S['oswin'] = {'ort': 'dorf', 'text': 'Oswins Stube ist warm, voller Tiegel und bunter Fläschchen. Er selbst ist rund und freundlich. „Der Trank? Wirkt Wunder. Drei Silber, nicht verhandelbar.“', 'optionen': [
+  {'text': 'Einen Tropfen probieren', 'tag': '[Heilkunde]', 'probe': {'id': 'heilkunde', 'dc': 12, 'mod': {'oswin_warnung': -2}},
+   'erfolg': {'text': 'Honig, Wasser, ein Hauch Minze. Sonst nichts. Ein teures Bonbon.', 'folgen': {'flag': ['betrug']}, 'weiter': 'oswin_wahl'},
+   'misserfolg': {'text': 'Süß und scharf. Kann sein, dass es hilft.', 'weiter': 'oswin_wahl'}},
+  {'text': 'Ihm in die Augen sehen', 'tag': '[Menschenkenntnis]', 'probe': {'id': 'menschenkenntnis', 'dc': 13, 'mod': {'oswin_warnung': -2}},
+   'erfolg': {'text': 'Sein Lächeln ist eingeübt. Er glaubt selbst nicht an das, was er verkauft.', 'folgen': {'flag': ['betrug']}, 'weiter': 'oswin_wahl'},
+   'misserfolg': {'text': 'Ein freundlicher Mann. Oder ein guter Schauspieler.', 'weiter': 'oswin_wahl'}}]}
+S['oswin_wahl'] = {'ort': 'dorf', 'text': 'Oswin wartet, die Hände über dem Bauch gefaltet.', 'optionen': [
+  {'text': '„Honig und Wasser für drei Silber? Das hört gleich der ganze Ort.“', 'wenn': {'flag': 'betrug'}, 'tag': '[Einschüchtern]', 'probe': {'id': 'einschuechtern', 'dc': 12},
+   'erfolg': {'text': 'Oswin wird bleich. Er schiebt dir einen Beutel echter Alantwurzel über den Tisch. „Das hier hilft wirklich. Und jetzt geh. Bitte.“', 'folgen': {'flag': ['wurzel']}, 'weiter': 'heilen'},
+   'misserfolg': {'text': '„Beweis es doch.“ Er schließt die Tür vor deiner Nase.', 'weiter': 'beratung'}},
+  {'text': 'Mit Silbererz bezahlen', 'wenn': {'item': 'silbererz'}, 'weiter': 'heilen', 'ergebnis': 'Oswin wiegt das Erz in der Hand, nickt und gibt dir den Trank – und, als du ihn scharf ansiehst, noch ein Bündel Alantwurzel dazu.', 'folgen': {'item_minus': {'silbererz': 1}, 'flag': ['wurzel']}},
+  {'text': 'Feilschen', 'tag': '[Feilschen]', 'probe': {'id': 'feilschen', 'dc': 14},
+   'erfolg': {'text': 'Am Ende bekommst du den Trank für Bruns letztes Silberstück – und eine Handvoll Wurzeln, „weil heute mein großzügiger Tag ist“.', 'folgen': {'flag': ['wurzel', 'trank']}, 'weiter': 'heilen'},
+   'misserfolg': {'text': 'Oswin bleibt hart. Brun gibt sein letztes Silber für ein einziges Fläschchen.', 'folgen': {'flag': ['trank']}, 'weiter': 'heilen'}},
+  {'text': 'Gehen und selbst suchen', 'wenn': {'flag': 'diagnose'}, 'weiter': 'suche'}]}
+S['suche'] = {'ort': 'wald', 'text': 'Alant wächst an feuchten, sonnigen Hängen. Hier ist alles grau – aber oberhalb der Abraumhalden, am alten Bachlauf, könnte es noch welchen geben.', 'reise': {'minuten': 1, 'weiter': 'halde'}}
+S['halde'] = {'ort': 'mine', 'text': 'Am Rand der Halden, zwischen Geröll und Brennnesseln, ragen gelbe Blütenköpfe auf. Der Hang darunter ist locker.', 'optionen': [
+  {'text': 'Vorsichtig hinüberklettern', 'tag': '[Flink]', 'probe': {'id': 'flink', 'dc': 12},
+   'erfolg': {'text': 'Du gräbst drei kräftige Wurzeln aus, ohne dass ein Stein ins Rollen kommt.', 'folgen': {'flag': ['wurzel']}, 'weiter': 'heilen'},
+   'misserfolg': {'text': 'Der Hang rutscht. Du kommst mit den Wurzeln zurück – und einem aufgeschlagenen Knie.', 'folgen': {'flag': ['wurzel'], 'gefahr': 1}, 'weiter': 'heilen'}},
+  {'text': '{bb} hält dich am Seil', 'tag': '[{bb}]', 'wenn': {'begleiter': True}, 'weiter': 'heilen', 'ergebnis': '{bb} stemmt die Füße in den Boden, du lehnst dich weit hinaus. Drei Wurzeln, sauber geborgen.', 'folgen': {'flag': ['wurzel'], 'begleiter_sym': 2}}]}
+S['heilen'] = {'ort': 'dorf', 'text': 'Zurück in Bruns Hütte. Lene schläft unruhig.', 'optionen': [
+  {'text': 'Einen Sud aus der Alantwurzel kochen', 'wenn': {'flag': 'wurzel'}, 'weiter': 'nacht', 'folgen': {'flag': ['sud']}},
+  {'text': 'Ihr Oswins Trank geben', 'wenn': {'flag': 'trank', 'nicht_flag': 'wurzel'}, 'weiter': 'nacht'}]}
+S['nacht'] = {'ort': 'feuer', 'text': 'Die Nacht ist lang. Brun und du sitzt am Herd, horcht auf jeden Atemzug. Gegen Morgen …', 'optionen': [
+  {'text': '… nach Lene sehen', 'wenn': {'flag': 'sud'}, 'weiter': 'morgen_gut', 'ergebnis': 'Das Pfeifen ist leiser. Das Fieber ist gesunken. Lene schläft tief und ruhig, zum ersten Mal seit Wochen, sagt Brun.'},
+  {'text': '… nach Lene sehen', 'wenn': {'nicht_flag': 'sud'}, 'weiter': 'morgen_schwach', 'ergebnis': 'Lene schläft. Der Trank hat sie beruhigt, aber das Pfeifen ist noch da.'}]}
+S['morgen_gut'] = {'ort': 'dorf', 'text': 'Brun steht in der Tür und sieht auf den Rauch über Erzklamm. „Es wird ihr besser gehen. Aber wenn sie hierbleibt, kommt es wieder. Jeden Winter.“', 'optionen': [
+  {'text': '„Dann kommt mit zu uns. Bei uns ist die Luft klar.“', 'weiter': 'umzug'},
+  {'text': '„Ihr müsst selbst entscheiden. Ich lasse euch die Wurzeln da.“', 'weiter': 'ende_bleiben'}]}
+S['morgen_schwach'] = {'ort': 'dorf', 'text': 'Brun reibt sich übers Gesicht. „Es reicht nicht. Ich sehe es.“', 'optionen': [
+  {'text': '„Hier wird sie nicht gesund. Kommt mit zu uns.“', 'weiter': 'umzug'},
+  {'text': '„Ich suche Alantwurzel.“', 'weiter': 'suche'}]}
+S['umzug'] = {'ort': 'dorf', 'text': 'Brun sieht sich in der Hütte um. Das Werkzeug seines Vaters, der Tisch, den er selbst gezimmert hat. „Alles, was ich bin, ist hier. Und alles, was ich habe, ist sie.“', 'optionen': [
+  {'text': '„Wir brauchen jemanden, der Stein bricht. Und Lene braucht Luft.“', 'tag': '[Überreden]', 'probe': {'id': 'ueberreden', 'dc': 12, 'mod': {'versprochen': -3, 'vertrauen': -2, 'sud': -1}},
+   'erfolg': {'text': 'Brun atmet lange aus. Dann nickt er. „Gib uns zwei Tage zum Packen.“ Lene, halb wach, flüstert: „Gibt es da Pferde?“', 'weiter': 'ende_umzug'},
+   'misserfolg': {'text': '„Ich kann nicht. Noch nicht.“', 'weiter': 'ende_bleiben'}},
+  {'text': 'Lene selbst fragen', 'wenn': {'flag': 'vertrauen'}, 'weiter': 'ende_umzug', 'ergebnis': 'Lene setzt sich auf. „Papa. Ich will dahin, wo die Person aus der Mine wohnt.“ Brun lacht und weint gleichzeitig und hebt die Hände. „Na gut. Na gut.“'}]}
+S['ende_umzug'] = {'ort': 'dorf', 'ende': True, 'text': 'Zwei Tage später rumpelt ein Karren ins Dorf. Brun lenkt, Lene sitzt in Decken gewickelt obenauf und zeigt auf alles. Brun bezieht ein Lager am Dorfrand – und bricht schon am nächsten Morgen Stein.',
+  'folgen': {'zuzug': 'Brun', 'chronik': ['lene_umzug', 'Brun und seine Tochter Lene sind aus Erzklamm in unser Dorf gezogen. Lene geht es besser.'], 'journal': ['lene_hier', 'Lene im Dorf', 'Lene, Bruns Tochter, lebt jetzt bei uns. Die klare Luft tut ihr gut. Brun bricht Stein für das Dorf.'], 'dorf': {'stimmung': 3}, 'beute': {'stufe': 2, 'chance': 0.6, 'text': 'Beim Abladen drückt dir Lene etwas in die Hand, das sie in Erzklamm im Bach gefunden hat. „Für dich. Weil du gekommen bist.“'}}}
+S['ende_bleiben'] = {'ort': 'dorf', 'ende': True, 'text': 'Du machst dich auf den Heimweg. Am Bach drehst du dich noch einmal um: Lene winkt aus dem Fenster, Brun steht daneben. Vielleicht sieht man sich wieder.',
+  'folgen': {'chronik': ['lene_geholfen', 'Ich war in Erzklamm und habe Brun geholfen, seine kranke Tochter Lene zu pflegen.'], 'journal': ['lene_erzklamm', 'Lene in Erzklamm', 'Lene geht es vorerst besser. Aber der Rauch in Erzklamm macht sie jeden Winter krank. Brun weiß, wo er uns findet.']}}
+
+d = {'start': 'aufbruch', 'szenen': S}
+for k, s in S.items():
+    for o in s.get('optionen', []):
+        for t in [o.get('weiter'), o.get('erfolg', {}).get('weiter'), o.get('misserfolg', {}).get('weiter')]:
+            if t: assert t in S, (k, t)
+    if 'reise' in s:
+        assert s['reise']['weiter'] in S
+        for t in s['reise'].get('begegnung', {}).get('szenen', []): assert t in S
+open('/home/claude/footstep-repo/quests/lene.json', 'w').write(json.dumps(d, ensure_ascii=False))
+print('lene ok', len(S), 'Szenen')

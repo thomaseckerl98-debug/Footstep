@@ -209,6 +209,8 @@ V.append(dict(id='brand', titel='Feuer in der Nacht', schwierigkeit=3,
   'ende': dict(ort='dorf', ende=True, text='Die Scheune muss neu gebaut werden. Und was in dieser Nacht gesagt wurde, bleibt.'),
 }))
 
+from brett2 import V2
+V += V2
 out = [{'id': 'b_' + v['id'], 'titel': v['titel'], 'kurz': v['kurz'], 'schwierigkeit': v['schwierigkeit'], 'rollen': v['rollen'], 'def': {'start': v['start'], 'szenen': v['szenen']}} for v in V]
 # Prüfen: alle Ziele vorhanden
 for q in out:
