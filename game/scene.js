@@ -3,9 +3,10 @@ import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, W
 import { Nature } from './nature.js?v=1';
 import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=4';
+import { Village, fieldSprite } from './life.js?v=5';
 import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
+import { drawExtra } from './extras.js?v=1';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
 const LAYOUT_KEY = 'mossheart_test_layout_v2';
@@ -32,7 +33,7 @@ export class Scene {
     this.weather = { kind: 'klar', target: 'klar', mix: 0, next: performance.now() + 120000 + Math.random() * 120000, forced: false };
     this.showPlots = false; this.showRoads = false; this.selected = null;
     this.layout = this.loadLayout();
-    this.sprites = []; this.hero = null; this.heroFrames = null;
+    this.sprites = []; this.hero = null; this.heroFrames = null; this.extras = [];
     this.particles = []; this.birds = null; this.nextBirds = performance.now() + 15000;
     this.pal = null; this.ready = false;
     this.village = new Village(); this.nature = new Nature(); this.showNames = false; this.residentsSet = false; this.selection = null; this.camTarget = null;
@@ -51,6 +52,9 @@ export class Scene {
   }
   loadLayout() { try { const v = JSON.parse(localStorage.getItem(LAYOUT_KEY)); if (Array.isArray(v) && v.length) return v; } catch { /* */ } return DEFAULT_LAYOUT.map((x) => x.slice()); }
   saveLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(this.layout)); } catch { /* */ } }
+  // Anordnung aus der Datenbank übernehmen (ohne erneut zu speichern)
+  setLayout(layout) { if (!Array.isArray(layout) || !layout.length || JSON.stringify(layout) === JSON.stringify(this.layout)) return; this.layout = layout.map((x) => x.slice()); this.saveLayout(); this.rebuildSprites(); }
+  setExtras(list) { const k = JSON.stringify(list || []); if (k === this._extrasKey) return; this._extrasKey = k; this.extras = list || []; this.rebuildSprites(); }
   resetLayout() { this.layout = DEFAULT_LAYOUT.map((x) => x.slice()); this.saveLayout(); this.rebuildSprites(); }
 
   build() {
@@ -117,6 +121,9 @@ export class Scene {
       const tmp = document.createElement('canvas'); tmp.width = s.w; tmp.height = s.h;
       tmp.getContext('2d').putImageData(new ImageData(s.data, s.w, s.h), 0, 0);
       s.canvas = tmp; c.drawImage(tmp, s.x, s.y);
+      // Zusätze, die Bewohner gebaut haben (oder gerade bauen)
+      const plot = PLOTS.find((p) => p.id === s.plotId);
+      for (const e of this.extras) if (e.plot === s.plotId && e.gebaeude === s.type && plot) drawExtra(c, s, plot, e.zusatz, e.status);
     }
     this.village.setSprites(this.sprites);
     this.filterGrass();

@@ -107,7 +107,9 @@ const NAME_COL = { 'treu ergeben': '#ffd27a', herzlich: '#ffe3a0', freundlich: '
 function phaseOf(hour) { hour = ((hour % 24) + 24) % 24; if (hour < 6) return 'schlaf'; if (hour < 7) return 'aufstehen'; if (hour < 12) return 'arbeit'; if (hour < 13) return 'mittag'; if (hour < 17) return 'arbeit'; if (hour < 20.5) return 'feierabend'; if (hour < 22) return 'heim'; return 'schlaf'; }
 
 export class Village {
-  constructor() { this.nav = new Nav(); this.people = []; this.fx = []; this.sprites = []; this.wanderPool = []; this.wanderer = null; this.nextWanderer = performance.now() + 60000; }
+  constructor() { this.nav = new Nav(); this.people = []; this.fx = []; this.sprites = []; this.wanderPool = []; this.wanderer = null; this.nextWanderer = performance.now() + 60000; this.tasks = new Map(); }
+  // Aufträge: Bewohner arbeiten tagsüber am Gebäude, für das sie etwas bauen
+  setTasks(list) { this.tasks = new Map((list || []).map((t) => [t.npc_id, t])); for (const p of this.people) p.goalKey = null; }
   setPeople(list, wanderers = []) {
     // list: [{id, name, job, look, stimmung, freund, erinnerung}]
     this.people = list.map((r, i) => ({ ...r, plan: { ...r.look, name: r.name, beruf: r.job }, x: PLAZA.x, y: PLAZA.y + 8, path: [], state: 'new', goal: null, wait: 0, dir: 'down', dist: 0, ph: hash(r.id) * 10, shift: (hash(r.id + 7) - 0.5) * 0.9, alpha: 1, idx: i, activity: '' }));
@@ -152,6 +154,7 @@ export class Village {
     const hall = this.byType('langhaus')[0] || this.byType('gasthaus')[0], inn = this.byType('gasthaus')[0];
     if (ph === 'mittag') return hall ? { kind: 'inside', where: hall, text: 'isst ' + ORT(hall.type) } : { kind: 'platz', text: 'macht Mittagspause' };
     if (ph === 'feierabend') { const r = hash(p.id + Math.floor(hour)); if (inn && r < 0.3) return { kind: 'inside', where: inn, text: 'sitzt im Gasthaus' }; return r < 0.7 ? { kind: 'social' } : { kind: 'home' }; }
+    const tk = this.tasks.get(p.id); if (tk && this.sprites.some((q) => q.plotId === tk.plot)) return { kind: 'work', place: 'b:' + tk.plot, task: tk.text };
     return { kind: 'work', place: this.placeFor(p) };
   }
   key(d) { return d.kind + (d.place || '') + (d.where ? d.where.plotId : ''); }
@@ -224,7 +227,7 @@ export class Village {
     if (d.kind === 'home' || d.kind === 'inside') { p.state = 'leaving'; p.dir = 'up'; return; }
     p.state = d.kind === 'work' ? 'work' : 'idle'; p.wait = 18 + Math.random() * 35;
     const ws = this.spriteOf(d.place);
-    p.activity = d.kind === 'work' ? (JOB_TEXT[p.job] || (ws ? 'arbeitet ' + ORT(ws.type) : WORK_TEXT[d.place])) : d.text || 'steht am Dorfplatz';
+    p.activity = d.task ? d.task : d.kind === 'work' ? (JOB_TEXT[p.job] || (ws ? 'arbeitet ' + ORT(ws.type) : WORK_TEXT[d.place])) : d.text || 'steht am Dorfplatz';
     if (Math.random() < 0.6) p.dir = d.kind === 'work' && ws && ws.type !== 'feld' && ws.type !== 'markt' ? 'up' : 'down';
   }
   walk(p, dt) {

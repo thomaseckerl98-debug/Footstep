@@ -13,7 +13,7 @@ const GREET = {
   feindselig: ['Verschwinde, {du}.', 'Mit dir rede ich nicht.', 'Geh mir aus den Augen.', 'Was bildest du dir ein, mich anzusprechen?'],
   fremd: ['Seid gegrüßt, Fremder.', 'Oh – Ihr seid hier der Dorfmeister?', 'Guten Tag. Ich bin nur auf der Durchreise.', 'Hallo. Hübsches Dorf habt Ihr.'],
 };
-const TIME = { morgen: ['Früh auf heute?', 'Der Tau liegt noch auf dem Gras.', 'Der Morgen ist die beste Zeit.'], mittag: ['Die Sonne steht hoch.', 'Bald gibt\'s Essen.', 'Mitten am Tag, und schon so müde.'], abend: ['Langer Tag gewesen.', 'Das Abendlicht ist schön heute.', 'Gleich ist Feierabend.'], nacht: ['So spät noch unterwegs?', 'Die Sterne sind klar heute.', 'Eigentlich sollte ich längst schlafen.'] };
+const TIME = { morgen: ['Früh auf heute?', 'Der Tau liegt noch auf dem Gras.', 'Der Morgen ist die beste Zeit.'], mittag: ['Die Sonne steht hoch.', 'Bald gibt\'s Essen.', 'Mitten am Tag, und ich bin schon so müde.'], abend: ['Langer Tag gewesen.', 'Das Abendlicht ist schön heute.', 'Gleich ist Feierabend.'], nacht: ['So spät noch unterwegs?', 'Die Sterne sind klar heute.', 'Eigentlich sollte ich längst schlafen.'] };
 const WESEN = {
   gesellig: ['Erzähl doch mal, was gibt es Neues?', 'Ich rede ja gern, das weißt du.', 'Komm, plaudern wir ein bisschen.'],
   wortkarg: ['…', 'Mhm.', 'Kurz bitte.'],
@@ -31,7 +31,7 @@ const JOBGROUP = {
   wald: ['Holzfäller', 'Köhler', 'Zimmermann', 'Steinmetz', 'Bergmann'], jagd: ['Jäger', 'Jägerin', 'Falknerin', 'Fallensteller', 'Rattenfänger'],
   wirt: ['Wirt', 'Schankmaid', 'Koch', 'Brauer', 'Barde', 'Metzger'], heil: ['Heilerin', 'Kräuterfrau', 'Alchemist', 'Seherin'],
   glaube: ['Priesterin', 'Mönch', 'Dorfälteste', 'Totengräber'], wache: ['Wache', 'Hauptmann', 'Söldnerin'],
-  wissen: ['Schreiber', 'Gelehrter'], handel: ['Händler', 'Fährmann', 'Fischer', 'Wäscherin'],
+  wissen: ['Schreiber', 'Gelehrter'], handel: ['Händler'], wasser: ['Fährmann', 'Fischer', 'Wäscherin'],
   vieh: ['Hirte', 'Stallbursche'], handwerk: ['Gerberin', 'Schneiderin', 'Weberin', 'Töpfer', 'Kerzenzieherin'],
 };
 const GROUP_OF = {}; for (const [g, js] of Object.entries(JOBGROUP)) for (const j of js) GROUP_OF[j] = g;
@@ -46,6 +46,7 @@ const WORK = {
   wache: ['Ruhig heute. Zu ruhig vielleicht.', 'Vom Turm aus sehe ich bis zu den Bergen.', 'Wenn Fremde kommen, will ich es zuerst wissen.', 'Wir bräuchten mehr Leute für die Wache.', 'Mein Speer ist scharf, meine Augen auch.'],
   wissen: ['Ich schreibe alles auf, was im Dorf geschieht. Auch das über dich.', 'In den alten Schriften steht etwas über diese Berge …', 'Wissen ist mehr wert als Gold. Meistens.', 'Ich bräuchte mehr Pergament.', 'Hast du schon einmal von den Ruinen jenseits des Passes gehört?'],
   handel: ['Die Preise steigen. Alle wollen Holz.', 'Wenn wir einen Markt hätten, kämen Händler aus dem ganzen Tal.', 'Ich habe etwas, das dich interessieren könnte …', 'Am Fluss ist es ruhig heute.', 'Wer verkaufen will, muss reden können.'],
+  wasser: ['Das Bachwasser ist eiskalt heute. Meine Hände spüre ich kaum noch.', 'Am Wasser hört man alles – die Leute reden gern, wenn sie herkommen.', 'Der Bach führt heute viel Wasser. Da muss man aufpassen.', 'Ein Steg am Bach würde mir die Arbeit leichter machen.', 'Seife aus Asche und Fett. Nicht schön, aber es wirkt.'],
   vieh: ['Die Schafe sind unruhig – vielleicht wittern sie Wölfe.', 'Ein Lamm ist heute Nacht geboren. Alles gut gegangen.', 'Ohne Heu kommen die Tiere nicht durch den Winter.', 'Tiere spüren, wenn das Wetter umschlägt.', 'Der Stall müsste mal ausgebessert werden.'],
   handwerk: ['Ich arbeite gerade an etwas Feinem. Fertig wird es aber erst nächste Woche.', 'Gutes Material ist alles.', 'Die Leute wissen gar nicht, wie viel Arbeit in einem Krug steckt.', 'Mit besserem Werkzeug ginge es schneller.', 'Farbe, Form, Gefühl – darauf kommt es an.'],
 };
@@ -57,8 +58,8 @@ const WEATHER = {
   schnee: ['Der Schnee knirscht so schön.', 'Hoffentlich reicht das Brennholz.', 'Die Kinder würden jetzt Schneeburgen bauen.'],
 };
 const SEASON = { fruehling: ['Der Frühling riecht nach Neuanfang.', 'Überall blüht es.'], sommer: ['Lange Tage, kurze Nächte.', 'Im Sommer ist das Leben leichter.'], herbst: ['Die Blätter färben sich schon.', 'Bald ist Erntezeit.'], winter: ['Der Winter ist lang hier oben.', 'Die Vorräte müssen reichen.'] };
-const VILLAGE = ['Seit {gebaeude} steht, ist hier mehr los.', 'Ich bin froh über {gebaeude}. Das hat uns gefehlt.', 'Das Dorf wächst. Manchmal erkenne ich es kaum wieder.', 'Wir bräuchten mehr Wohnraum, wenn noch Leute kommen.', 'Ich finde, {gebaeude} steht an einer seltsamen Stelle.', 'Die Leute reden über {gebaeude}.'];
-const FRIEND = ['{freund} und ich haben gestern lange geredet.', 'Hast du {freund} heute schon gesehen?', '{freund} hat mir geholfen, als es mir schlecht ging.', 'Ohne {freund} wäre ich längst weitergezogen.', '{freund} ist der einzige, der mich versteht.'];
+const VILLAGE = ['Seit {gebaeude} steht, ist hier mehr los.', 'Ich bin froh über {gebaeude_akk}. Das hat uns gefehlt.', 'Das Dorf wächst. Manchmal erkenne ich es kaum wieder.', 'Wir bräuchten mehr Wohnraum, wenn noch Leute kommen.', 'Ich finde, {gebaeude} steht an einer seltsamen Stelle.', 'Die Leute reden viel über {gebaeude_akk}.'];
+const FRIEND = ['{freund} und ich haben gestern lange geredet.', '{freund} und ich kennen uns schon ewig.', '{freund} hat mir geholfen, als es mir schlecht ging.', 'Ohne {freund} wäre ich längst weitergezogen.', '{freund} ist der einzige, der mich versteht.'];
 const WORRY = ['Ich weiß nicht, ob wir den Winter schaffen.', 'Ich schlafe schlecht in letzter Zeit.', 'Manchmal frage ich mich, ob es woanders besser wäre.', 'Es wird viel geredet im Dorf. Nicht alles ist gut.', 'Ich habe das Gefühl, keiner sieht, was ich hier leiste.'];
 const OPT = {
   freundlich: ['Schön, dich zu sehen, {name}.', 'Wie geht es dir, {name}?', 'Ich wollte nur mal Hallo sagen.', 'Lass dich nicht stören – ich freu mich, dass du hier bist.'],
@@ -68,6 +69,27 @@ const OPT = {
   fragen: ['Was gibt es Neues im Dorf?', 'Erzähl mal, wie läuft deine Arbeit?', 'Was denkst du über unser Dorf?', 'Woher kommst du eigentlich, {name}?'],
   kritisieren: ['Du könntest dich mehr anstrengen.', 'Das geht auch schneller, oder?', 'Ich erwarte mehr von dir.', 'So wird das nichts.'],
 };
+// Was der Held zum aktuellen Thema sagt (je Tonfall) – damit die Antworten zum Gesagten passen
+const TOPIC_REPLY = {
+  arbeit: { freundlich: ['Klingt nach einem langen Tag. Wie hältst du durch?'], loben: ['Man sieht, dass du dein Handwerk verstehst.'], scherzen: ['Wenn das so weitergeht, brauchst du bald einen Lehrling – oder zwei.'], helfen: ['Soll ich dir zur Hand gehen?'], fragen: ['Wie bist du eigentlich zu deinem Handwerk gekommen?'], kritisieren: ['Ehrlich gesagt sieht das etwas nachlässig aus.'] },
+  wetter: { freundlich: ['Ja, man merkt die Jahreszeit.'], loben: ['Du hast ein gutes Gespür für das Wetter.'], scherzen: ['Wenn das so bleibt, baden wir bald alle im Bach.'], helfen: ['Brauchst du etwas, um gut durchs Wetter zu kommen?'], fragen: ['Was meinst du, wie wird es morgen?'], kritisieren: ['Das Wetter ist keine Ausrede, langsamer zu arbeiten.'] },
+  dorf: { freundlich: ['Ich bin auch froh, dass es vorangeht.'], loben: ['Ohne Leute wie dich würde das Dorf nicht wachsen.'], scherzen: ['Bald brauchen wir eine Stadtmauer – für all die Leute, die herziehen wollen.'], helfen: ['Wenn dir etwas im Dorf fehlt, sag es mir.'], fragen: ['Was sollten wir als Nächstes bauen?'], kritisieren: ['Manche hier könnten mehr fürs Dorf tun.'] },
+  freunde: { freundlich: ['Schön, dass ihr euch habt.'], loben: ['Ihr zwei haltet gut zusammen. Das tut dem Dorf gut.'], scherzen: ['Ihr zwei? Ich frag mich schon länger, wer hier wem nachläuft.'], helfen: ['Wenn ihr mal Hilfe braucht, sagt Bescheid.'], fragen: ['Wie habt ihr euch kennengelernt?'], kritisieren: ['Ihr redet viel. Arbeitet ihr auch so viel?'] },
+  sorgen: { freundlich: ['Das klingt schwer. Ich höre dir zu.'], loben: ['Dass du trotzdem jeden Tag weitermachst, zeigt Stärke.'], scherzen: ['Kopf hoch – schlimmer als mein Gesang kann es nicht werden.'], helfen: ['Was kann ich tun, damit es dir besser geht?'], fragen: ['Seit wann geht dir das schon so?'], kritisieren: ['Jammern hilft niemandem.'] },
+  geruechte: { freundlich: ['Spannend. Danke, dass du es mir erzählst.'], loben: ['Du hast die Ohren immer offen, was?'], scherzen: ['Und morgen erzählst du mir, dass die Krähen sprechen können?'], helfen: ['Wenn da etwas dran ist, kümmere ich mich darum.'], fragen: ['Glaubst du selbst daran?'], kritisieren: ['Gerede. Davon wird keiner satt.'] },
+  persoenlich: { freundlich: ['Danke, dass du mir das erzählst.'], loben: ['Du bist ein guter Mensch, {name}.'], scherzen: ['Und ich dachte, ich wäre hier der Geheimnisvolle.'], helfen: ['Wenn ich dir irgendwie helfen kann – sag es.'], fragen: ['Und wie geht es dir heute wirklich?'], kritisieren: ['Du machst es dir manchmal zu einfach.'] },
+};
+// Was die Figur darauf erwidert, wenn es gut ankommt (erfreut/freundlich/neutral)
+const TOPIC_ANSWER = {
+  arbeit: { freundlich: ['Man gewöhnt sich dran. Und abends schmeckt das Bier umso besser.', 'Mit Pausen und Geduld. Und manchmal mit Fluchen.'], loben: ['Danke. Das hört man selten.', 'Das tut gut zu hören. Wirklich.'], scherzen: ['Ha! Einen Lehrling hätte ich gern – aber bitte einen, der zuhört.'], helfen: ['Gern! Ein zweites Paar Hände kann ich immer brauchen.', 'Das ist lieb. Heute schaffe ich es noch allein, aber ich merke es mir.'], fragen: ['Mein Vater hat es mir gezeigt, und irgendwann konnte ich es besser als er.', 'Durch Zufall. Und dann bin ich einfach dabei geblieben.'], kritisieren: ['Hm. Vielleicht hast du recht. Ich gebe mir mehr Mühe.'] },
+  wetter: { freundlich: ['Ja. Man lebt hier mit dem Wetter, nicht dagegen.'], loben: ['Ach was, ich schaue einfach in den Himmel.'], scherzen: ['Im Bach baden? Nur über meine Leiche – der ist eiskalt!'], helfen: ['Ein paar Scheite Holz mehr könnten nicht schaden. Danke.'], fragen: ['Die Schwalben fliegen tief … ich würde sagen, es wird nicht besser.', 'Der Wind kommt von den Bergen. Morgen wird es klar.'], kritisieren: ['Schon gut, schon gut. Ich arbeite ja.'] },
+  dorf: { freundlich: ['Ja. Man spürt, dass hier etwas entsteht.'], loben: ['Ach was. Jeder trägt seinen Teil bei.'], scherzen: ['Eine Stadtmauer! Und dann einen König, der sich mit Steuern bedankt.'], helfen: ['Danke. Ein paar Bänke am Platz würden allen guttun.'], fragen: ['Mehr Häuser, wenn du mich fragst. Es wird langsam eng.', 'Einen Brunnen näher am Platz. Das Wasserholen kostet jeden Tag Zeit.', 'Ein Gasthaus. Dann kämen auch mal Reisende vorbei.'], kritisieren: ['Da hast du nicht ganz unrecht. Aber sag das nicht zu laut.'] },
+  freunde: { freundlich: ['Ja. Ohne {freund} wäre vieles schwerer.'], loben: ['Danke. Wir passen aufeinander auf.'], scherzen: ['Ha! Frag lieber nicht, sonst wird {freund} rot.'], helfen: ['Das sage ich {freund}. Das wird sich freuen.'], fragen: ['Beim Holzhacken. {freund} hat mir die Axt geklaut – aus Versehen, heißt es bis heute.', 'Am ersten Abend hier. Wir saßen am Feuer und haben bis zum Morgen geredet.'], kritisieren: ['Wir arbeiten genug, keine Sorge.'] },
+  sorgen: { freundlich: ['Danke. Das hilft mehr, als du denkst.'], loben: ['Meinst du? … Danke.'], scherzen: ['Ha … ja, das hat gutgetan. Danke.'], helfen: ['Vielleicht … einfach ab und zu fragen, wie es mir geht.'], fragen: ['Schon eine Weile. Seit dem letzten harten Winter.'], kritisieren: ['Du hast ja recht. Ich reiße mich zusammen.'] },
+  geruechte: { freundlich: ['Gern. Wer weiß, was davon stimmt.'], loben: ['Man hört so einiges, wenn man zuhört.'], scherzen: ['Die Krähen? Die erzählen nur Lügen, das weiß doch jeder.'], helfen: ['Wenn du der Sache nachgehst – sei vorsichtig.'], fragen: ['Halb, halb. In jedem Gerücht steckt ein Körnchen Wahrheit.'], kritisieren: ['Satt nicht, aber vielleicht schlauer.'] },
+  persoenlich: { freundlich: ['Es tut gut, mal darüber zu reden.'], loben: ['Ach, hör auf … aber danke.'], scherzen: ['Ha! Jeder hat seine Geheimnisse, {du}.'], helfen: ['Danke. Ich weiß das zu schätzen.'], fragen: ['Heute? Besser als gestern. Das ist schon viel.'], kritisieren: ['Mag sein. Jeder trägt sein Päckchen.'] },
+};
+const TRANS = ['', '', 'Ach, übrigens: ', 'Weißt du was? ', 'Sag mal … ', 'Was anderes: '];
 const TONE_LABEL = { freundlich: 'Freundlich', loben: 'Loben', scherzen: 'Scherzen', helfen: 'Hilfe anbieten', fragen: 'Nachfragen', kritisieren: 'Kritisieren' };
 const REACT = {
   erfreut: ['Das bedeutet mir viel, {du}.', 'Ha! Du weißt, wie man jemandem den Tag rettet.', 'Danke, {du}. Wirklich.', 'Wenn alle so wären wie du …'],
@@ -150,7 +172,7 @@ const NEED = {
   schmiede: ['Kohle und Eisen. Immer Kohle und Eisen.'], feld: ['Eine Mühle. Und jemanden, der die Krähen verjagt.'], wald: ['Ein Sägewerk würde mir den Rücken retten.'],
   jagd: ['Gute Pfeile. Und Ruhe im Wald.'], wirt: ['Mehr Gäste. Und ein Fass, das nicht leckt.'], heil: ['Kräuter, die nur oben in den Bergen wachsen.'],
   glaube: ['Einen Ort, an dem die Leute zur Ruhe kommen.'], wache: ['Mehr Leute, die Wache stehen. Allein sehe ich nicht alles.'], wissen: ['Pergament. Und Zeit zum Lesen.'],
-  handel: ['Einen Markt. Dann kommen die Händler von allein.'], vieh: ['Heu für den Winter. Viel Heu.'], handwerk: ['Besseres Werkzeug.'],
+  handel: ['Einen Markt. Dann kommen die Händler von allein.'], wasser: ['Einen Steg am Bach. Und Seife, die nicht nach Asche riecht.'], vieh: ['Heu für den Winter. Viel Heu.'], handwerk: ['Besseres Werkzeug.'],
 };
 const WORK_CHECK = {
   schmiede: { id: 'anpacken', q: 'Ich halte das Werkstück, du schlägst.', ok: 'Ha! Gute Arme. So geht es doppelt so schnell.', fail: 'Vorsicht! … Lass lieber, bevor du dir die Finger verbrennst.' },
@@ -162,6 +184,7 @@ const WORK_CHECK = {
   glaube: { id: 'altes_wissen', q: 'Ich habe gelesen, dieses Tal hieß früher anders.', ok: 'Ja, „Moosherz“! Woher weißt du das? Das wissen nur noch die Alten.', fail: 'Hm. Davon habe ich nie gehört.' },
   wissen: { id: 'altes_wissen', q: 'Ich habe gelesen, dieses Tal hieß früher anders.', ok: 'Ja, „Moosherz“! Du hast die alten Schriften gelesen? Beeindruckend.', fail: 'Wo hast du das gelesen? In meinen Büchern steht nichts davon.' },
   wache: { id: 'anpacken', q: 'Lass uns eine Runde Schwertübung machen.', ok: 'Gute Deckung! Mit dir an der Seite fühle ich mich sicherer.', fail: 'Au. Du solltest öfter üben, {du}.' },
+  wasser: { id: 'anpacken', q: 'Ich helfe dir, die nassen Körbe zu tragen.', ok: 'Danke! Die sind schwerer, als sie aussehen.', fail: 'Vorsicht – jetzt liegt die Hälfte im Bach.' },
   handel: { id: 'feilschen', q: 'Was verlangst du für deine Ware?', ok: 'Für dich mache ich einen guten Preis – aber verrat es keinem.', fail: 'Mehr, als du zahlen willst, scheint mir.' },
   vieh: { id: 'anpacken', q: 'Ich helfe dir, den Zaun zu flicken.', ok: 'Danke! Jetzt bleiben die Schafe wenigstens drin.', fail: 'Hm, der Pfosten stand vorher gerader.' },
   handwerk: { id: 'flink', q: 'Lass mich mal, ich habe geschickte Finger.', ok: 'Oh, sauber gearbeitet!', fail: 'Hm. Das mache ich wohl nochmal neu.' },
@@ -188,7 +211,8 @@ const RACE_NAME = { elf: 'Elf', zwerg: 'Zwerg', halbling: 'Halbling', mensch: 'M
 
 export function buildTalk(ctx) {
   // ctx: { name, job, wesen, stimmung, time, weather, season, freund, gebaeude[], du, race, herkunft, attrs, CHECKS, ATTRS, HERKUNFT, odds }
-  const c = { ...ctx, gebaeude: ctx.gebaeude?.length ? pick(ctx.gebaeude) : 'das Langhaus' };
+  const gb = ctx.gebaeude?.length ? pick(ctx.gebaeude) : { nom: 'das Langhaus', akk: 'das Langhaus' };
+  const c = { ...ctx, gebaeude: gb.nom || gb, gebaeude_akk: gb.akk || gb };
   const g = GROUP_OF[ctx.job] || 'handwerk';
   const cold = ['zurückhaltend', 'misstrauisch', 'feindselig'].includes(ctx.stimmung);
   const topics = ['geruechte', 'arbeit', 'dorf', 'wetter'];
@@ -253,10 +277,15 @@ export function buildTalk(ctx) {
     } else if (cur.topic === 'wetter' && (ctx.herkunft === 'waldlaeufer' || ctx.race === 'elf')) {
       const o = checkOpt({ id: 'spuren', q: 'Riechst du das? Der Wind dreht. Morgen schlägt das Wetter um.', ok: 'Tatsächlich … jetzt, wo du es sagst. Du hast feine Sinne.', fail: 'Ich rieche nur den Misthaufen.' }); if (o) out.push(o);
     }
+    // Abmachungen: Holz liefern, nach dem Stand fragen, neue Aufträge vergeben
+    const ab = ctx.abmachung;
+    if (ab && ab.status === 'wartet_holz') out.unshift({ kind: 'deliver', tag: '[Abmachung]', text: `Hier ist das Holz für ${ab.titel}.`, hint: `${ab.holz} Holz – du hast ${Math.floor(ctx.holz ?? 0)}` });
+    if (ab && ab.status === 'in_arbeit' && !asked.has('stand')) out.unshift({ kind: 'follow', id: 'stand', tag: '[Abmachung]', text: `Wie kommst du mit ${ab.titel} voran?`, answer: fill(pick(['Gut! {fertig} ist es fertig, versprochen.', 'Läuft. Ich arbeite jeden Tag daran – {fertig} kannst du es dir ansehen.']), { ...c, fertig: ctx.whenText?.(ab.faellig_at) || 'Bald' }) });
+    if (!ab && cur.topic !== 'sorgen') for (const d of (ctx.deals || []).slice(0, 2)) out.push({ kind: 'deal', tag: '[Auftrag]', vorlage: d.id, text: `Könntest du ${d.titel} anfertigen?`, hint: d.holz ? `${d.holz} Holz, ca. ${d.dauer_h} Std.` : `ca. ${d.dauer_h} Std.` });
     if (cold) for (const def of COLD_CHECKS) { const o = checkOpt(def); if (o) out.push(o); }
     // Tonfall – drei zufällige
     const tones = ['freundlich', 'loben', 'scherzen', 'helfen', 'fragen', 'kritisieren'].sort(() => Math.random() - 0.5).slice(0, 3);
-    for (const t of tones) out.push({ kind: 'tone', tone: t, tag: `[${TONE_LABEL[t]}]`, text: fill(pick(OPT[t]), c) });
+    for (const t of tones) out.push({ kind: 'tone', tone: t, tag: `[${TONE_LABEL[t]}]`, text: fill(pick(TOPIC_REPLY[cur.topic]?.[t] || OPT[t]), c) });
     if (!personalUsed && cur.topic !== 'persoenlich') out.push({ kind: 'personal_topic', text: 'Erzähl mir etwas von dir.' });
     out.push({ kind: 'topic', text: 'Erzähl mir etwas anderes.' });
     return out;
@@ -266,13 +295,29 @@ export function buildTalk(ctx) {
   const refuse = () => fill(pick(REFUSE[ctx.wesen] || REFUSE.sonst), c);
   const checkText = (def, ok) => fill(ok ? def.ok : def.fail, c);
   const journal = (j) => (j ? { key: j[0], title: j[1], text: fill(j[2], c) } : null);
+  const dealText = (r, kind) => {
+    const g = { ...c, holz: r.holz, titel: r.titel || ctx.abmachung?.titel || '', dauer: r.dauer_h ? `${r.dauer_h} Stunden` : 'ein paar Stunden', fertig: ctx.whenText?.(r.faellig_at) || 'Bald' };
+    if (kind === 'deliver') return fill(r.ok ? pick(['Danke! Dann fange ich gleich an. {fertig} ist es fertig.', 'Gutes Holz. Damit lässt sich arbeiten – {fertig} kannst du es dir ansehen.']) : r.grund === 'zu_wenig_holz' ? 'Das reicht nicht. Ich brauche {holz} Holz – so viel hast du gerade nicht.' : 'Welches Holz? Wir hatten doch gar nichts ausgemacht.', { ...g, holz: r.braucht ?? r.holz });
+    if (r.ok) return fill(r.status === 'in_arbeit' ? pick(['Gern, das mache ich. Gib mir {dauer}, dann ist es fertig.', 'Abgemacht. In {dauer} steht es.']) : pick(['Abgemacht. Bring mir {holz} Holz, dann mache ich {titel}. Wenn ich das Holz habe, brauche ich etwa {dauer}.', 'Das kann ich. Aber ohne Holz geht nichts – {holz} Stück brauche ich. Dann ist es nach etwa {dauer} fertig.']), g);
+    const no = { keine_lust: ctx.stimmung === 'misstrauisch' || ctx.stimmung === 'feindselig' ? ['Für dich? Eher nicht.'] : ['Hm … nicht jetzt. Frag mich, wenn wir uns besser kennen.'], beschaeftigt: ['Ich habe schon eine Arbeit für dich angefangen. Eins nach dem anderen.'], laeuft: ['Darum kümmert sich doch schon jemand.'], schon_da: ['Das gibt es doch schon.'] }[r.grund];
+    return fill(no ? pick(no) : 'Dafür bin ich nicht die Richtige.', g);
+  };
   const opener = () => {
     const parts = [pick(GREET[ctx.stimmung] || GREET.freundlich)];
     if (ctx.stimmung !== 'feindselig') { if (Math.random() < 0.5) parts.push(pick(TIME[ctx.time] || TIME.mittag)); if (Math.random() < 0.45) parts.push(pick(WESEN[ctx.wesen] || WESEN.bodenständig)); }
     return fill(parts.join(' '), c);
   };
-  const reaction = (react) => fill(pick((WESEN_REACT[ctx.wesen] || {})[react] || REACT[react] || REACT.neutral), c);
+  const reaction = (react, tone, topic) => {
+    const ans = TOPIC_ANSWER[topic]?.[tone];
+    if (ans && ['erfreut', 'freundlich', 'neutral'].includes(react)) {
+      const pre = react === 'erfreut' && ctx.wesen === 'gesellig' && Math.random() < 0.3 ? 'Ha! ' : react === 'neutral' && ['loben', 'scherzen'].includes(tone) ? 'Hm. ' : '';
+      return fill(pre + pick(ans), c);
+    }
+    return fill(pick((WESEN_REACT[ctx.wesen] || {})[react] || REACT[react] || REACT.neutral), c);
+  };
+  const transition = (text) => pick(TRANS) + text;
+  const setDeal = (ab, holz) => { ctx.abmachung = ab; if (holz != null) ctx.holz = holz; ctx.deals = []; };
   const bye = (react) => fill(pick(BYE[react === 'erfreut' || react === 'freundlich' ? 'gut' : react === 'veraergert' || react === 'kuehl' ? 'schlecht' : 'mittel']), c);
   const patience = { 'treu ergeben': 10, herzlich: 9, freundlich: 7, fremd: 6, zurückhaltend: 5, misstrauisch: 4, feindselig: 2 }[ctx.stimmung] ?? 6;
-  return { opener, nextTopic, options, markAsked, markChecked, markPersonal, personalTopic, refuse, checkText, journal, reaction, bye, patience: patience + (ctx.wesen === 'gesellig' ? 2 : ctx.wesen === 'wortkarg' ? -2 : 0) };
+  return { opener, nextTopic, options, markAsked, markChecked, markPersonal, personalTopic, refuse, transition, dealText, setDeal, checkText, journal, reaction, bye, patience: patience + (ctx.wesen === 'gesellig' ? 2 : ctx.wesen === 'wortkarg' ? -2 : 0) };
 }

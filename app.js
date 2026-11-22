@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=7';
+import { Scene, realMood } from './game/scene.js?v=8';
 import { openCreator } from './game/creator.js?v=3';
-import { buildTalk } from './game/dialog.js?v=3';
+import { buildTalk } from './game/dialog.js?v=4';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
@@ -118,6 +118,10 @@ function renderPanel(id) {
   $('panel-title').textContent = MENUS.find((m) => m.id === id).name;
   if (id === 'dorf') {
     body.append(p(village ? `${village.village_name} · Häuptling ${village.character_name}` : 'Dein Dorf'));
+    if (villageState) {
+      body.append(p(`Holz im Lager: ${Math.floor(villageState.holz)}`, 'small'));
+      if (villageState.auftraege.length) { body.append(h3('Aufträge im Dorf')); for (const a of villageState.auftraege) body.append(p(a.status === 'wartet_holz' ? `${a.npc}: ${a.titel} – wartet auf ${a.holz} Holz` : `${a.npc} arbeitet an: ${a.titel} – fertig ${whenText(a.faellig_at)}`, 'small')); }
+    }
     body.append(p('Testmodus: Bauplätze anzeigen, dann einen freien Bauplatz anklicken, um aus dem Baukatalog zu bauen – oder ein Gebäude anklicken, um es zu verschieben, umzubauen oder abzureißen. Licht, Jahreszeit und Wetter kannst du unten ausprobieren.', 'muted small'));
     if (scene.showPlots && (scene.selPlot != null || scene.selected != null)) renderBuildMenu(body);
     body.append(h3('Ansicht'));
@@ -169,6 +173,12 @@ function renderPanel(id) {
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
   } else if (id === 'quest') {
     body.append(p('Was du in Gesprächen erfährst, landet hier. Aus Gerüchten werden später Abenteuer.', 'muted small'));
+    if (villageState?.auftraege?.length) {
+      body.append(h3('Abmachungen'));
+      const ab = document.createElement('ul'); ab.className = 'journal'; body.append(ab);
+      for (const a of villageState.auftraege) { const li = document.createElement('li'); li.innerHTML = `<b>${esc(a.npc)}: ${esc(a.titel)}</b><br><span class="small">${a.status === 'wartet_holz' ? `Wartet darauf, dass ich ${a.holz} Holz bringe.` : `In Arbeit – fertig ${esc(whenText(a.faellig_at))}.`}</span>`; ab.append(li); }
+      body.append(h3('Gerüchte und Hinweise'));
+    }
     const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
     const show = (list) => {
       ul.innerHTML = '';
@@ -239,6 +249,7 @@ function showCreator(first) {
 /* ───────────── Auswahl-Karte und Gespräche ───────────── */
 const NEUTR = new Set(['wohnhaus', 'langhaus', 'gasthaus', 'feld', 'saegewerk', 'heilerhaus', 'lagerhaus']), MASK = new Set(['stall', 'markt', 'schrein', 'alchemistenturm', 'wachturm']);
 const withArticle = (t) => (NEUTR.has(t) ? 'das ' : MASK.has(t) ? 'der ' : 'die ') + (CATALOG[t]?.name || t);
+const withArticleAkk = (t) => (NEUTR.has(t) ? 'das ' : MASK.has(t) ? 'den ' : 'die ') + (CATALOG[t]?.name || t);
 let selTimer = 0;
 function portraitCanvas(plan, size = 96) { const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH; cv.style.width = cv.style.height = size + 'px'; cv.className = 'portrait'; cv.getContext('2d').putImageData(new ImageData(portraitSprite(plan).data, PW, PH), 0, 0); return cv; }
 function showSelCard(obj) {
@@ -279,9 +290,9 @@ async function startTalk(p) {
   box.innerHTML = '';
   const fr = scene.village.people.find((q) => q.id === p.freund);
   const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
-  const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map(withArticle);
+  const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map((g) => ({ nom: withArticle(g), akk: withArticleAkk(g) }));
   const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
-    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [] });
+    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, whenText });
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
   const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
   const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
@@ -342,7 +353,7 @@ async function startTalk(p) {
     busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', text);
     let res = null;
     try {
-      const { data, error } = await db.functions.invoke('npc-talk', { body: { npc: p.id, conv, text, verlauf: history.slice(-11, -1), gebaeude, umgebung: `${TIME_NAMES[scene.mood.time]}, ${SEASON_NAMES[scene.mood.season]}, ${WEATHER_NAMES[weatherNow] || 'klar'}` } });
+      const { data, error } = await db.functions.invoke('npc-talk', { body: { npc: p.id, conv, text, verlauf: history.slice(-11, -1), gebaeude: gebaeude.map((g) => g.nom), umgebung: `${TIME_NAMES[scene.mood.time]}, ${SEASON_NAMES[scene.mood.season]}, ${WEATHER_NAMES[weatherNow] || 'klar'}` } });
       if (error) console.warn('KI:', error.message); else res = data;
     } catch (e) { console.warn('KI:', e); }
     if (!res || res.fallback || !res.antwort) {
@@ -355,6 +366,7 @@ async function startTalk(p) {
     apply(res); say('npc', res.antwort);
     if (res.zusage) { note(`Zusage: <b>${esc(res.zusage.text)}</b> <span class="muted">(im Notizbuch unter Diplomatie)</span>`); highlights.push(`${p.name} hat mir etwas zugesagt: ${res.zusage.text}.`); }
     if (res.journal) { note(`Tagebuch: <b>${esc(res.journal.title)}</b>`); highlights.push(`Ich habe etwas erfahren: ${res.journal.title}.`); }
+    if (res.auftrag?.ok) { note(`Abmachung: <b>${esc(p.name)} macht ${esc(res.auftrag.titel)}</b>${res.auftrag.holz ? ` · bring ${res.auftrag.holz} Holz` : ` · fertig ${esc(whenText(res.auftrag.faellig_at))}`} <span class="muted">(Tagebuch)</span>`); highlights.push(`Wir haben eine Abmachung: ${p.name} macht ${res.auftrag.titel}.`); const st = await db.rpc('get_npc_brief', { p_npc: p.id }); if (!st.error) { brief = st.data; t.setDeal(brief.abmachung, brief.holz); } loadVillageState(); }
     ideas = res.vorschlaege || [];
     after();
   };
@@ -371,6 +383,20 @@ async function startTalk(p) {
     if (o.kind === 'idea') return freeSay(o.text);
     busy = true; ideas = []; opts.innerHTML = '<li class="muted small">…</li>'; say('me', o.text);
     if (o.kind === 'topic') { cur = t.nextTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
+    if (o.kind === 'deal' || o.kind === 'deliver') {
+      let r = { ok: false, grund: 'offline' };
+      if (online) { const { data, error } = o.kind === 'deal' ? await db.rpc('create_deal', { p_npc: p.id, p_vorlage: o.vorlage }) : await db.rpc('deliver_deal', { p_deal: brief.abmachung.id }); if (!error && data) r = data; else if (error) console.warn('Abmachung:', error.message); }
+      setTimeout(async () => {
+        say('npc', t.dealText(r, o.kind));
+        if (r.ok) {
+          if (o.kind === 'deal') { const d = brief.auftrag_optionen.find((x) => x.id === o.vorlage); note(`Abmachung: <b>${esc(p.name)} macht ${esc(d?.titel || '')}</b>${r.holz ? ` · bring ${r.holz} Holz` : ''} <span class="muted">(Tagebuch)</span>`); highlights.push(`Wir haben eine Abmachung: ${p.name} macht ${d?.titel}.`); brief.abmachung = { id: null, titel: d?.titel, holz: r.holz, status: r.status, faellig_at: r.faellig_at }; brief.auftrag_optionen = []; }
+          else { note(`Holz übergeben · <b>fertig ${esc(whenText(r.faellig_at))}</b>`); highlights.push(`Ich habe ${p.name} das Holz gebracht.`); brief.abmachung.status = 'in_arbeit'; brief.abmachung.faellig_at = r.faellig_at; brief.holz = r.holz; }
+          t.setDeal?.(brief.abmachung, brief.holz); await loadVillageState();
+          if (o.kind === 'deal' && r.status === 'wartet_holz') { const st = await db.rpc('get_npc_brief', { p_npc: p.id }); if (!st.error) { brief.abmachung = st.data.abmachung; t.setDeal?.(brief.abmachung, st.data.holz); } }
+        }
+        after();
+      }, 600); return;
+    }
     if (o.kind === 'personal_topic') { cur = t.personalTopic(); setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, 500); return; }
     if (o.kind === 'personal') { apply(await tone('fragen', 'persoenlich')); setTimeout(async () => { await personal(o.what); after(); }, 500); return; }
     if (o.kind === 'follow') {
@@ -389,7 +415,7 @@ async function startTalk(p) {
       }, 700); return;
     }
     const r = await tone(o.tone, cur?.topic); apply(r);
-    setTimeout(() => { say('npc', t.reaction(r.reaktion)); if (left > 1 && r.reaktion !== 'veraergert' && r.reaktion !== 'kurz') { cur = t.nextTopic(); setTimeout(() => say('npc', cur.text), 500); setTimeout(after, 550); } else after(); }, 450);
+    setTimeout(() => { say('npc', t.reaction(r.reaktion, o.tone, cur?.topic)); if (left > 1 && r.reaktion !== 'veraergert' && r.reaktion !== 'kurz') { cur = t.nextTopic(); setTimeout(() => say('npc', t.transition(cur.text)), 700); setTimeout(after, 750); } else after(); }, 450);
   };
   say('npc', t.opener());
   // Hat die Figur etwas über dich gehört? Dann spricht sie es vielleicht an.
@@ -398,10 +424,35 @@ async function startTalk(p) {
   cur = t.nextTopic(); busy = true; setTimeout(() => { say('npc', cur.text); busy = false; offer(); }, heard ? 1100 : 600);
 }
 let aiState = { verfuegbar: true };
+let villageState = null, layoutSynced = false, layoutTimer = 0;
+// „Morgen früh“, „heute gegen 18 Uhr“ … aus einem Zeitpunkt
+function whenText(iso) {
+  if (!iso) return 'bald';
+  const d = new Date(iso), now = new Date(), h = d.getHours(), clock = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), diff = Math.round((day(d) - day(now)) / 86400000);
+  if (d <= now) return 'jetzt';
+  const part = h < 5 ? 'in der Nacht' : h < 11 ? 'früh' : h < 14 ? 'gegen Mittag' : h < 18 ? 'am Nachmittag' : 'am Abend';
+  if (diff === 0) return `heute ${part} (ca. ${clock} Uhr)`;
+  if (diff === 1) return `morgen ${part} (ca. ${clock} Uhr)`;
+  return `am ${d.toLocaleDateString('de-DE', { weekday: 'long' })} (ca. ${clock} Uhr)`;
+}
+async function loadVillageState() {
+  const { data, error } = await db.rpc('get_village_state');
+  if (error || !data) { if (error) console.warn('Dorf:', error.message); return; }
+  villageState = data;
+  if (Array.isArray(data.layout) && data.layout.length) scene.setLayout(data.layout);
+  else await db.rpc('set_layout', { p_layout: scene.layout });
+  layoutSynced = true;
+  const bau = data.auftraege.filter((a) => a.status === 'in_arbeit').map((a) => ({ plot: a.plot, gebaeude: a.gebaeude, zusatz: a.zusatz, status: 'bau' }));
+  scene.setExtras([...data.extras, ...bau]);
+  scene.village?.setTasks(data.auftraege.filter((a) => a.status === 'in_arbeit').map((a) => ({ npc_id: a.npc_id, plot: a.plot, text: `arbeitet an: ${a.titel}` })));
+  if (!$('panel').hidden && (active === 'dorf' || active === 'quest')) renderPanel(active);
+}
 const clock = (iso) => { try { return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 function aiWhy(st) {
   if (st.grund === 'gemini_limit' && st.bis) return `KI-Kontingent erschöpft – bis ca. ${clock(st.bis)} Uhr nur vorgegebene Antworten`;
   if (st.grund === 'gemini_limit') return 'KI gerade ausgelastet – kurz warten';
+  if (st.grund === 'gemini_ueberlastet') return 'Googles KI ist gerade überlastet – gleich nochmal versuchen';
   if (st.grund === 'tageslimit') return `Deine 60 freien Antworten für heute sind verbraucht – ab ca. ${clock(st.bis)} Uhr wieder`;
   if (st.grund === 'kein_schluessel') return 'KI noch nicht eingerichtet';
   if (st.grund === 'zu_schnell') return 'kurz durchatmen';
@@ -476,6 +527,7 @@ async function startGame() {
       onSelectObject: (obj) => showSelCard(obj),
       onPlots: (on) => $('game').classList.toggle('placing', on),
       onSelect: () => { if (!$('panel').hidden && active === 'dorf') renderPanel('dorf'); },
+      onLayout: (layout) => { const k = JSON.stringify(layout); if (!layoutSynced || k === JSON.stringify(villageState?.layout)) return; clearTimeout(layoutTimer); layoutTimer = setTimeout(() => db.rpc('set_layout', { p_layout: layout }).then(({ error }) => { if (error) console.warn('Anordnung:', error.message); else if (villageState) villageState.layout = JSON.parse(k); }), 800); },
     });
     window.mossheart = scene; // für Tests in der Konsole
   }
@@ -485,6 +537,7 @@ async function startGame() {
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
     if (me.look) scene.setHeroPlan(planFromLook(me.look, me.name)); else showCreator(true);
   });
+  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(loadVillageState, 120000);
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';
