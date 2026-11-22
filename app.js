@@ -10,7 +10,7 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=1';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=1';
+import { openQuest } from './game/questui.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -564,10 +564,29 @@ function renderInventory(body) {
     if (error) { wrap.append(p('Konnte das Inventar nicht laden.', 'error')); return; }
     const z = data.zustand;
     wrap.append(p(z?.zustand === 'verletzt' ? `Du bist verletzt (Proben −2) – heilt bis ${clock(z.bis)} Uhr.` : 'Du bist gesund.', z?.zustand === 'verletzt' ? 'error small' : 'small'));
+    const SPEZ = { neuwurf: 'Glücksbringer: einmal pro Abenteuer neu würfeln', unverwuestlich: 'nutzt sich nicht ab', erster_sicher_flink: 'erster Versuch (Flink) jedes Abenteuers gelingt' };
+    const gear = data.ausruestung || [];
+    if (gear.length) {
+      body.append(h3('Ausrüstung'));
+      body.append(p('Pro Art (Waffe, Rüstung, Kleidung, Talisman, Werkzeug) zählt automatisch dein bestes passendes Stück. Ausrüstung bringt höchstens +5 auf eine Probe.', 'muted small'));
+      const ul = document.createElement('ul'); ul.className = 'journal gear'; body.append(ul);
+      const ARTN = { waffe: 'Waffe', ruestung: 'Rüstung', kleidung: 'Kleidung', talisman: 'Talisman' };
+      for (const g of gear) {
+        const eff = [bonusText(g.bonus), g.schutz_basis ? `Schutz ${g.schutz}${g.zustand < 100 ? ` (Zustand ${g.zustand} %)` : ''}` : '', ...(g.spezial || []).map((x) => SPEZ[x] || x)].filter(Boolean).join(' · ');
+        const li = document.createElement('li'); li.className = 'loot r-' + g.seltenheit;
+        li.innerHTML = `<span class="loot-r">${esc(g.stufe)} · ${esc(ARTN[g.art] || g.art)}</span><br><b>${esc(g.name)}</b>${eff ? `<br><span class="small item-eff">${esc(eff)}</span>` : ''}<br><span class="small muted">${esc(g.beschreibung)}${(g.eigenschaften || []).map((e) => ' ' + esc(e.text)).join('')}${g.herkunft ? ` – gefunden: ${esc(g.herkunft)}` : ''}</span>`;
+        const drop = document.createElement('button'); drop.type = 'button'; drop.className = 'link-btn small gear-drop'; drop.textContent = 'Ablegen';
+        drop.onclick = async () => {
+          if (drop.dataset.sure !== '1') { drop.dataset.sure = '1'; drop.textContent = g.legendaer ? 'Wirklich? Es kehrt in die Welt zurück' : 'Wirklich ablegen?'; setTimeout(() => { drop.dataset.sure = ''; drop.textContent = 'Ablegen'; }, 4000); return; }
+          const { data: r } = await db.rpc('gear_discard', { p_id: g.id }); if (r?.ok) li.remove();
+        };
+        li.append(drop); ul.append(li);
+      }
+    }
     const ART = { waffe: 'Waffen', ruestung: 'Rüstung', werkzeug: 'Werkzeug', kleidung: 'Kleidung', fund: 'Funde' };
     for (const [art, name] of Object.entries(ART)) {
       const list = data.items.filter((i) => i.art === art); if (!list.length) continue;
-      body.append(h3(name)); const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
+      body.append(h3(gear.length ? name + ' (Grundausstattung)' : name)); const ul = document.createElement('ul'); ul.className = 'journal'; body.append(ul);
       for (const i of list) {
         const eff = [bonusText(i.bonus), i.schutz ? `Schutz ${i.schutz}` : ''].filter(Boolean).join(' · ');
         const li = document.createElement('li'); li.innerHTML = `<b>${esc(i.name)}</b>${i.menge > 1 ? ` ×${i.menge}` : ''}${eff ? ` <span class="small item-eff">${esc(eff)}</span>` : ''}<br><span class="small muted">${esc(i.beschreibung)}</span>`; ul.append(li);

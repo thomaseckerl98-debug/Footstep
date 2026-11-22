@@ -218,3 +218,13 @@ details.kat { margin: 6px 0; } details.kat summary { cursor: pointer; color: var
 
 .link-btn { display: block; margin: 10px auto 0; background: none; border: none; color: var(--muted); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
 .link-btn:hover, .link-btn:focus-visible { color: var(--gold); }
+
+/* Beute nach Seltenheit */
+.loot { display: block; border-left: 4px solid #8a8a8a; padding: 4px 8px; background: rgba(255,255,255,.03); }
+.loot .loot-r { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: #a8a8a8; }
+.r-gut { border-left-color: #5fae4e; } .r-gut .loot-r { color: #7fd06c; }
+.r-selten { border-left-color: #4f8fd6; } .r-selten .loot-r { color: #78b2f0; }
+.r-meister { border-left-color: #a35fd6; } .r-meister .loot-r { color: #c592ef; }
+.r-legendaer { border-left-color: #e08a2c; background: rgba(224,138,44,.08); } .r-legendaer .loot-r { color: #f2a64e; }
+.journal.gear li { margin-bottom: 8px; }
+.gear-drop { display: inline; margin: 4px 0 0; font-size: .75rem; }

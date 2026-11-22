@@ -78,7 +78,12 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     if (pr.herkunft) parts.push(`Herkunft +${pr.herkunft}`); if (pr.items) parts.push(`Ausrüstung ${pr.items > 0 ? '+' : '−'}${Math.abs(pr.items)}`);
     if (pr.begleiter) parts.push(`Begleiter +${pr.begleiter}`); if (pr.wunde) parts.push(`Wunde ${pr.wunde}`);
     const res = pr.wurf === 20 ? 'Kritischer Erfolg' : pr.wurf === 1 ? 'Patzer' : pr.erfolg ? 'Erfolg' : 'Misserfolg';
-    return `${esc(name)} · Wurf <b>${pr.wurf}</b> (${esc(parts.join(', '))}) = ${pr.gesamt} gegen ${pr.dc} · <b class="${pr.erfolg ? 'ok' : 'bad'}">${res}</b>`;
+    return `${esc(name)} · Wurf <b>${pr.wurf}</b> (${esc(parts.join(', '))}) = ${pr.gesamt} gegen ${pr.dc} · <b class="${pr.erfolg ? 'ok' : 'bad'}">${res}</b>${pr.hilfe ? `<br><span class="muted">${esc(pr.hilfe)}</span>` : ''}`;
+  };
+  const SPEZ = { neuwurf: 'Glücksbringer: einmal pro Abenteuer neu würfeln', unverwuestlich: 'nutzt sich nicht ab', erster_sicher_flink: 'erster Versuch (Flink) gelingt sicher' };
+  const lootCard = (g) => {
+    const eff = [Object.entries(g.bonus || {}).map(([k, n]) => `${CHECKS[k]?.name || k} ${n > 0 ? '+' : '−'}${Math.abs(n)}`).join(', '), g.schutz ? `Schutz ${g.schutz}` : '', ...(g.spezial || []).map((x) => SPEZ[x] || x)].filter(Boolean).join(' · ');
+    return `<span class="loot r-${esc(g.seltenheit)}"><span class="loot-r">${esc(g.stufe)}</span> <b>${esc(g.name)}</b>${eff ? `<br><span class="small">${esc(eff)}</span>` : ''}${g.legendaer ? `<br><i class="small">${esc(g.beschreibung)}</i>` : ''}</span>`;
   };
   const own = new Map();
   const compCv = (b) => companionCv(b.id) || own.get(b.id) || (b.look ? (own.set(b.id, sheetCanvas({ ...b.look, name: b.name, beruf: b.beruf })), own.get(b.id)) : null);
@@ -108,7 +113,8 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
       if (l.wahl) add('me', esc(l.wahl));
       if (l.probe) add('note', probeLine(l.probe));
       if (l.text) add('npc', esc(l.text));
-      if (l.extra) add('note', esc(l.extra));
+      if (l.extra) add('note', esc(l.extra.replace(/ ?Gefunden: [^.]*\([^)]*\)\./g, '')));
+      if (l.beute) add('note', lootCard(l.beute));
     }
     add('scene', esc(v.text));
     opts.innerHTML = ''; foot.innerHTML = ''; clearInterval(tickTimer); clearTimeout(autoTimer);
