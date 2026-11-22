@@ -435,6 +435,10 @@ export function buildTalk(ctx) {
         else if (D.neu_gebaut && Math.random() < 0.6) line = `Hast du schon gehört? ${D.neu_gebaut}`;
         else if (D.bau && Math.random() < 0.6) line = `Man hört es den ganzen Tag hämmern – ${D.bau_art === 'ausbau' ? 'das ' + D.bau_name + ' wird ausgebaut' : 'es wird ' + D.bau + ' gebaut'}.`;
         const ex = [];
+        ex.push(N('d_vorrat', 'Wie steht es um unsere Vorräte?', [D.hunger ? 'Es ist nichts mehr da. Wir kratzen zusammen, was wir finden.'
+          : D.knapp?.includes('Vorräte') ? 'Wenig. Wenn nicht bald mehr hereinkommt, wird es eng.'
+          : D.jahreszeit === 'winter' ? 'Wir leben von dem, was im Herbst eingelagert wurde. Es reicht – noch.'
+          : D.jahreszeit === 'herbst' ? 'Gerade kommt die Ernte rein. Die Scheune füllt sich.' : 'Ausreichend. Satt wird jeder.'], []));
         if (D.bau) ex.push(N('d_bau', 'Was wird da gerade gebaut?', [`${D.bau_art === 'ausbau' ? 'Das ' + D.bau_name + ' wird ausgebaut' : (D.bau.charAt(0).toUpperCase() + D.bau.slice(1)) + '. Der Dorfrat hat es so beschlossen'}. Ich finde, das war richtig.`, `${D.bau_art === 'ausbau' ? 'Das ' + D.bau_name + ' wird größer' : (D.bau.charAt(0).toUpperCase() + D.bau.slice(1))}. Wurde auch Zeit.`], []));
         if (D.plan) ex.push(N('d_plan', 'Was hat der Dorfrat als Nächstes vor?', [`Als Nächstes soll ${D.plan} entstehen. ${D.plan_grund}`], ['d_plan2']));
         if (D.plan) ex.push(N('d_plan2', 'Was fehlt dafür noch?', [D.knapp?.length ? `Vor allem ${liste(D.knapp)}. Sobald das da ist, geht es los.` : 'Eigentlich nichts mehr. Es kann bald losgehen.'], []));

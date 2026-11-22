@@ -81,7 +81,9 @@ begin
     if inp_rot is not null and amp <> 'rot' then amp := 'gelb'; txt := txt || ' Aber es fehlt an ' || array_to_string(inp_rot, ' und ') || '.'; end if;
     if inp_gelb is not null and amp = 'gruen' then amp := 'gelb'; txt := txt || ' ' || array_to_string(inp_gelb, ' und ') || ' ist selbst knapp.'; end if;
     st := st || jsonb_build_object(g.id, amp);
-    acc := acc || jsonb_build_object('id', g.id, 'name', g.name, 'kat', g.kat, 'ampel', amp, 'text', txt);
+    acc := acc || jsonb_build_object('id', g.id, 'name', g.name, 'kat', g.kat, 'ampel', amp, 'text', txt,
+      'menge', case amp when 'rot' then 'nichts' when 'gelb' then 'wenig'
+        else case when g.basis is null and (lv >= 3 or cnt >= 2 or (g.saison = 'feld' and season = 'herbst')) then 'viel' else 'ausreichend' end end);
   end loop;
   return acc;
 end;
@@ -99,18 +101,18 @@ begin
     when 'gelb' then case when (e.res->>'holz')::numeric < 30 then 'Holz ist knapp – Bauen dauert.' else 'Holz geht, aber Stein ist knapp.' end
     else 'Genug Holz und Stein für die nächsten Bauten.' end;
   return jsonb_build_array(
-    jsonb_build_object('id', 'essen', 'name', 'Essen', 'ampel', case when e.hunger_h > 0 or tage < 1 then 'rot' when tage < 3 or t_n < -0.15 then 'gelb' else 'gruen' end,
+    jsonb_build_object('id', 'essen', 'name', 'Essen', 'menge', case when e.hunger_h > 0 then 'nichts' when tage < 3 then 'wenig' when tage < 10 then 'ausreichend' else 'viel' end, 'ampel', case when e.hunger_h > 0 or tage < 1 then 'rot' when tage < 3 or t_n < -0.15 then 'gelb' else 'gruen' end,
       'text', case when e.hunger_h > 0 then 'Die Vorräte sind leer. Es wird gehungert.' when tage < 1 then 'Die Vorräte reichen kaum noch bis morgen.'
         when tage < 3 then 'Die Vorräte reichen nur noch wenige Tage.' when t_n < -0.15 then 'Noch ist genug da, aber es wird mehr gegessen als hereinkommt.'
         when t_n > 0.15 then 'Es kommt mehr herein, als gegessen wird.' else 'Alle werden satt.' end),
-    jsonb_build_object('id', 'bau', 'name', 'Baumaterial', 'ampel', mat, 'text', matt),
-    jsonb_build_object('id', 'werkzeug', 'name', 'Werkzeug und Waren', 'ampel', case when (e.res->>'waren')::numeric < 3 then 'rot' when (e.res->>'waren')::numeric < 12 then 'gelb' else 'gruen' end,
+    jsonb_build_object('id', 'bau', 'name', 'Baumaterial', 'menge', case when (e.res->>'holz')::numeric < 5 then 'nichts' when (e.res->>'holz')::numeric < 30 then 'wenig' when (e.res->>'holz')::numeric < 100 then 'ausreichend' else 'viel' end, 'ampel', mat, 'text', matt),
+    jsonb_build_object('id', 'werkzeug', 'name', 'Werkzeug und Waren', 'menge', case when (e.res->>'waren')::numeric < 1 then 'nichts' when (e.res->>'waren')::numeric < 12 then 'wenig' when (e.res->>'waren')::numeric < 35 then 'ausreichend' else 'viel' end, 'ampel', case when (e.res->>'waren')::numeric < 3 then 'rot' when (e.res->>'waren')::numeric < 12 then 'gelb' else 'gruen' end,
       'text', case when (e.res->>'waren')::numeric < 3 then 'Werkzeug ist abgenutzt, Ersatz fehlt. Größere Ausbauten gehen so nicht.' when (e.res->>'waren')::numeric < 12 then 'Es reicht für den Alltag, für große Ausbauten wird es eng.' else 'Gutes Werkzeug für alle.' end),
-    jsonb_build_object('id', 'wohnen', 'name', 'Wohnraum', 'ampel', case when wohnfrei < 0 then 'rot' when wohnfrei < 1 then 'gelb' else 'gruen' end,
+    jsonb_build_object('id', 'wohnen', 'name', 'Wohnraum', 'menge', case when wohnfrei < 0 then 'zu wenig' when wohnfrei < 1 then 'knapp' when wohnfrei < 3 then 'ausreichend' else 'viel' end, 'ampel', case when wohnfrei < 0 then 'rot' when wohnfrei < 1 then 'gelb' else 'gruen' end,
       'text', case when wohnfrei < 0 then 'Die Häuser sind überfüllt.' when wohnfrei < 1 then 'Jedes Bett ist belegt. Neue Leute können erst kommen, wenn gebaut wird.' when wohnfrei < 3 then 'Für ein, zwei Neue ist noch Platz.' else 'Es gibt freie Betten für Neuankömmlinge.' end),
-    jsonb_build_object('id', 'stimmung', 'name', 'Stimmung', 'ampel', case when e.stimmung < 35 then 'rot' when e.stimmung < 55 then 'gelb' else 'gruen' end,
+    jsonb_build_object('id', 'stimmung', 'name', 'Stimmung', 'menge', case when e.stimmung >= 80 then 'ausgelassen' when e.stimmung >= 65 then 'zufrieden' when e.stimmung >= 50 then 'ruhig' when e.stimmung >= 35 then 'gedrückt' else 'verzweifelt' end, 'ampel', case when e.stimmung < 35 then 'rot' when e.stimmung < 55 then 'gelb' else 'gruen' end,
       'text', case when e.stimmung >= 80 then 'Ausgelassen – es wird gelacht und gesungen.' when e.stimmung >= 65 then 'Die Leute sind zufrieden.' when e.stimmung >= 55 then 'Ruhig. Man kommt zurecht.' when e.stimmung >= 35 then 'Gedrückt. Es wird viel gemurrt.' else 'Verzweifelt. Manche denken ans Weggehen.' end),
-    jsonb_build_object('id', 'schutz', 'name', 'Schutz', 'ampel', case when (r->>'schutz')::numeric < 5 then 'rot' when (r->>'schutz')::numeric < 12 then 'gelb' else 'gruen' end,
+    jsonb_build_object('id', 'schutz', 'name', 'Schutz', 'menge', case when (r->>'schutz')::numeric < 5 then 'kaum' when (r->>'schutz')::numeric < 12 then 'etwas' else 'gut' end, 'ampel', case when (r->>'schutz')::numeric < 5 then 'rot' when (r->>'schutz')::numeric < 12 then 'gelb' else 'gruen' end,
       'text', case when (r->>'schutz')::numeric < 5 then 'Kaum Schutz. Wer will, kommt ungesehen ins Dorf.' when (r->>'schutz')::numeric < 12 then 'Es gibt eine Wache, aber nicht rund um die Uhr.' else 'Das Dorf ist gut bewacht.' end)
   );
 end;

@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
 import { Scene, realMood } from './game/scene.js?v=10';
 import { openCreator } from './game/creator.js?v=3';
-import { buildTalk } from './game/dialog.js?v=6';
+import { buildTalk } from './game/dialog.js?v=7';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
 import { setMood } from './game/core.js?v=1';
@@ -211,12 +211,10 @@ function renderPanel(id) {
 }
 /* ───────────── Dorf: Ampeln statt Zahlen ───────────── */
 const SEASON_DE = { fruehling: 'Frühling', sommer: 'Sommer', herbst: 'Herbst', winter: 'Winter' };
-const AMPEL_WORT = { gruen: 'kein Problem', gelb: 'geht, dauert', rot: 'gibt es nicht' };
 const stufeWort = (l) => (l >= 6 ? 'prächtig ausgebaut' : l >= 4 ? 'aus Stein' : l === 3 ? 'gut ausgebaut' : l === 2 ? 'ausgebaut' : 'einfach');
 const groß = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
 const nom = (dat) => (dat || '').replace(/^einen /, 'ein ');
 const liste = (a) => (a && a.length ? (a.length === 1 ? a[0] : a.slice(0, -1).join(', ') + ' und ' + a[a.length - 1]) : '');
-const dot = (a, title) => { const d = document.createElement('span'); d.className = 'ampel ' + a; if (title) d.title = title; return d; };
 function agoText(iso) {
   const d = new Date(iso), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), diff = Math.round((day(now) - day(d)) / 86400000);
   if (now - d < 3600000) return 'gerade eben';
@@ -282,15 +280,14 @@ function renderDorf(body) {
   // Ampeln
   body.append(h3('Wie es dem Dorf geht'));
   const ul = document.createElement('ul'); ul.className = 'ampel-list'; body.append(ul);
-  for (const a of D.ampeln || []) { const li = document.createElement('li'); li.append(dot(a.ampel)); const t = document.createElement('div'); t.innerHTML = `<b>${esc(a.name)}</b><br><span class="small">${esc(a.text)}</span>`; li.append(t); ul.append(li); }
+  for (const a of D.ampeln || []) { const li = document.createElement('li'); li.innerHTML = `<div><b>${esc(a.name)}:</b> ${esc(a.menge || '')}<br><span class="small">${esc(a.text)}</span></div>`; ul.append(li); }
   // Güter
   body.append(h3('Was es bei uns gibt'));
-  body.append(p('Grün: kein Problem · Gelb: geht, dauert · Rot: gibt es bei uns nicht', 'small muted'));
   for (const [kat, name] of [['essen', 'Essen und Vorräte'], ['bau', 'Baumaterial'], ['handwerk', 'Handwerk']]) {
     const items = (D.gueter || []).filter((g) => g.kat === kat); if (!items.length) continue;
     const det = document.createElement('details'); det.className = 'kat'; if (kat === 'essen') det.open = true;
-    const sum = document.createElement('summary'); sum.append(name + ' '); for (const g of items) sum.append(dot(g.ampel, g.name)); det.append(sum);
-    for (const g of items) { const it = document.createElement('div'); it.className = 'gut'; it.append(dot(g.ampel)); const t = document.createElement('div'); t.innerHTML = `<b>${esc(g.name)}</b> <span class="small muted">– ${AMPEL_WORT[g.ampel]}</span><br><span class="small">${esc(g.text)}</span>`; it.append(t); det.append(it); }
+    const sum = document.createElement('summary'); sum.textContent = name; det.append(sum);
+    for (const g of items) { const it = document.createElement('div'); it.className = 'gut'; it.innerHTML = `<div><b>${esc(g.name)}:</b> ${esc(g.menge || '')}<br><span class="small">${esc(g.text)}</span></div>`; det.append(it); }
     body.append(det);
   }
   // Chronik
