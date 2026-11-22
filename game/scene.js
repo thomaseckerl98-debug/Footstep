@@ -3,7 +3,7 @@ import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, W
 import { Nature } from './nature.js?v=1';
 import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=5';
+import { Village, fieldSprite } from './life.js?v=6';
 import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 import { drawExtra } from './extras.js?v=1';

@@ -107,7 +107,7 @@ const NAME_COL = { 'treu ergeben': '#ffd27a', herzlich: '#ffe3a0', freundlich: '
 function phaseOf(hour) { hour = ((hour % 24) + 24) % 24; if (hour < 6) return 'schlaf'; if (hour < 7) return 'aufstehen'; if (hour < 12) return 'arbeit'; if (hour < 13) return 'mittag'; if (hour < 17) return 'arbeit'; if (hour < 20.5) return 'feierabend'; if (hour < 22) return 'heim'; return 'schlaf'; }
 
 export class Village {
-  constructor() { this.nav = new Nav(); this.people = []; this.fx = []; this.sprites = []; this.wanderPool = []; this.wanderer = null; this.nextWanderer = performance.now() + 60000; this.tasks = new Map(); }
+  constructor() { this.nav = new Nav(); this.people = []; this.fx = []; this.sprites = []; this.wanderPool = []; this.wanderer = null; this.nextWanderer = performance.now() + 60000; this.tasks = new Map(); this.crowd = []; }
   // Aufträge: Bewohner arbeiten tagsüber am Gebäude, für das sie etwas bauen
   setTasks(list) { this.tasks = new Map((list || []).map((t) => [t.npc_id, t])); for (const p of this.people) p.goalKey = null; }
   setPeople(list, wanderers = []) {
@@ -116,12 +116,46 @@ export class Village {
     this.wanderPool = wanderers.map((r) => ({ ...r, plan: { ...r.look, name: r.name, beruf: r.job } }));
     this.assignHomes(); this.refreshSheets();
   }
-  refreshSheets() { for (const p of [...this.people, ...(this.wanderer ? [this.wanderer] : [])]) { const sh = sheetData(p.plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h; cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0); p.cv = cv; } }
+  refreshSheets() { for (const p of [...this.people, ...(this.wanderer ? [this.wanderer] : []), ...this.crowd]) { const sh = sheetData(p.plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h; cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0); p.cv = cv; } }
   setSprites(sprites) {
-    this.sprites = sprites; this.nav.build(sprites); this.assignHomes();
+    this.sprites = sprites; this.nav.build(sprites); this.assignHomes(); this.makeCrowd();
     for (const p of this.people) { p.path = []; p.goal = null; p.goalKey = null; p.socialSpot = null; if (p.state !== 'inside') { [p.x, p.y] = this.nav.nearestFree(p.x, p.y); } }
   }
   byType(t) { return this.sprites.filter((s) => s.type === t); }
+  // Namenlose Dorfleute: laufen herum, gehen in Häuser, sind nicht anklickbar (machen das Dorf lebendig)
+  makeCrowd() {
+    const room = this.sprites.reduce((n, s) => n + (CATALOG[s.type]?.wohnraum || 0), 0);
+    const want = Math.max(3, Math.min(14, Math.round(room * 0.8 + this.sprites.length * 0.4)));
+    while (this.crowd.length > want) this.crowd.pop();
+    const SK = ['#f0c8a0', '#e4b48c', '#d49a72', '#b8805a', '#8f5e3c', '#6a4028'], HA = ['#2a2018', '#3d2a1c', '#6b4528', '#8a4a2a', '#c8a860', '#a89a80', '#8e8c88', '#dcd8d0'];
+    const TOP = ['#6b5a44', '#5a6a4a', '#7a5a3a', '#4e5a6a', '#8a7a5a', '#6a4a4a', '#5a5040', '#7a6a50', '#4a5a50'], HAT = [null, null, null, 'kapuze', 'hut', 'kopftuch', 'haube', 'kappe'];
+    const r = Math.random, pk = (a) => a[Math.floor(r() * a.length)];
+    while (this.crowd.length < want) {
+      const w = r() < 0.5, plan = { name: '', beruf: '', w, skin: pk(SK), hair: pk(HA), hairStyle: w ? pk(['lang', 'zopf', 'dutt']) : pk(['kurz', 'kurz', 'wild', 'glatze']), beard: !w && r() < 0.45 ? pk(['kurz', 'stoppel', 'lang', 'schnurr']) : null,
+        top: pk(TOP), legs: w ? '#5a4a3a' : '#4a3e30', boots: '#3a2a1e', belt: '#3a2618', apron: r() < 0.25 ? pk(['#d8ccb0', '#6b4a2e', '#8a7a60']) : null, hat: pk(HAT), hatColor: pk(['#5a4a3a', '#6b5a44', '#8a3a2a', '#3e5a34', '#d8ccb0']) };
+      const [x, y] = this.workSpot('platz'), sh = sheetData(plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h; cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0);
+      this.crowd.push({ crowd: true, plan, cv, x, y, path: [], wait: r() * 8, dir: 'down', dist: 0, ph: r() * 10, alpha: 1, state: 'idle', activity: '', inside: 0 });
+    }
+    for (const p of this.crowd) { p.path = []; [p.x, p.y] = this.nav.nearestFree(p.x, p.y); }
+  }
+  crowdTarget(hour) {
+    const r = Math.random(), houses = this.sprites.filter((s) => s.type !== 'feld'), fields = this.byType('feld');
+    if ((hour >= 21.5 || hour < 6) || this.weather === 'regen') return houses.length ? { door: houses[Math.floor(r * houses.length)] } : { spot: this.workSpot('platz') };
+    if (r < 0.35) return { spot: this.workSpot('platz') };
+    if (r < 0.65 && houses.length) { const h = houses[Math.floor(Math.random() * houses.length)]; return Math.random() < 0.3 ? { door: h } : { spot: this.door(h) }; }
+    if (r < 0.78 && fields.length) return { spot: this.workSpot('b:' + fields[Math.floor(Math.random() * fields.length)].plotId) };
+    if (r < 0.9) return { spot: this.workSpot('bach') };
+    return { spot: this.workSpot('wald') };
+  }
+  stepCrowd(p, dt, hour) {
+    if (p.inside > 0) { p.inside -= dt; if (p.inside <= 0) { p.alpha = 0; p.fadeIn = true; } return; }
+    if (p.fadeIn) { p.alpha = Math.min(1, p.alpha + dt * 1.5); if (p.alpha >= 1) p.fadeIn = false; }
+    if (p.leaving) { p.alpha -= dt * 1.5; if (p.alpha <= 0) { p.alpha = 0; p.leaving = false; p.inside = 20 + Math.random() * 60 + ((hour >= 21.5 || hour < 6) ? 400 : 0); } return; }
+    if (p.path.length) { this.walk(p, dt); if (!p.path.length) { if (p.goDoor) { p.goDoor = false; p.leaving = true; p.dir = 'up'; } else { p.wait = 4 + Math.random() * 14; if (Math.random() < 0.5) p.dir = Math.random() < 0.5 ? 'left' : 'right'; } } return; }
+    p.wait -= dt; if (p.wait > 0) return;
+    const tg = this.crowdTarget(hour), [tx, ty] = tg.door ? this.door(tg.door) : tg.spot;
+    p.path = this.nav.path(p.x, p.y, tx, ty); p.goDoor = !!tg.door; if (!p.path.length) p.wait = 3;
+  }
   assignHomes() {
     if (!this.sprites.length) return;
     const homes = []; for (const s of this.sprites) for (let k = 0; k < (CATALOG[s.type]?.wohnraum || 0); k++) homes.push(s);
@@ -172,6 +206,7 @@ export class Village {
     }
     if (regroup) { this.pairs().forEach((pair, n) => { const a = n * 1.7 + 0.4, cx = PLAZA.x + Math.cos(a) * 21, cy = PLAZA.y + 4 + Math.sin(a) * 7; pair.forEach((p, i) => { const [x, y] = this.nav.nearestFree(cx + (i ? 4 : -4), cy); p.socialSpot = [x, y]; p.partner = pair[1 - i] || null; p.faceDir = i ? 'left' : 'right'; p.path = []; p.arrived = false; }); }); }
     for (const p of this.people) this.step(p, dt, t, hour);
+    for (const p of this.crowd) this.stepCrowd(p, dt, hour);
     // Wanderer
     if (!this.wanderer && t > this.nextWanderer && this.wanderPool.length && phaseOf(hour) !== 'schlaf') {
       const w = this.wanderPool[Math.floor(Math.random() * this.wanderPool.length)], west = Math.random() < 0.5;
@@ -239,7 +274,7 @@ export class Village {
   visible() { return [...this.people.filter((p) => p.state !== 'inside' && p.alpha > 0.01), ...(this.wanderer ? [this.wanderer] : [])]; }
   hit(wx, wy) { for (const p of this.visible()) if (Math.abs(wx - p.x) <= 6 && wy <= p.y + 1 && wy >= p.y - 16) return p; return null; }
   draw(c, t) {
-    const list = this.visible().sort((a, b) => a.y - b.y);
+    const list = [...this.visible(), ...this.crowd.filter((p) => p.alpha > 0.01 && !(p.inside > 0))].sort((a, b) => a.y - b.y);
     for (const p of list) {
       if (!p.cv) continue;
       c.globalAlpha = p.alpha * 0.28; c.fillStyle = 'rgb(15,18,28)'; c.fillRect(Math.round(p.x) - 4, Math.round(p.y), 8, 1); c.fillRect(Math.round(p.x) - 3, Math.round(p.y) + 1, 6, 1);
@@ -248,7 +283,7 @@ export class Village {
       let col = moving ? Math.floor(p.dist / 2.6) % 4 : 4 + ((((t / 1000) + p.ph) % 5.2) > 3.2 ? 1 : 0);
       if (!moving && p.state === 'work' && ((t / 1000 + p.ph) % 2.4) < 0.35) col = 1; // kurze Arbeitsbewegung
       c.drawImage(p.cv, col * SW, DIRS.indexOf(p.dir) * SH, SW, SH, Math.round(p.x) - 7, Math.round(p.y) - FOOT, SW, SH);
-      if (p.activity.startsWith('plaudert') && ((t / 1000 + p.ph) % 4) < 1.6) { c.fillStyle = '#f4efe2'; c.fillRect(Math.round(p.x) - 2, Math.round(p.y) - 22, 5, 3); c.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 19, 1, 1); c.fillStyle = '#5a5048'; c.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 21, 1, 1); c.fillRect(Math.round(p.x) + 1, Math.round(p.y) - 21, 1, 1); }
+      if (p.activity && p.activity.startsWith('plaudert') && ((t / 1000 + p.ph) % 4) < 1.6) { c.fillStyle = '#f4efe2'; c.fillRect(Math.round(p.x) - 2, Math.round(p.y) - 22, 5, 3); c.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 19, 1, 1); c.fillStyle = '#5a5048'; c.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 21, 1, 1); c.fillRect(Math.round(p.x) + 1, Math.round(p.y) - 21, 1, 1); }
     }
     c.globalAlpha = 1;
     for (const f of this.fx) { c.fillStyle = f.col; c.fillRect(Math.round(f.x), Math.round(f.y), 1, 1); }

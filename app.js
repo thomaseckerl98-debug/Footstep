@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=8';
+import { Scene, realMood } from './game/scene.js?v=9';
 import { openCreator } from './game/creator.js?v=3';
 import { buildTalk } from './game/dialog.js?v=4';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';

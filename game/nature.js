@@ -2,7 +2,7 @@
 // Alles reagiert aufeinander: Tiere fliehen vor Bewohnern, Krähen gehen aufs Feld, Wetter verändert Wege.
 import * as CORE from './core.js?v=1';
 import { PLAZA, STREAM, WATERFALL, streamWidth } from './world.js?v=5';
-import { meadowY } from './life.js?v=5';
+import { meadowY } from './life.js?v=6';
 
 const R = Math.random;
 const near = (a, list, d) => list.some((p) => Math.hypot(p.x - a.x, (p.y - a.y) * 1.4) < d);
