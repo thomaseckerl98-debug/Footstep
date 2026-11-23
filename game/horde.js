@@ -197,12 +197,12 @@ export function playBattle(opts = {}) {
     const legends = new Map(); // id → { id, t, st }
     const relics = new Set(); let bellT = 8, ratKills = 0, drumT = 0;
     const queue = []; const spaeter = (d, fn) => queue.push({ at: t + d, fn });
-    const hazards = []; let hazardT = 9;
+    const hazards = []; let hazardT = 9; const dmgLog = {}; let dmgQuelle = null;
     const RM = (id) => relics.has(id);
     const marsch = opts.modus === 'marsch', KORR = 115, strecke = opts.strecke || Math.max(3000, (dauer || 600) * 26); let fortschritt = 0;
     // Effektive Kampfzeit: im Marsch zählt auch der Fortschritt (wer durchrennt, trifft auf stärkere Gegner)
     const effT = () => marsch ? Math.max(t, (fortschritt / strecke) * (dauer || 600)) : t;
-    function gefahr(x, y, r, delay, dmg) { if (marsch) y = clamp(y, -KORR + 10, KORR - 10); hazards.push({ x, y, r, delay, dmg, t: 0 }); }
+    function gefahr(x, y, r, delay, dmg) { dmg = Math.min(dmg, 8 + P.maxhp * 0.26); if (marsch) y = clamp(y, -KORR + 10, KORR - 10); hazards.push({ x, y, r, delay, dmg, t: 0 }); }
     const qm = (id) => SELTEN[owned.get(id)?.q || 0].mult;
     let ST = null; // berechnete Spielerwerte
     const grid = new Map(), CELL = 32;
@@ -229,7 +229,7 @@ export function playBattle(opts = {}) {
       const old = ST;
       ST = {
         maxhp: Math.round((120 + meta.hp) * (1 + m.hpMul + (sb.heilung ? 0 : 0) + ((sc.natur || 0) >= 8 ? 0.2 : 0))),
-        armor: m.armor + meta.armor + (sb.ruestung || 0), lowArmor: m.lowArmor || 0, poisonCurse: m.poisonCurse || 0, pickupHeal: 1 + (m.pickupHeal || 0), bleedMul: 1 + (m.bleed || 0), regen: 0.08 + m.regen + meta.regen + (sb.regen || 0),
+        armor: m.armor + meta.armor + (sb.ruestung || 0), lowArmor: m.lowArmor || 0, poisonCurse: m.poisonCurse || 0, pickupHeal: 1 + (m.pickupHeal || 0), bleedMul: 1 + (m.bleed || 0), regen: 0.15 + m.regen + meta.regen + (sb.regen || 0),
         speed: 74 * (1 + m.speed + meta.speed), magnet: 68 * (1 + m.magnet + meta.magnet),
         dmg: 1 + m.dmg + meta.dmg + (sb.schaden || 0), cd: m.cd + meta.cd + (sb.tempo || 0), area: 1 + m.area + meta.area + (sb.flaeche || 0),
         projSpd: 1 + m.projSpd + meta.projSpd + (sb.reichweite || 0), dur: 1 + m.dur + (sb.dauer || 0), amount: m.amount + (sb.anzahl || 0),
@@ -490,7 +490,7 @@ export function playBattle(opts = {}) {
     let buffT = 0, shake = 0;
 
     /* ───────── Gegner erzeugen ───────── */
-    function scale() { const f = effT() / 60, diff = [0.75, 0.75, 1, 1.35][schwer] || 1; const erwartet = 1 + f * 4.5, vor = Math.max(0, (lvl - erwartet) / 10); return (1 + 0.34 * f + 0.075 * f * f) * diff * (1 + Math.min(1.5, vor) * 0.6); }
+    function scale() { const f = effT() / 60, diff = [0.75, 0.75, 1, 1.35][schwer] || 1; const erwartet = 1 + f * 4.5, vor = Math.max(0, (lvl - erwartet) / 10), nach = Math.max(0, (erwartet * 0.7 - lvl) / 10); return (1 + 0.22 * f + 0.09 * f * f) * diff * (1 + Math.min(1.5, vor) * 0.6) * (1 - Math.min(0.35, nach * 0.25)); }
     function spawnPos(ang, extra, opt) {
       if (!marsch || opt.boss) return { x: P.x + Math.cos(ang) * (VW / 2 + extra), y: P.y + Math.sin(ang) * (VH / 2 + extra) };
       const r = opt.ang != null ? 0.5 : Math.random();
@@ -502,19 +502,20 @@ export function playBattle(opts = {}) {
       const A = ARCH[art], d = GS[art], ang = opt.ang ?? rnd(0, TAU), extra = rnd(14, 40);
       const k = scale(), elite = !!opt.elite, boss = !!opt.boss;
       const hp = A.hp * k * (elite ? 14 : 1) * (boss ? 120 + t * 0.25 : 1);
-      const e = { id: nextId++, arch: art, name: boss ? d[0] : (elite ? 'Anführer: ' : '') + d[0], ...spawnPos(ang, extra, opt), r: A.r * (elite ? 1.6 : 1) * (boss ? 2.6 : 1), hp, maxhp: hp, spd: A.spd * (1 + Math.min(0.5, effT() / 600)) * (boss ? 0.9 : 1), dmg: A.dmg * (1 + effT() / 230) * (boss ? 2 : elite ? 1.5 : 1) * ([1, 0.8, 1, 1.25][schwer] || 1), xp: A.xp * (elite ? 25 : 1) * (boss ? 80 : 1), elite, boss, kx: 0, ky: 0, slow: 0, slowT: 0, freezeT: 0, stunT: 0, burnDps: 0, burnT: 0, poisonN: 0, poisonDps: 0, poisonT: 0, bleedN: 0, bleedDps: 0, bleedT: 0, curse: 0, curseT: 0, flash: 0, anim: rnd(0, 2), shootT: rnd(1.5, 3), chargeT: rnd(3, 6), col: typeof d[1] === 'string' ? d[2] : (d[1].top || '#888'), spr: sprFor(art, boss), wob: rnd(0, TAU) };
+      const e = { id: nextId++, arch: art, name: boss ? d[0] : (elite ? 'Anführer: ' : '') + d[0], ...spawnPos(ang, extra, opt), r: A.r * (elite ? 1.6 : 1) * (boss ? 2.6 : 1), hp, maxhp: hp, spd: A.spd * (1 + Math.min(0.5, effT() / 600)) * (boss ? 0.9 : 1), dmg: A.dmg * (1 + effT() / 400) * (boss ? 2 : elite ? 1.5 : 1) * ([1, 0.8, 1, 1.25][schwer] || 1), xp: A.xp * (elite ? 25 : 1) * (boss ? 80 : 1), elite, boss, kx: 0, ky: 0, slow: 0, slowT: 0, freezeT: 0, stunT: 0, burnDps: 0, burnT: 0, poisonN: 0, poisonDps: 0, poisonT: 0, bleedN: 0, bleedDps: 0, bleedT: 0, curse: 0, curseT: 0, flash: 0, anim: rnd(0, 2), shootT: rnd(1.5, 3), chargeT: rnd(3, 6), col: typeof d[1] === 'string' ? d[2] : (d[1].top || '#888'), spr: sprFor(art, boss), wob: rnd(0, TAU) };
       enemies.push(e); return e;
     }
     function mix() {
       const f = effT() / 60, r = Math.random();
       if (f < 0.6) return r < 0.7 ? 'laeufer' : 'schwarm';
       if (f < 1.5) return r < 0.5 ? 'laeufer' : r < 0.75 ? 'schnell' : 'schwarm';
-      return r < 0.33 ? 'laeufer' : r < 0.54 ? 'schnell' : r < 0.68 ? 'schwarm' : r < 0.82 ? 'tank' : 'schuetze';
+      const sch = f < 4 ? 0.07 : 0.18, tk = 0.11;
+      return r < 1 - sch - tk - 0.46 ? 'laeufer' : r < 1 - sch - tk - 0.24 ? 'schnell' : r < 1 - sch - tk ? 'schwarm' : r < 1 - sch ? 'tank' : 'schuetze';
     }
     function spawnTick(dt) {
       if (enemies.length > 480) return;
       const T = effT(), f = T / 60, rate = Math.min(38, (1.1 + f * 1.05 + f * f * 0.13) * ([0, 0.8, 1, 1.2][schwer] || 1));
-      spawnAcc += rate * dt;
+      spawnAcc += rate * dt * (enemies.length > 200 ? 0.55 : 1) * (f < 3 ? 0.85 : 1);
       while (spawnAcc >= 1) { spawnAcc--; const a = mix(); if (a === 'schwarm') { spawnAcc -= 1; const ang = rnd(0, TAU); for (let i = 0; i < 3; i++) spawn('schwarm', { ang: ang + rnd(-0.2, 0.2) }); } else spawn(a); }
       if (T >= waveAt) { const gross = Math.round(waveAt / 60) % 5 === 0; waveAt += 60; meldung(gross ? 'Eine gewaltige Welle rollt heran!' : 'Eine Welle rollt heran!', '#ff9a7a', gross); const n = Math.round((14 + Math.floor(f * 8)) * (gross ? 2.5 : 1)); const a0 = marsch ? 0 : rnd(0, TAU), breite = gross ? TAU : 2.4; for (let i = 0; i < n; i++) spawn(f > 2 ? pick(['laeufer', 'schnell', 'tank']) : 'laeufer', { ang: a0 + (i / n - 0.5) * breite }); }
       if (T >= eliteAt) { eliteAt += 120; const e = spawn(pick(['laeufer', 'tank']), { elite: true }); meldung(`${e.name} taucht auf!`, '#ffb070'); }
@@ -541,6 +542,12 @@ export function playBattle(opts = {}) {
     function angebote() {
       const pool = ITEMS.filter((it) => (owned.get(it.id)?.lv || 0) < 10), n = 3 + (ST.luck >= 0.5 ? 1 : 0) + (ST.luck >= 1.2 ? 1 : 0), out = [];
       while (out.length < n && pool.length) { const ws = pool.map(gewicht), sum = ws.reduce((a, b) => a + b, 0); let r = Math.random() * sum, i = 0; while (r > ws[i] && i < ws.length - 1) { r -= ws[i]; i++; } out.push({ it: pool.splice(i, 1)[0], q: seltenheit() }); }
+      // Früh mindestens eine neue Waffe anbieten, solange man weniger als 3 hat (sonst endet ein Lauf ohne Schadensquelle)
+      const waffenZahl = [...owned.keys()].filter((id) => ITEM[id].typ === 'waffe').length;
+      if (waffenZahl < 3 && lvl <= 12 && !out.some((o) => o.it && o.it.typ === 'waffe' && !owned.has(o.it.id))) {
+        const neu = ITEMS.filter((it) => it.typ === 'waffe' && !owned.has(it.id));
+        if (neu.length) out[0] = { it: pick(neu), q: seltenheit() };
+      }
       // Relikt: sehr selten statt einer Karte
       const frei = RELIKTE.filter((r) => !relics.has(r.id));
       if (frei.length && Math.random() < 0.008 + ST.luck * 0.006) out[out.length - 1] = { relikt: pick(frei) };
@@ -582,7 +589,7 @@ export function playBattle(opts = {}) {
     }
     let levelQueue = 0, curOffers = null;
     function levelUp() {
-      lvl++; levelQueue++; xp -= xpNeed; xpNeed = Math.round(10 + lvl * 4.5 + Math.max(0, lvl - 20) * 5); stufenEffekt();
+      lvl++; levelQueue++; xp -= xpNeed; xpNeed = Math.round(8 + lvl * 3 + Math.max(0, lvl - 15) * 4 + Math.max(0, lvl - 40) * 6); stufenEffekt();
       if (!modal.hidden) return; zeigeAuswahl();
     }
     function itemIcon(it, big, extra = {}) {
@@ -684,7 +691,7 @@ export function playBattle(opts = {}) {
       let mx = 0, my = 0;
       if (keys.has('a') || keys.has('arrowleft')) mx--; if (keys.has('d') || keys.has('arrowright')) mx++; if (keys.has('w') || keys.has('arrowup')) my--; if (keys.has('s') || keys.has('arrowdown')) my++;
       if (joyV) { mx = joyV[0]; my = joyV[1]; }
-      if (opts.autopilot) [mx, my] = opts.autopilot({ P, enemies, gems, t });
+      if (opts.autopilot) [mx, my] = opts.autopilot({ P, enemies, gems, t, hazards, enemyShots });
       const ml = Math.hypot(mx, my);
       P.moving = ml > 0.05;
       if (P.moving) { const k = Math.min(1, ml); P.x += (mx / ml) * ST.speed * k * dt; P.y += (my / ml) * ST.speed * k * dt; P.fx = mx / ml; P.fy = my / ml; P.walk += dt * 8; P.dir = Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 2 : 3) : my > 0 ? 0 : 1; }
@@ -702,9 +709,9 @@ export function playBattle(opts = {}) {
       if (RM('ruprechtsglocke')) { bellT -= dt; if (bellT <= 0) { bellT = 8; blast(P.x, P.y, 240 * ST.area, 35 * ST.dmg * (1 + lvl * 0.05), { m: { stun: 1, knock: 50 }, col: '#ffd070', kind: 'welle', life: 0.8 }); shake = Math.max(shake, 4); } }
       if (P.phoenix) for (const e of near(P.x, P.y, 60)) { e.burnDps = Math.max(e.burnDps, 25 * ST.dmg * ST.burn); e.burnT = 2; }
       // Angekündigte Flächenangriffe
-      for (const h of hazards) { h.t += dt; if (h.t >= h.delay && !h.done) { h.done = true; fx.push({ k: 'einschlagrot', x: h.x, y: h.y, r: h.r, t: 0, life: 0.3 }); if (Math.hypot(P.x - h.x, (P.y - h.y) * 1.3) < h.r && P.inv <= 0) treffer(h.dmg); } }
+      for (const h of hazards) { h.t += dt; if (h.t >= h.delay && !h.done) { h.done = true; fx.push({ k: 'einschlagrot', x: h.x, y: h.y, r: h.r, t: 0, life: 0.3 }); if (Math.hypot(P.x - h.x, (P.y - h.y) * 1.3) < h.r && P.inv <= 0) { dmgQuelle = 'kreis'; treffer(h.dmg); } } }
       for (let i = hazards.length - 1; i >= 0; i--) if (hazards[i].done) hazards.splice(i, 1);
-      if (effT() > 150) { hazardT -= dt; if (hazardT <= 0) { hazardT = Math.max(1.4, 7 - effT() / 110) * rnd(0.7, 1.3); const n = 1 + Math.floor(effT() / 240); for (let i = 0; i < n; i++) gefahr(P.x + P.fx * 30 + rnd(-50, 50), P.y + P.fy * 30 + rnd(-40, 40), 26, 1.15, 14 * (1 + effT() / 200)); } }
+      if (effT() > 240) { hazardT -= dt; if (hazardT <= 0) { hazardT = Math.max(1.4, 9 - effT() / 90) * rnd(0.7, 1.3); const n = 1 + Math.floor(effT() / 240); for (let i = 0; i < n; i++) gefahr(P.x + P.fx * 30 + rnd(-50, 50), P.y + P.fy * 30 + rnd(-40, 40), 26, 1.15, 14 * (1 + effT() / 200)); } }
       // Helfer
       if (helferListe.length) { if (aktiv) helferTick(dt); else if ((helferT -= dt) <= 0) { helferT = 38; helferKommt(); } }
       // Geschosse
@@ -779,10 +786,10 @@ export function playBattle(opts = {}) {
         let sp = e.spd * (1 - e.slow) * (RM('sturmauge') && d < 75 ? 0.45 : 1);
         let vx = (dx / d) * sp, vy = (dy / d) * sp;
         if (ARCH[e.arch].wobble) { e.wob += dt * 6; vx += Math.cos(e.wob) * 25; vy += Math.sin(e.wob * 1.3) * 25; }
-        if (ARCH[e.arch].shoot && !e.boss) { if (d < 110) { vx = -vx * 0.6; vy = -vy * 0.6; } else if (d < 150) { vx *= 0.1; vy *= 0.1; } e.shootT -= dt; if (e.shootT <= 0 && d < 220) { e.shootT = rnd(2.2, 3); if (Math.random() < 0.35 && effT() > 90) gefahr(P.x + P.fx * 20, P.y + P.fy * 20, 24, 1.1, e.dmg * 1.6); else enemyShots.push({ x: e.x, y: e.y, vx: (dx / d) * 130, vy: (dy / d) * 130, life: 2.5, dmg: e.dmg }); } }
+        if (ARCH[e.arch].shoot && !e.boss) { if (d < 110) { vx = -vx * 0.6; vy = -vy * 0.6; } else if (d < 150) { vx *= 0.1; vy *= 0.1; } e.shootT -= dt; if (e.shootT <= 0 && d < 220) { e.shootT = rnd(2.2, 3); if (Math.random() < 0.3 && effT() > 300) gefahr(P.x + P.fx * 20, P.y + P.fy * 20, 24, 1.1, e.dmg * 1.6); else enemyShots.push({ x: e.x, y: e.y, vx: (dx / d) * 130, vy: (dy / d) * 130, life: 2.5, dmg: e.dmg * (effT() < 240 ? 0.6 : 0.85) }); } }
         if ((ARCH[e.arch].charge || e.boss) && !e.dashing) { e.chargeT -= dt; if (e.chargeT <= 0 && d < 180) { e.dashing = 0.55; e.dvx = (dx / d) * sp * 4.2; e.dvy = (dy / d) * sp * 4.2; e.chargeT = e.boss ? 3.5 : rnd(4, 7); } }
         if (e.dashing) { vx = e.dvx; vy = e.dvy; e.dashing -= dt; if (e.dashing <= 0) e.dashing = 0; }
-        if ((e.elite || e.boss) && d < 260) { e.hazT = (e.hazT ?? 3) - dt; if (e.hazT <= 0) { e.hazT = e.boss ? 3 : 5; const n = e.boss ? 6 : 3; for (let i = 0; i < n; i++) { const a = (i / n) * TAU + rnd(0, 1); gefahr(P.x + Math.cos(a) * rnd(0, 45), P.y + Math.sin(a) * rnd(0, 35), e.boss ? 34 : 28, 1.25, e.dmg * 1.3); } } }
+        if ((e.elite || e.boss) && d < 260) { e.hazT = (e.hazT ?? 3) - dt; if (e.hazT <= 0) { e.hazT = e.boss ? 3 : 5; const n = e.boss ? 6 : 3; for (let i = 0; i < n; i++) { const a = (i / n) * TAU + rnd(0, 1); gefahr(P.x + Math.cos(a) * rnd(0, 45), P.y + Math.sin(a) * rnd(0, 35), e.boss ? 34 : 28, 1.25, e.dmg * (e.boss ? 1.1 : 0.85)); } } }
         if (e.boss && Math.random() < dt * 0.25) { for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; enemyShots.push({ x: e.x, y: e.y, vx: Math.cos(a) * 90, vy: Math.sin(a) * 90, life: 3, dmg: e.dmg * 0.5 }); } }
         e.x += (vx + e.kx) * dt; e.y += (vy + e.ky) * dt; e.kx *= Math.pow(0.02, dt); e.ky *= Math.pow(0.02, dt);
         e.face = vx >= 0 ? 1 : -1;
@@ -817,7 +824,7 @@ export function playBattle(opts = {}) {
     function treffer(dmg, von) {
       if (P.shield > 0) { P.shield--; P.inv = 0.5; fx.push({ k: 'ring', x: P.x, y: P.y, r: 14, t: 0, life: 0.25, col: '#9fd8ff' }); return; }
       const ar = ST.armor + (P.hp < P.maxhp / 2 ? ST.lowArmor : 0);
-      const d = Math.max(1, dmg - ar); P.hp -= d; P.inv = 0.5; zahl(P.x, P.y - 14, d, '#ff6050'); shake = Math.max(shake, 2); flash('rgba(200,30,20,.18)');
+      const d = Math.max(1, dmg - ar); P.hp -= d; const qk = von ? (von.boss ? 'boss' : von.elite ? 'elite' : (von.arch || 'feind')) : (dmgQuelle || 'geschoss'); dmgLog[qk] = (dmgLog[qk] || 0) + d; dmgQuelle = null; P.inv = 0.5; zahl(P.x, P.y - 14, d, '#ff6050'); shake = Math.max(shake, 2); flash('rgba(200,30,20,.18)');
       if (von && ST.thorns) hit(von, ST.thorns, {}, P.x, P.y, true);
       if (P.hp <= 0) {
         if (P.revive > 0) {
@@ -1067,6 +1074,6 @@ export function playBattle(opts = {}) {
     const row0 = el('div', 'hb-row'); row0.append(go); intro.append(row0); modal.append(intro);
     if (opts.autostart) go.click();
     raf = requestAnimationFrame(loop);
-    if (opts.debug) opts.debug({ P, enemies, owned, nimm, get ST() { return ST; }, get t() { return t; }, get lvl() { return lvl; }, get kills() { return kills; }, aktiveKombis, legends, modal, zeigeAuswahl, ende, truheOeffnen, nimmRelikt, fusionBereit });
+    if (opts.debug) opts.debug({ P, enemies, dmgLog, owned, nimm, get ST() { return ST; }, get t() { return t; }, get lvl() { return lvl; }, get kills() { return kills; }, aktiveKombis, legends, modal, zeigeAuswahl, ende, truheOeffnen, nimmRelikt, fusionBereit });
   });
 }

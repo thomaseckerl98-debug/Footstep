@@ -4,7 +4,7 @@ Stand: 23.11.2026. Wird aus `game/kampf_items.js` erzeugt.
 
 ## So funktioniert es
 - Du greifst automatisch an und bestimmst nur, wohin du läufst (WASD/Pfeiltasten oder Finger ziehen). Rote Kreise am Boden kündigen Einschläge an – rechtzeitig ausweichen!
-- Gegner hinterlassen Erfahrung. Bei jedem Aufstieg wählst du aus 3 Angeboten (mit viel Glück 4–5) ein neues Item oder eine Stufe mehr. 70 Items, jedes bis Stufe 10, die Anzahl ist **nicht begrenzt**. Aufsteigen dauert spürbar länger als früher – ein starker Lauf endet nach 15 Minuten etwa bei Stufe 60–80.
+- Gegner hinterlassen Erfahrung. Bei jedem Aufstieg wählst du aus 3 Angeboten (mit viel Glück 4–5) ein neues Item oder eine Stufe mehr. 70 Items, jedes bis Stufe 10, die Anzahl ist **nicht begrenzt**. Aufsteigen dauert spürbar länger als früher – ein starker Lauf endet nach 15 Minuten etwa bei Stufe 80–95. Ab etwa Minute 4 wird es ernst: Fernkämpfer, Mörser und rote Kreise verlangen Ausweichen. Wer früh nur eine Waffe hat, bekommt bis Stufe 12 garantiert eine neue Waffe angeboten; wer hinterherhinkt, trifft auf etwas weichere Gegner.
 - **Seltenheit:** Jede Karte kann seltener sein und wirkt dann dauerhaft stärker: Ungewöhnlich +12 % (ca. 19 %), Selten +25 % (ca. 6,5 %), Episch +50 % (ca. 2,1 %), Legendär +100 % (ca. 0,4 %). Glück erhöht die Chancen.
 - **Kombi:** Zwei Partner-Items ab Stufe 2 → die Waffe bekommt die **Prägung** des Partners (z. B. „Brennende Wurfaxt“). Jedes Item hat 3–5 Partner.
 - **Fusion:** Ist eine Waffe auf Stufe 6 und hat eine aktive Kombi, wird sie „bereit“ (lila leuchtend). Die **nächste Truhe** verschmilzt sie mit dem Partner, z. B. „Glut-Wurfaxt“: Prägung 2,5-fach, +60 % Schaden, +1 Geschoss, schneller, größer. Jede Waffe kann einmal fusionieren.

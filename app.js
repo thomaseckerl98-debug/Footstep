@@ -10,9 +10,9 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=2';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=9';
+import { openQuest } from './game/questui.js?v=10';
 import { playMinigame } from './game/minigames.js?v=2';
-import { playBattle } from './game/horde.js?v=4';
+import { playBattle } from './game/horde.js?v=5';
 import { iconURL } from './game/kampf_icons.js?v=3';
 const KAMPF = () => `<img class="q-kicon" src="${iconURL('kampf')}" alt="">`;
 
