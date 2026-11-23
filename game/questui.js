@@ -2,7 +2,8 @@
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=3';
 import { playMinigame } from './minigames.js?v=2';
-import { playBattle } from './horde.js?v=2';
+import { playBattle } from './horde.js?v=3';
+import { iconURL } from './kampf_icons.js?v=2';
 
 const LW = 240, LH = 100, GROUND = 88;
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -135,7 +136,7 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
   function render(first) {
-    title.textContent = v.quest; if (v.kampf_quest) { const kb = document.createElement('span'); kb.className = 'q-kampfbadge'; kb.textContent = `⚔ Kampf · ca. ${v.kampf_quest} Min.`; kb.title = 'In diesem Abenteuer kommt es zu einem Kampf.'; title.append(' ', kb); }
+    title.textContent = v.quest; if (v.kampf_quest) { const kb = document.createElement('span'); kb.className = 'q-kampfbadge'; kb.innerHTML = `<img class="q-kicon" src="${iconURL('kampf')}" alt="">Kampf · ca. ${v.kampf_quest} Min.`; kb.title = 'In diesem Abenteuer kommt es zu einem Kampf.'; title.append(' ', kb); }
     if (!first && v.letztes) {
       const l = v.letztes;
       if (l.wahl) add('me', esc(l.wahl));
@@ -176,7 +177,7 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
       const mg = v.minispiel, li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt check';
       const kampf = mg.art === 'kampf';
       if (kampf) b.classList.add('kampf');
-      b.innerHTML = kampf ? `<span class="q-kampficon">⚔</span> <span class="txt"><b>${esc(mg.titel || 'Kämpfen')}</b><br><span class="small">Kampf · ca. ${Math.round((mg.dauer || 600) / 60)} Minuten · jederzeit pausierbar</span></span>` : `<span class="tag">[Geschick]</span> <span class="txt">${esc(mg.titel || 'Versuchen')}</span>`;
+      b.innerHTML = kampf ? `<img class="q-kampficon" src="${iconURL('kampf')}" alt=""> <span class="txt"><b>${esc(mg.titel || 'Kämpfen')}</b><br><span class="small">Kampf · ca. ${Math.round((mg.dauer || 600) / 60)} Minuten · jederzeit pausierbar</span></span>` : `<span class="tag">[Geschick]</span> <span class="txt">${esc(mg.titel || 'Versuchen')}</span>`;
       b.onclick = async () => {
         if (busy) return; busy = true;
         let ok;

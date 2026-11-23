@@ -55,6 +55,7 @@ const I = {
   wegzehrung: ['............', '............', '...cccccc...', '..cooooooc..', '.cooccocooc.', '.coooooooocC', '.cooocooooc.', '..cccccccc..', '..CCCCCCCC..', '............', '............', '............'],
   ahnenstein: ['.....NN.....', '....NnnN....', '...NnnnnN...', '...NngnnN...', '..NnngnnnN..', '..NngggnnN..', '..NnngnnnN..', '..NnngnnnN..', '.NnnnnnnnnN.', '.NNNNNNNNNN.', 'LLLLLLLLLLLL', '............'],
   trollblut: ['....kkk.....', '.....M......', '....kkk.....', '...kLllk....', '..kLllllk...', '..klLlllk...', '..kllllLk...', '..klllllk...', '...kllLk....', '....kkk.....', '............', '............'],
+  kampf: ['s..........s', 'ms........sm', '.ms......sm.', '..ms....sm..', '...ms..sm...', '....mssm....', '....smms....', '...gs..sg...', '..gWg..gWg..', '.WW.g..g.WW.', 'WW........WW', 'W..........W'],
   // Legenden
   feuersturm: ['..o.....o...', '.oyo...oyo..', '..o.rrr.o...', '...roooR....', 'o.royyoR.o..', 'yorygyyoRoy.', 'o.royyoR.o..', '...roooR....', '..o.RRR.o...', '.oyo...oyo..', '..o.....o...', '............'],
   ewigerwinter: ['i....i....i.', '.i...i...i..', '..i..b..i...', '...i.b.i....', '....ibi.....', 'iibbbfbbbii.', '....ibi.....', '...i.b.i....', '..i..b..i...', '.i...i...i..', 'i....i....i.', '............'],

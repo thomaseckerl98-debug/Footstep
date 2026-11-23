@@ -350,3 +350,5 @@ details.kat summary .ampel { width: 8px; height: 8px; margin: 0 1px; }
 .dl-opt.kampf { border: 1px solid #c8543a !important; background: linear-gradient(90deg, rgba(200,84,58,.25), rgba(200,84,58,.05)) !important; display: flex; align-items: center; gap: 8px; text-align: left; }
 .dl-opt.kampf:hover { background: linear-gradient(90deg, rgba(200,84,58,.4), rgba(200,84,58,.1)) !important; }
 .q-kampficon { font-size: 22px; color: #ffb59a; line-height: 1; }
+.q-kicon { width: 13px; height: 13px; image-rendering: pixelated; vertical-align: -2px; margin-right: 3px; }
+img.q-kampficon { width: 28px; height: 28px; image-rendering: pixelated; flex: none; }

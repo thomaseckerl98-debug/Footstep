@@ -3,7 +3,7 @@
 // opts: { titel, text, dauer (Sekunden, 0 = endlos), schwer (1–3), gegner ('wald'|'banditen'|'gruft'|'berg'|'tiere'), ort, heroPlan, helfer: [{name, beruf, look}], meta }
 import { ITEMS, ITEM, PRAEG, MERKMALE, LEGENDEN, partnerVon } from './kampf_items.js?v=1';
 import { sheetData, SW, SH } from './chars.js?v=3';
-import { iconURL } from './kampf_icons.js?v=1';
+import { iconURL } from './kampf_icons.js?v=2';
 
 const TAU = Math.PI * 2;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -15,8 +15,8 @@ const fmtZeit = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padSt
 
 /* ───────────────────────── Gegner ───────────────────────── */
 const ARCH = {
-  laeufer: { hp: 14, spd: 30, dmg: 8, r: 6, xp: 1 },
-  schnell: { hp: 9, spd: 56, dmg: 6, r: 5, xp: 1 },
+  laeufer: { hp: 14, spd: 30, dmg: 6, r: 6, xp: 1 },
+  schnell: { hp: 9, spd: 54, dmg: 5, r: 5, xp: 1 },
   tank: { hp: 70, spd: 21, dmg: 15, r: 9, xp: 4, charge: true },
   schuetze: { hp: 18, spd: 26, dmg: 7, r: 6, xp: 2, shoot: true },
   schwarm: { hp: 5, spd: 48, dmg: 4, r: 4, xp: 1, wobble: true },
@@ -204,9 +204,9 @@ export function playBattle(opts = {}) {
       for (const [id, o] of owned) { const it = ITEM[id]; if (it.typ !== 'gabe') continue; const f = bundFaktor(id); for (const [k, v] of Object.entries(it.mod(o.lv))) m[k] = (m[k] || 0) + (k === 'revive' ? v : v * f); }
       const old = ST;
       ST = {
-        maxhp: Math.round((100 + meta.hp) * (1 + m.hpMul + (sb.heilung ? 0 : 0) + ((sc.natur || 0) >= 8 ? 0.2 : 0))),
-        armor: m.armor + meta.armor + (sb.ruestung || 0), regen: m.regen + meta.regen + (sb.regen || 0),
-        speed: 74 * (1 + m.speed + meta.speed), magnet: 52 * (1 + m.magnet + meta.magnet),
+        maxhp: Math.round((120 + meta.hp) * (1 + m.hpMul + (sb.heilung ? 0 : 0) + ((sc.natur || 0) >= 8 ? 0.2 : 0))),
+        armor: m.armor + meta.armor + (sb.ruestung || 0), regen: 0.25 + m.regen + meta.regen + (sb.regen || 0),
+        speed: 74 * (1 + m.speed + meta.speed), magnet: 68 * (1 + m.magnet + meta.magnet),
         dmg: 1 + m.dmg + meta.dmg + (sb.schaden || 0), cd: m.cd + meta.cd + (sb.tempo || 0), area: 1 + m.area + meta.area + (sb.flaeche || 0),
         projSpd: 1 + m.projSpd + meta.projSpd + (sb.reichweite || 0), dur: 1 + m.dur + (sb.dauer || 0), amount: m.amount + (sb.anzahl || 0),
         luck: m.luck + meta.luck, crit: 0.05 + m.crit + meta.crit + (sb.krit || 0), critMul: 2 + m.critMul + ((sc.stahl || 0) >= 8 ? 0.5 : 0),
@@ -450,12 +450,12 @@ export function playBattle(opts = {}) {
     let buffT = 0, shake = 0;
 
     /* ───────── Gegner erzeugen ───────── */
-    function scale() { const f = t / 60, diff = [0.75, 0.75, 1, 1.35][schwer] || 1; const erwartet = 1 + f * 10, vor = Math.max(0, (lvl - erwartet) / 15); return (1 + 0.3 * f + 0.045 * f * f) * diff * (1 + Math.min(1.2, vor) * 0.5); }
+    function scale() { const f = t / 60, diff = [0.75, 0.75, 1, 1.35][schwer] || 1; const erwartet = 1 + f * 10, vor = Math.max(0, (lvl - erwartet) / 15); return (1 + 0.3 * f + 0.055 * f * f) * diff * (1 + Math.min(1.2, vor) * 0.5); }
     function spawn(art, opt = {}) {
       const A = ARCH[art], d = GS[art], ang = opt.ang ?? rnd(0, TAU), extra = rnd(14, 40);
       const k = scale(), elite = !!opt.elite, boss = !!opt.boss;
       const hp = A.hp * k * (elite ? 14 : 1) * (boss ? 120 + t * 0.25 : 1);
-      const e = { id: nextId++, arch: art, name: boss ? d[0] : (elite ? 'Anführer: ' : '') + d[0], x: P.x + Math.cos(ang) * (VW / 2 + extra), y: P.y + Math.sin(ang) * (VH / 2 + extra), r: A.r * (elite ? 1.6 : 1) * (boss ? 2.6 : 1), hp, maxhp: hp, spd: A.spd * (1 + Math.min(0.5, t / 600)) * (boss ? 0.9 : 1), dmg: A.dmg * (1 + t / 240) * (boss ? 2 : elite ? 1.5 : 1) * ([1, 0.8, 1, 1.25][schwer] || 1), xp: A.xp * (elite ? 25 : 1) * (boss ? 80 : 1), elite, boss, kx: 0, ky: 0, slow: 0, slowT: 0, freezeT: 0, stunT: 0, burnDps: 0, burnT: 0, poisonN: 0, poisonDps: 0, poisonT: 0, bleedN: 0, bleedDps: 0, bleedT: 0, curse: 0, curseT: 0, flash: 0, anim: rnd(0, 2), shootT: rnd(1.5, 3), chargeT: rnd(3, 6), col: typeof d[1] === 'string' ? d[2] : (d[1].top || '#888'), spr: sprFor(art, boss), wob: rnd(0, TAU) };
+      const e = { id: nextId++, arch: art, name: boss ? d[0] : (elite ? 'Anführer: ' : '') + d[0], x: P.x + Math.cos(ang) * (VW / 2 + extra), y: P.y + Math.sin(ang) * (VH / 2 + extra), r: A.r * (elite ? 1.6 : 1) * (boss ? 2.6 : 1), hp, maxhp: hp, spd: A.spd * (1 + Math.min(0.5, t / 600)) * (boss ? 0.9 : 1), dmg: A.dmg * (1 + t / 300) * (boss ? 2 : elite ? 1.5 : 1) * ([1, 0.8, 1, 1.25][schwer] || 1), xp: A.xp * (elite ? 25 : 1) * (boss ? 80 : 1), elite, boss, kx: 0, ky: 0, slow: 0, slowT: 0, freezeT: 0, stunT: 0, burnDps: 0, burnT: 0, poisonN: 0, poisonDps: 0, poisonT: 0, bleedN: 0, bleedDps: 0, bleedT: 0, curse: 0, curseT: 0, flash: 0, anim: rnd(0, 2), shootT: rnd(1.5, 3), chargeT: rnd(3, 6), col: typeof d[1] === 'string' ? d[2] : (d[1].top || '#888'), spr: sprFor(art, boss), wob: rnd(0, TAU) };
       enemies.push(e); return e;
     }
     function mix() {
@@ -466,10 +466,10 @@ export function playBattle(opts = {}) {
     }
     function spawnTick(dt) {
       if (enemies.length > 480) return;
-      const f = t / 60, rate = Math.min(36, (1.3 + f * 0.95 + f * f * 0.12) * ([0, 0.8, 1, 1.2][schwer] || 1));
+      const f = t / 60, rate = Math.min(36, (1.0 + f * 0.95 + f * f * 0.12) * ([0, 0.8, 1, 1.2][schwer] || 1));
       spawnAcc += rate * dt;
-      while (spawnAcc >= 1) { spawnAcc--; const a = mix(); if (a === 'schwarm') { const ang = rnd(0, TAU); for (let i = 0; i < 4; i++) spawn('schwarm', { ang: ang + rnd(-0.2, 0.2) }); } else spawn(a); }
-      if (t >= waveAt) { const gross = Math.round(waveAt / 60) % 5 === 0; waveAt += 60; meldung(gross ? 'Eine gewaltige Welle rollt heran!' : 'Eine Welle rollt heran!', '#ff9a7a', gross); const n = Math.round((24 + Math.floor(f * 8)) * (gross ? 2.5 : 1)); for (let i = 0; i < n; i++) spawn(f > 2 ? pick(['laeufer', 'schnell', 'tank']) : 'laeufer', { ang: (i / n) * TAU }); }
+      while (spawnAcc >= 1) { spawnAcc--; const a = mix(); if (a === 'schwarm') { spawnAcc -= 1; const ang = rnd(0, TAU); for (let i = 0; i < 3; i++) spawn('schwarm', { ang: ang + rnd(-0.2, 0.2) }); } else spawn(a); }
+      if (t >= waveAt) { const gross = Math.round(waveAt / 60) % 5 === 0; waveAt += 60; meldung(gross ? 'Eine gewaltige Welle rollt heran!' : 'Eine Welle rollt heran!', '#ff9a7a', gross); const n = Math.round((14 + Math.floor(f * 8)) * (gross ? 2.5 : 1)); const a0 = rnd(0, TAU), breite = gross ? TAU : 2.4; for (let i = 0; i < n; i++) spawn(f > 2 ? pick(['laeufer', 'schnell', 'tank']) : 'laeufer', { ang: a0 + (i / n - 0.5) * breite }); }
       if (t >= eliteAt) { eliteAt += 120; const e = spawn(pick(['laeufer', 'tank']), { elite: true }); meldung(`${e.name} taucht auf!`, '#ffb070'); }
       if (!bossOut && t >= bossAt) { bossOut = true; const e = spawn('tank', { boss: true }); e.spr = sprFor('boss', true); e.name = opts.boss || GS.boss[0]; e.col = typeof GS.boss[1] === 'string' ? GS.boss[2] : '#a02828'; meldung(`${e.name} erscheint!`, '#ff6060', true); if (endlos) { bossOut = false; bossAt += 300; } }
     }
@@ -726,7 +726,7 @@ export function playBattle(opts = {}) {
     const enemyShots = [];
     function treffer(dmg, von) {
       if (P.shield > 0) { P.shield--; P.inv = 0.5; fx.push({ k: 'ring', x: P.x, y: P.y, r: 14, t: 0, life: 0.25, col: '#9fd8ff' }); return; }
-      const d = Math.max(1, dmg - ST.armor); P.hp -= d; P.inv = 0.45; zahl(P.x, P.y - 14, d, '#ff6050'); shake = Math.max(shake, 2);
+      const d = Math.max(1, dmg - ST.armor); P.hp -= d; P.inv = 0.6; zahl(P.x, P.y - 14, d, '#ff6050'); shake = Math.max(shake, 2);
       if (von && ST.thorns) hit(von, ST.thorns, {}, P.x, P.y, true);
       if (P.hp <= 0) {
         if (P.revive > 0) { P.revive = 0; P.reviveUsed = true; P.hp = P.maxhp * 0.5; P.inv = 2; blast(P.x, P.y, 200, 200 * ST.dmg, { m: { knock: 120 }, col: '#9ff0a0', kind: 'welle', life: 0.6 }); meldung('Trollblut! Du stehst wieder auf.', '#9ff0a0', true); }
