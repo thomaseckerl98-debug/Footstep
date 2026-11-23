@@ -1,6 +1,7 @@
 // Quest-Fenster: Szenenbild (Held + Begleiter), Wanderanimation bei Reisen, Wahlmöglichkeiten, Würfelzeilen.
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=3';
+import { playMinigame } from './minigames.js?v=2';
 
 const LW = 240, LH = 100, GROUND = 88;
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -8,7 +9,7 @@ function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) | 0
 const sheetCanvas = (plan) => { const sh = sheetData(plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h; cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0); return cv; };
 
 /* ───────── Hintergründe (einfache Pixel-Formen, schnell genug für jedes Bild) ───────── */
-const SKY = { dorf: ['#9cb8c8', '#e8d8b0'], wald: ['#7fa0a8', '#c8d0a8'], mine: ['#8a98a8', '#c8c0a8'], stollen: ['#0c0a0a', '#1a1412'], feuer: ['#0a1020', '#24304a'] };
+const SKY = { dorf: ['#9cb8c8', '#e8d8b0'], wald: ['#7fa0a8', '#c8d0a8'], mine: ['#8a98a8', '#c8c0a8'], stollen: ['#0c0a0a', '#1a1412'], feuer: ['#0a1020', '#24304a'], berg: ['#a8b8c8', '#e8eef0'], fluss: ['#8cb0c0', '#d8e0c8'], ruine: ['#8a94a0', '#c8c4b0'], hoehle: ['#0c0a0a', '#1a1412'] };
 function grad(c, a, b) { const g = c.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, a); g.addColorStop(1, b); c.fillStyle = g; c.fillRect(0, 0, LW, LH); }
 function conifer(c, x, base, h, col) { c.fillStyle = col; for (let i = 0; i < h; i++) { const w = Math.max(1, Math.round((i / h) * h * 0.42)); c.fillRect(Math.round(x - w / 2), base - h + i, w, 1); } }
 function treeRow(c, off, seed, base, hMin, hMax, col, gap) {
@@ -39,6 +40,27 @@ function drawBackground(c, ort, t, travel) {
     c.fillStyle = '#0a0808'; c.fillRect(124, 52, 26, GROUND - 52); c.fillStyle = '#6a4626'; c.fillRect(120, 48, 34, 5); c.fillRect(120, 48, 5, GROUND - 48); c.fillRect(149, 48, 5, GROUND - 48);
     treeRow(c, 0, 11, GROUND, 12, 24, '#3a5232', 26);
     c.fillStyle = '#6a6250'; c.fillRect(0, GROUND, LW, LH - GROUND);
+    return;
+  }
+  if (ort === 'hoehle') return drawBackground(c, 'stollen', t, travel);
+  if (ort === 'berg') {
+    hills(c, off * 0.15, 30, 22, '#c8d0d8', 0.015); hills(c, off * 0.3, 52, 16, '#9aa4ac', 0.025);
+    c.fillStyle = '#f4f6f8'; for (let x = 0; x < LW; x++) { const y = 30 - Math.round(22 * (0.5 + 0.5 * Math.sin((x + off * 0.15) * 0.015) * Math.cos((x + off * 0.15) * 0.015 * 0.37))); c.fillRect(x, y, 1, 4); }
+    treeRow(c, off * 0.6, 61, 84, 12, 22, '#3a4a40', 23);
+    c.fillStyle = '#e8ecef'; c.fillRect(0, GROUND - 2, LW, LH - GROUND + 2);
+    return;
+  }
+  if (ort === 'ruine') {
+    hills(c, 0, 50, 10, '#8a9690', 0.02); treeRow(c, 0, 71, 74, 10, 18, '#4a6250', 15);
+    c.fillStyle = '#7a766c'; for (const [x, w, h] of [[120, 14, 34], [140, 8, 20], [176, 16, 44], [200, 6, 14]]) c.fillRect(x, GROUND - h, w, h);
+    c.fillStyle = '#5a564e'; c.fillRect(176, GROUND - 44, 16, 3); c.fillRect(120, GROUND - 34, 14, 2);
+    c.fillStyle = '#5a6a3c'; c.fillRect(0, GROUND - 2, LW, LH - GROUND + 2);
+    return;
+  }
+  if (ort === 'fluss') {
+    hills(c, off * 0.2, 46, 12, '#8aa0a0', 0.02); treeRow(c, off * 0.35, 81, 70, 10, 20, '#5a7a62', 11);
+    c.fillStyle = '#4a6a34'; c.fillRect(0, GROUND - 10, LW, LH - GROUND + 10);
+    c.fillStyle = '#3e6a88'; c.fillRect(0, GROUND - 4, LW, 8); c.fillStyle = '#9cc4dc'; for (let x = 0; x < LW; x += 9) c.fillRect((x + Math.floor(t / 90)) % LW, GROUND - 2, 4, 1);
     return;
   }
   // wald / dorf
@@ -105,12 +127,18 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     raf = requestAnimationFrame(frame);
   }
 
-  const leftText = () => { const ms = new Date(v.reise.bis) - Date.now(); if (ms <= 0) return null; const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const leftText = () => {
+    const ms = new Date(v.reise.bis) - Date.now(); if (ms <= 0) return null; const s = Math.ceil(ms / 1000);
+    if (s >= 5400) { const h = Math.round(s / 3600); return `etwa ${h} Stunden (Ankunft ${new Date(v.reise.bis).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} Uhr)`; }
+    if (s >= 600) return `etwa ${Math.round(s / 60)} Minuten`;
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
   function render(first) {
     title.textContent = v.quest;
     if (!first && v.letztes) {
       const l = v.letztes;
       if (l.wahl) add('me', esc(l.wahl));
+      if (l.minispiel) add('note', l.minispiel.erfolg ? '<b class="ok">Geschafft!</b>' : '<b class="bad">Nicht geschafft.</b>');
       if (l.probe) add('note', probeLine(l.probe));
       if (l.text) add('npc', esc(l.text));
       if (l.extra) add('note', esc(l.extra.replace(/ ?Gefunden: [^.]*\([^)]*\)\./g, '')));
@@ -125,7 +153,7 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
       const st = document.createElement('p'); st.className = 'small q-travel'; foot.append(st);
       const tick = () => {
         const lt = leftText();
-        if (lt) { st.textContent = `Unterwegs … noch ${lt}. Du kannst das Fenster schließen – die Reise läuft weiter.`; return; }
+        if (lt) { st.textContent = `${v.reise.text ? v.reise.text + ' ' : ''}Unterwegs … noch ${lt}. Du kannst das Fenster schließen – die Reise läuft weiter.`; return; }
         clearInterval(tickTimer); st.textContent = 'Ihr seid angekommen.'; autoTimer = setTimeout(() => choose(0), 700);
       };
       tick(); tickTimer = setInterval(tick, 500); return;
@@ -143,6 +171,24 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
       autoTimer = setTimeout(poll, 3000);
       return;
     }
+    if (v.minispiel) {
+      const mg = v.minispiel, li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt check';
+      b.innerHTML = `<span class="tag">[Geschick]</span> <span class="txt">${esc(mg.titel || 'Versuchen')}</span>`;
+      b.onclick = async () => {
+        if (busy) return; busy = true;
+        const ok = await playMinigame(mg.art, { schwer: mg.schwer, titel: mg.titel, text: mg.text });
+        busy = false; send('quest_minigame', { p_run: v.run, p_erfolg: ok });
+      };
+      li.append(b); opts.append(li);
+    }
+    if (v.raetsel) {
+      const rz = v.raetsel, wrap = document.createElement('div'); wrap.className = 'q-raetsel';
+      wrap.innerHTML = `<p class="q-frage">${esc(rz.frage)}</p>${(rz.hinweise || []).map((h) => `<p class="small muted">Hinweis: ${esc(h)}</p>`).join('')}<p class="small muted">Noch ${rz.uebrig} ${rz.uebrig === 1 ? 'Versuch' : 'Versuche'}.</p>`;
+      const f = document.createElement('form'); f.className = 'q-answer'; const inp = document.createElement('input'); inp.maxLength = 60; inp.placeholder = 'Deine Antwort …'; inp.autocomplete = 'off';
+      const sb = document.createElement('button'); sb.type = 'submit'; sb.className = 'px-btn'; sb.textContent = 'Antworten';
+      f.append(inp, sb); f.onsubmit = (e) => { e.preventDefault(); const t = inp.value.trim(); if (t) send('quest_answer', { p_run: v.run, p_text: t }); };
+      wrap.append(f); opts.append(wrap); setTimeout(() => inp.focus(), 50);
+    }
     v.optionen.forEach((o, i) => {
       const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.probe ? ' check' : '');
       b.innerHTML = `<span class="num">${i + 1}.</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}`;
@@ -155,6 +201,13 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
   // zweistufig statt Browser-Dialog: erster Klick fragt, zweiter bestätigt
   function confirmAbort(b) { if (b.dataset.sure) return true; b.dataset.sure = '1'; b.textContent = 'Wirklich abbrechen? Nochmal klicken.'; setTimeout(() => { if (!closed) { delete b.dataset.sure; b.textContent = 'Abenteuer abbrechen'; } }, 4000); return false; }
 
+  async function send(fn, args) {
+    if (busy || closed) return; busy = true; opts.querySelectorAll('button,input').forEach((b) => (b.disabled = true));
+    const { data, error } = await db.rpc(fn, args);
+    busy = false; if (closed) return;
+    if (error) { add('note', `<b class="bad">Fehler:</b> ${esc(error.message)}`); opts.querySelectorAll('button,input').forEach((b) => (b.disabled = false)); return; }
+    v = data; render(false);
+  }
   async function choose(nr) {
     if (busy || closed) return; busy = true; opts.querySelectorAll('button').forEach((b) => (b.disabled = true));
     const { data, error } = await db.rpc('quest_choose', { p_run: v.run, p_nr: nr });

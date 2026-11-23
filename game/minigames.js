@@ -157,7 +157,7 @@ function finden(ctx) {
   const cards = [];
   for (let i = 0; i < richtig; i++) cards.push({ a: ga, b: gb, ok: true });
   while (cards.length < n) { const a = Math.random() < 0.5 ? ga : pick(A.filter((x) => x !== ga)); const b = a === ga ? pick(B.filter((x) => x !== gb)) : (Math.random() < 0.5 ? gb : pick(B)); cards.push({ a, b, ok: false }); }
-  status.textContent = `Gesucht: ${richtig}× ${T.ding || 'Pflanze'} mit ${ga} und ${gb}.`;
+  status.textContent = `Gesucht: ${richtig}× ${T.ding || 'Pflanze'} – ${ga}, ${gb}.`;
   let found = 0, fehler = 0; const maxF = schwer === 1 ? 2 : 1;
   const grid = el('div', 'mg-grid cards');
   shuffle(cards).forEach((c) => { const b = el('button', 'mg-cell card', `${c.a}\n${c.b}`); b.onclick = () => {

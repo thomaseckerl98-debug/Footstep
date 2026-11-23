@@ -10,7 +10,8 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=2';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=3';
+import { openQuest } from './game/questui.js?v=5';
+import { playMinigame } from './game/minigames.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -561,6 +562,7 @@ async function loadVillageState() {
   scene.setBaustelle?.(data.baustelle || null);
   layoutSynced = true;
   // Neuigkeiten seit dem letzten Besuch (einmal pro Sitzung)
+  if (!newsShown) setTimeout(heuteHinweis, data.dorf?.neu?.length ? 15000 : 2500);
   if (!newsShown && data.dorf?.neu?.length) {
     newsShown = true;
     toast(`<b>Seit deinem letzten Besuch:</b><br>${data.dorf.neu.map((e) => '• ' + esc(e.text)).join('<br>')}`, 14000);
@@ -626,13 +628,59 @@ function companionPicker(list, blocked = new Set()) {
   }
   return { el: pick, chosen };
 }
+// Einmal am Tag: wer im Dorf heute um Hilfe bittet
+async function heuteHinweis() {
+  const key = 'mh_heute_' + new Date().toLocaleDateString('de-DE');
+  try { if (localStorage.getItem(key)) return; } catch { /* egal */ }
+  const { data, error } = await db.rpc('heute'); if (error || !data) return;
+  const offen = (data.tagwerk || []).filter((t) => t.status === 'offen');
+  if (!offen.length) return;
+  const namen = offen.map((t) => esc(t.npc)); const liste = namen.length > 1 ? namen.slice(0, -1).join(', ') + ' und ' + namen.at(-1) : namen[0];
+  toast(`<b>Heute im Dorf:</b> ${liste} ${offen.length > 1 ? 'könnten' : 'könnte'} deine Hilfe gebrauchen. Schau unter <b>Quests</b> vorbei.`, 9000);
+  try { localStorage.setItem(key, '1'); } catch { /* egal */ }
+}
+function renderHeute(wrap, h) {
+  wrap.append(h3('Heute im Dorf'));
+  wrap.append(p('Kleine Bitten deiner Nachbarn – jeden Tag andere. Wer Hilfe bekommt, merkt es sich, und das Dorf hat etwas davon.', 'muted small'));
+  const tw = h.tagwerk || [];
+  if (!tw.length) wrap.append(p('Heute bittet dich niemand um etwas. Genieß den Tag.', 'small'));
+  for (const t of tw) {
+    const card = document.createElement('div'); card.className = 'adv q-tag' + (t.status !== 'offen' ? ' q-done' : '');
+    card.innerHTML = `<b>${esc(t.titel)}</b> <span class="muted small">· ${esc(t.npc)} (${esc(t.beruf)})</span><br><span class="small">„${esc(t.bitte)}“</span>`;
+    if (t.status === 'offen') {
+      card.append(row(btn('Helfen', true, async () => {
+        const ok = await playMinigame(t.art, { schwer: t.schwer, titel: t.titel, text: t.npc + ': „' + t.bitte + '“' });
+        const { data: r, error: e } = await db.rpc('tagwerk_fertig', { p_id: t.id, p_erfolg: ok });
+        if (e) { toast('Das hat nicht geklappt: ' + esc(e.message)); return; }
+        if (r.ok) toast(`<b>${esc(t.npc)}:</b> „${esc(r.text)}“${r.extra ? '<br>' + esc(r.extra) : ''}`, 9000);
+        if (!$('panel').hidden && active === 'quests') renderPanel('quests');
+      })));
+    } else card.append(p((t.status === 'erledigt' ? '✓ ' : '✗ ') + (t.ergebnis || ''), 'muted small'));
+    wrap.append(card);
+  }
+  const e = h.erkunden || {};
+  const ec = document.createElement('div'); ec.className = 'adv q-erk';
+  ec.innerHTML = '<b>Umgebung erkunden</b><br><span class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Geht auch, während du auf einer größeren Reise bist.</span>';
+  if (e.lauf) ec.append(row(btn('Weiter erkunden', true, () => resumeQuest(e.lauf))));
+  else if (e.rest > 0) {
+    const msg = p('', 'small error');
+    ec.append(row(btn(`Losziehen (heute noch ${e.rest}×)`, true, async () => {
+      const { data: r, error: er } = await db.rpc('erkunden_start');
+      if (er) { msg.textContent = er.message; return; }
+      if (!r.ok) { msg.textContent = r.grund === 'muede' ? 'Für heute bist du genug herumgestreift.' : 'Gerade gibt es nichts zu entdecken.'; return; }
+      resumeQuest(r.run);
+    })), msg);
+  } else ec.append(p('Für heute bist du genug herumgestreift. Morgen gibt es Neues.', 'muted small'));
+  wrap.append(ec);
+}
 const SLOT = { einfach: ['Leicht', 'q-leicht'], mittel: ['Mittel', 'q-mittel'], schwer: ['Schwer', 'q-schwer'], individuell: ['Individuell', 'q-indiv'] };
 function renderQuests(body) {
   const wrap = document.createElement('div'); wrap.className = 'adventures'; wrap.append(p('…', 'muted small')); body.append(wrap);
-  Promise.all([db.rpc('quest_board'), db.rpc('quest_list')]).then(([b, l]) => {
+  Promise.all([db.rpc('quest_board'), db.rpc('quest_list'), db.rpc('heute')]).then(([b, l, hh]) => {
     wrap.innerHTML = '';
     if (b.error || l.error) { wrap.append(p('Konnte die Quests nicht laden.', 'error')); return; }
     const board = b.data, list = l.data;
+    if (hh.data) renderHeute(wrap, hh.data); else if (hh.error) console.warn('Heute:', hh.error.message);
     if (list.laufend) {
       const run = (board.angebote || []).find((o) => o.run === list.laufend.run);
       const q = list.quests.find((x) => x.id === list.laufend.quest);
