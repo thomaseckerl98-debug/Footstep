@@ -1,5 +1,5 @@
 # Lange Brett-Quests, Schwierigkeit „Schwer“ (3): mehrtägige Reisen in Echtzeit, Rätsel, Minispiele, Gefahr, mehrere Enden.
-from qlib import O, B, P, S, R, MG, RZ, E
+from qlib import O, B, P, S, R, MG, RZ, E, K
 
 Q = []
 
@@ -89,11 +89,11 @@ sz['wendel'] = S('ruine', 'Wendel ist ein schmaler Mann mit einer Narbe über de
     P('„Ihr habt Tammo halb verhungern lassen. Verschwindet.“', 'einschuechtern', 14, B('Die beiden Handlanger sehen sich an. Einer lässt die Hacke sinken. „Ich hab den Jungen nicht geschlagen“, murmelt er. Sie ziehen ab. Wendel spuckt aus und folgt ihnen.', 'grufttuer'),
       B('Wendel lacht. „Der Junge war ein Nichtsnutz.“', 'kampf'), wenn={'flag': 'junge_freund'}),
     O('Kämpfen', 'kampf'))
-sz['kampf'] = S('hoehle', 'In der engen Gruft ist kein Platz für Heldentum. Es wird gerangelt, geschlagen, eine Fackel fällt zu Boden.',
-    P('Wendel entwaffnen', 'anpacken', 15, B('Du packst Wendels Arm und verdrehst ihn. Die Hacke fällt. Seine Begleiter fliehen, Wendel stolpert hinterher.', 'grufttuer'),
-      B('Ein Hieb trifft dich an der Seite. Du gehst zu Boden – aber die Männer fliehen, als von oben Steine herunterpoltern. Tammo? Oder nur die alte Burg?', 'grufttuer', {'gefahr': 2})),
-    P('Die Fackel nehmen und sie blenden', 'flink', 14, B('Funken, Geschrei – sie stolpern die Treppe hinauf und davon.', 'grufttuer'),
-      B('Du verbrennst dir die Hand. Trotzdem fliehen sie.', 'grufttuer', {'gefahr': 1})), gefahr=True)
+sz['kampf'] = K('hoehle', 'In der engen Gruft ist kein Platz für Heldentum. Wendel brüllt, seine Männer stürmen los – und aus den Seitengängen kommen noch mehr: Wendel hat Verstärkung mitgebracht.',
+    'Kampf in der Gruft', 'banditen', 150,
+    B('Als der letzte Grabräuber die Treppe hinaufflieht, wird es still. Wendel ist mit ihnen verschwunden. Nur sein Hut liegt noch im Staub.', 'grufttuer'),
+    B('Ein Hieb trifft dich an der Seite, du gehst zu Boden – aber die Männer fliehen, als von oben Steine herunterpoltern. Tammo? Oder nur die alte Burg?', 'grufttuer', {'gefahr': 2}),
+    spieltext='Wendel und seine Grabräuber – überstehe den Ansturm.', kampfort='hoehle')
 sz['grufttuer'] = S('hoehle', 'Vor dir: eine schwere Tür aus Bronze. In ihrer Mitte drei Drehscheiben mit Tierbildern – Reh, Wolf, Rabe, Bär, Fuchs, Eule. Darunter steht: „In dieser Reihe kam das Glück.“',
     O('Die Scheiben drehen', 'code'),
     O('Den Bronzeschlüssel in das Schlüsselloch unten stecken', 'tuer_schluessel', wenn={'flag': 'schluessel'}))
@@ -231,9 +231,13 @@ sz['furtenau'] = S('dorf', 'Du schickst einen Boten nach Furtenau. Zwei Tage sp�
 sz['harrek'] = S('dorf', 'Harrek kommt mit seinen vier Söldnern vom Steg. Er betrachtet den Bolzen. „Rabenfels. Für die haben wir mal gekämpft. Die zahlen schlecht und hängen schnell.“',
     O('Gemeinsam zum Lager ziehen', 'aufmarsch'))
 sz['aufmarsch'] = R('wald', 'Ihr zieht zum Ostkamm hinauf – nicht als Spione, sondern als Menge.', 240, 'konfrontation', unterwegs='Ihr steigt gemeinsam zum Kamm hinauf.')
-sz['konfrontation'] = S('wald', 'Kuno sieht die Menge aus dem Wald kommen. Seine Männer greifen nach den Armbrüsten, zögern. Es sind zu viele.', gefahr=True, *[
+sz['konfrontation'] = K('wald', 'Kuno sieht die Menge aus dem Wald kommen. Seine Männer greifen nach den Armbrüsten. Wenn jetzt jemand zögert, wird es eine Schlacht.',
+    'Die Schlacht am Ostkamm', 'banditen', 300,
+    B('Kunos Männer weichen zurück, dann fliehen sie. Am Ende steht nur noch Kuno da – und dann rennt auch er. Das Lager gehört euch.', 'ende_sieg_menge'),
+    B('Es wird hässlich – kurz, wild, blutig. Du gehst zu Boden, aber deine Leute halten stand, bis Kunos Männer fliehen.', 'ende_sieg_kampf', {'gefahr': 1}),
     P('„Geht. Heute noch. Sonst wird es hässlich.“', 'einschuechtern', 12, B('Kuno spuckt aus, aber er gibt das Zeichen zum Abzug. Bis zum Abend ist das Lager leer.', 'ende_sieg_menge'),
-      B('Ein Bolzen fliegt. Dann ein zweiter. Es wird hässlich – kurz, wild, dann fliehen Kunos Männer.', 'ende_sieg_kampf', {'gefahr': 1}))])
+      B('Ein Bolzen fliegt. Dann ein zweiter. Es wird hässlich – kurz, wild, dann fliehen Kunos Männer.', 'ende_sieg_kampf', {'gefahr': 1})),
+    spieltext='Kuno und seine Söldner gegen dich und deine Verbündeten.', kampfort='wald')
 sz['wache'] = S('dorf', 'Das Dorf stellt Wachen an den Waldrand. Jede Nacht sitzt jemand am Feuer und horcht. Nach zwei Wochen kommen keine Wilderer mehr – aber am Ostkamm qualmt der Meiler weiter.',
     O('So muss es fürs Erste reichen', 'ende_wache'))
 sz['ende_abzug'] = E('dorf', 'Am Ostkamm wird es still. Der Meiler erlischt. Im Frühjahr wachsen zwischen den verkohlten Stümpfen die ersten Birken.',
@@ -321,9 +325,15 @@ sz['esel'] = S('dorf', '„Nimm Grete. Sie kennt den Pass besser als jeder Mensc
     O('Mit Grete über den Pass', 'rueck', folgen={'flag': ['esel']}))
 sz['rueck'] = R('berg', 'Der Rückweg über den Pass: wieder Schnee, wieder Wind, aber diesmal kennst du den Weg.', 480, 'woelfe', unterwegs='Du trägst das Salz über den Pass zurück.')
 sz['woelfe'] = S('berg', 'Kurz vor der Schutzhütte, in der Dämmerung: Augen zwischen den Felsen. Drei Wölfe, mager vom Winter. Sie riechen das Pökelfleisch in deinem Proviant.', gefahr=True, *[
+    O('Kämpfen', 'woelfe_kampf'),
     O('Mit dem Bogen vertreiben', 'woelfe_bogen', wenn={'item': 'bogen'}),
     P('Ein Feuer entfachen und sie verscheuchen', 'anpacken', 14, B('Funken, Rauch – die Wölfe weichen zurück und verschwinden in der Nacht.', 'heim'), B('Das Feuer will nicht brennen. Ein Wolf schnappt nach deinem Bein, bevor sie fliehen.', 'heim', {'gefahr': 2})),
     O('Ihnen das Pökelfleisch hinwerfen', 'heim', ergebnis='Die Wölfe stürzen sich darauf. Du gehst rückwärts davon, ohne sie aus den Augen zu lassen. Das Salz ist wichtiger als das Fleisch.')])
+sz['woelfe_kampf'] = K('berg', 'Du ziehst deine Waffe. Die drei Wölfe knurren – und aus den Felsen kommen mehr. Viel mehr. Ein ganzes Rudel, ausgehungert vom Winter.',
+    'Das Rudel am Pass', 'berg', 150,
+    B('Der letzte Wolf flieht jaulend in die Dunkelheit. Du stehst keuchend im blutigen Schnee – das Salz ist sicher.', 'heim'),
+    B('Die Wölfe reißen dich zu Boden. Erst als du ihnen das Pökelfleisch hinwirfst, lassen sie ab. Das Salz behältst du – und ein paar Narben.', 'heim', {'gefahr': 2}),
+    spieltext='Überstehe das Rudel.', kampfort='berg')
 sz['woelfe_bogen'] = MG('berg', 'Du spannst den Bogen. Ein Schuss vor ihre Pfoten sollte reichen.', 'bogen', 2, 'Die Wölfe vertreiben',
     B('Der Pfeil schlägt zwischen ihnen in den Schnee. Sie fliehen.', 'heim'),
     B('Der Pfeil geht weit daneben. Die Wölfe kommen näher – du musst ihnen das Fleisch hinwerfen.', 'heim'))

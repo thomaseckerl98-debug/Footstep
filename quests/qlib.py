@@ -40,6 +40,12 @@ def MG(ort, text, art, schwer, titel, ok, nok, *optionen, spieltext=None, gefahr
     if gefahr: s['gefahr'] = True
     return s
 
+def K(ort, text, titel, gegner, dauer, ok, nok, *optionen, schwer=2, kampfort=None, spieltext=None):
+    # Horde-Kampf (Scharmützel/Schlacht). dauer in Sekunden.
+    s = {'ort': ort, 'text': text, 'gefahr': True, 'minispiel': {'art': 'kampf', 'schwer': schwer, 'titel': titel, 'gegner': gegner, 'dauer': dauer, 'kampfort': kampfort or ort, 'erfolg': ok, 'misserfolg': nok}, 'optionen': list(optionen)}
+    if spieltext: s['minispiel']['text'] = spieltext
+    return s
+
 def RZ(ort, text, frage, antworten, ok, nok, hinweise=(), versuche=3, falsch=None, *optionen):
     s = {'ort': ort, 'text': text, 'raetsel': {'frage': frage, 'antworten': list(antworten), 'hinweise': list(hinweise), 'versuche': versuche, 'erfolg': ok, 'misserfolg': nok}, 'optionen': list(optionen)}
     if falsch: s['raetsel']['falsch'] = falsch
