@@ -10,8 +10,9 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=2';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=5';
+import { openQuest } from './game/questui.js?v=6';
 import { playMinigame } from './game/minigames.js?v=2';
+import { playBattle } from './game/horde.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -672,6 +673,19 @@ function renderHeute(wrap, h) {
     })), msg);
   } else ec.append(p('Für heute bist du genug herumgestreift. Morgen gibt es Neues.', 'muted small'));
   wrap.append(ec);
+  // Übungsplatz: endloser Horde-Kampf ohne Folgen
+  const uc = document.createElement('div'); uc.className = 'adv q-erk';
+  let rek = 0; try { rek = +localStorage.getItem('mh_uebung_rekord') || 0; } catch { /* egal */ }
+  uc.innerHTML = `<b>Übungsplatz</b><br><span class="small">Kämpfe, so lange du durchhältst, und probiere Kombinationen aus. Keine Folgen, keine Beute.${rek ? ` Dein Rekord: ${Math.floor(rek / 60)}:${String(rek % 60).padStart(2, '0')}.` : ''}</span>`;
+  const gegnerWahl = [['wald', 'Moderwald', 'wald'], ['banditen', 'Söldner', 'wald'], ['gruft', 'Gruft', 'hoehle'], ['berg', 'Bergwinter', 'berg'], ['wildnis', 'Wildnis', 'wald']];
+  const r2 = document.createElement('div'); r2.className = 'row';
+  for (const [gid, gname, gort] of gegnerWahl) r2.append(btn(gname, false, async () => {
+    const { data: kw } = await db.rpc('kampf_werte');
+    const res = await playBattle({ titel: `Übungsplatz: ${gname}`, text: 'Alle 5 Minuten taucht ein Anführer auf.', dauer: 0, schwer: 2, gegner: gid, ort: gort, heroPlan: planFromLook(me?.look, me?.name), helfer: kw?.helfer || [], meta: kw || {}, rekord: rek });
+    try { if (res.zeit > rek) localStorage.setItem('mh_uebung_rekord', String(res.zeit)); } catch { /* egal */ }
+    if (!$('panel').hidden && active === 'quests') renderPanel('quests');
+  }));
+  uc.append(r2); wrap.append(uc);
 }
 const SLOT = { einfach: ['Leicht', 'q-leicht'], mittel: ['Mittel', 'q-mittel'], schwer: ['Schwer', 'q-schwer'], individuell: ['Individuell', 'q-indiv'] };
 function renderQuests(body) {

@@ -120,6 +120,9 @@ export function metaBoni(meta = {}) {
     if (it === 'dietrich') { b.rerolls += 1; }
     if (it === 'alte_chronik') { b.xp += 0.1; b.quellen.push('Alte Chronik: +10 % Erfahrung'); }
   }
+  const GEAR = { gewoehnlich: 0.005, gut: 0.01, selten: 0.02, meister: 0.035, legendaer: 0.06 };
+  const gd = Math.min(0.3, (meta.gear || []).reduce((s2, g) => s2 + (GEAR[g] || 0), 0));
+  if (gd > 0) { b.dmg += gd; b.quellen.push(`Deine Ausrüstung: +${Math.round(gd * 100)} % Schaden`); }
   for (const [bau, lv0] of Object.entries(meta.bauten || {})) {
     const lv = Number(lv0) || 1;
     if (bau === 'schmiede') { b.dmg += 0.04 * lv; b.quellen.push(`Schmiede: +${4 * lv} % Schaden`); }
@@ -532,7 +535,7 @@ export function playBattle(opts = {}) {
         c.append(kopf, el('div', 'hb-ctext', o ? naechste(it, o.lv) : it.text));
         const tags = el('div', 'hb-tags'); for (const tg of it.tags) { const s = el('span', 'hb-tag', MERKMALE[tg].name + (ST.sets[tg] ? ` ${ST.sets[tg] + (o ? 0 : 1)}` : '')); s.style.borderColor = MERKMALE[tg].farbe; s.style.color = MERKMALE[tg].farbe; tags.append(s); } c.append(tags);
         if (info.hin.length) c.append(el('div', 'hb-combo', `⟷ Kombi mit ${info.hin.join(', ')}`));
-        for (const { l, hat } of info.leg) c.append(el('div', 'hb-leg', `★ ${l.name}: ${hat}/3 Teile`));
+        for (const { l, hat } of info.leg) c.append(el('div', 'hb-leg', hat >= 3 ? `★ ${l.name}: alle Teile – je Stufe 6 weckt die Legende` : `★ ${l.name}: ${hat}/3 Teile`));
         c.addEventListener('click', () => { if (modal.hidden || c.dataset.done) return; c.dataset.done = 1; nimm(it.id); weiter(); });
         list.append(c);
       }

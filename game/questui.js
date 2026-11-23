@@ -2,6 +2,7 @@
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=3';
 import { playMinigame } from './minigames.js?v=2';
+import { playBattle } from './horde.js?v=1';
 
 const LW = 240, LH = 100, GROUND = 88;
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -173,10 +174,17 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     }
     if (v.minispiel) {
       const mg = v.minispiel, li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt check';
-      b.innerHTML = `<span class="tag">[Geschick]</span> <span class="txt">${esc(mg.titel || 'Versuchen')}</span>`;
+      const kampf = mg.art === 'kampf';
+      b.innerHTML = `<span class="tag">${kampf ? `[Kampf · ${Math.round((mg.dauer || 180) / 60 * 10) / 10} Min.]`.replace('.', ',').replace('Min,', 'Min.') : '[Geschick]'}</span> <span class="txt">${esc(mg.titel || 'Versuchen')}</span>`;
       b.onclick = async () => {
         if (busy) return; busy = true;
-        const ok = await playMinigame(mg.art, { schwer: mg.schwer, titel: mg.titel, text: mg.text });
+        let ok;
+        if (kampf) {
+          const { data: kw } = await db.rpc('kampf_werte');
+          const helfer = [...(v.begleiter || []).filter((x) => x.look), ...((kw && kw.helfer) || [])].filter((x, i, a) => a.findIndex((y) => y.id === x.id) === i);
+          const res = await playBattle({ titel: mg.titel, text: mg.text || v.text, dauer: mg.dauer || 180, schwer: mg.schwer || 2, gegner: mg.gegner, ort: mg.kampfort || v.ort, boss: mg.boss, heroPlan, helfer, meta: kw || {} });
+          ok = res.sieg;
+        } else ok = await playMinigame(mg.art, { schwer: mg.schwer, titel: mg.titel, text: mg.text });
         busy = false; send('quest_minigame', { p_run: v.run, p_erfolg: ok });
       };
       li.append(b); opts.append(li);
