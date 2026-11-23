@@ -22,28 +22,28 @@ export const MERKMALE = {
 
 // Prägungen: Wirkung, die ein Item an seine Kombi-Partner-Waffen weitergibt. k = Stufe des gebenden Items (1–10).
 export const PRAEG = {
-  krit: { adj: 'Scharfe', text: (k) => `+${5 + k * 2} % kritische Treffer` },
-  rueckstoss: { adj: 'Wuchtige', text: (k) => `Stößt Gegner ${20 + k * 6}px zurück` },
-  durchbohren: { adj: 'Durchbohrende', text: (k) => `Durchbohrt ${1 + Math.floor(k / 3)} weitere Gegner` },
-  heimsuchen: { adj: 'Suchende', text: () => 'Geschosse suchen sich ihr Ziel' },
-  wucht: { adj: 'Schwere', text: (k) => `+${10 + k * 4} % Schaden` },
-  abprall: { adj: 'Springende', text: (k) => `Prallt ${1 + Math.floor(k / 4)}× zum nächsten Gegner ab` },
-  vervielfachen: { adj: 'Doppelte', text: (k) => `+${1 + Math.floor(k / 5)} Geschoss/Treffer` },
-  lebensraub: { adj: 'Durstige', text: (k) => `Heilt dich um ${(0.5 + k * 0.25).toFixed(1).replace('.', ',')} % des Schadens` },
-  brennen: { adj: 'Brennende', text: (k) => `Setzt in Brand (${3 + k * 2} Schaden/s)` },
-  explodieren: { adj: 'Berstende', text: (k) => `${15 + k * 3} % Chance auf Explosion` },
-  frost: { adj: 'Frostige', text: (k) => `Verlangsamt um ${25 + k * 3} %, ${k * 2} % Chance zu erstarren` },
-  splitter: { adj: 'Splitternde', text: (k) => `Zerbricht beim Treffer in ${2 + Math.floor(k / 4)} Splitter` },
-  kette: { adj: 'Donnernde', text: (k) => `Blitz springt auf ${1 + Math.floor(k / 3)} Gegner über` },
-  betaeuben: { adj: 'Betäubende', text: (k) => `${8 + k * 2} % Chance zu betäuben` },
-  gift: { adj: 'Giftige', text: (k) => `Vergiftet (${String(2 + k * 1.5).replace('.', ',')} Schaden/s, stapelt sich)` },
-  dornen: { adj: 'Dornige', text: (k) => `Getötete Gegner verschießen ${3 + Math.floor(k / 2)} Dornen` },
-  groesse: { adj: 'Riesige', text: (k) => `+${10 + k * 4} % Fläche und Größe` },
-  geister: { adj: 'Spukende', text: (k) => `${8 + k * 2} % Chance, beim Kill einen Geist zu rufen` },
-  blutung: { adj: 'Reißende', text: (k) => `Blutung (${4 + k * 2} Schaden/s, stapelt sich bis 5)` },
-  tempo: { adj: 'Flinke', text: (k) => `${8 + k * 3} % schneller` },
-  fluch: { adj: 'Verfluchte', text: (k) => `Getroffene nehmen ${8 + k * 2} % mehr Schaden` },
-  schild: { adj: 'Schützende', text: (k) => `${4 + k} % Chance auf einen Schutzschild` },
+  krit: { fusion: 'Meister', adj: 'Scharfe', text: (k) => `+${5 + k * 2} % kritische Treffer` },
+  rueckstoss: { fusion: 'Sturm', adj: 'Wuchtige', text: (k) => `Stößt Gegner ${20 + k * 6}px zurück` },
+  durchbohren: { fusion: 'Spalt', adj: 'Durchbohrende', text: (k) => `Durchbohrt ${1 + Math.floor(k / 3)} weitere Gegner` },
+  heimsuchen: { fusion: 'Jäger', adj: 'Suchende', text: () => 'Geschosse suchen sich ihr Ziel' },
+  wucht: { fusion: 'Riesen', adj: 'Schwere', text: (k) => `+${10 + k * 4} % Schaden` },
+  abprall: { fusion: 'Wirbel', adj: 'Springende', text: (k) => `Prallt ${1 + Math.floor(k / 4)}× zum nächsten Gegner ab` },
+  vervielfachen: { fusion: 'Zwillings', adj: 'Doppelte', text: (k) => `+${1 + Math.floor(k / 5)} Geschoss/Treffer` },
+  lebensraub: { fusion: 'Blutdurst', adj: 'Durstige', text: (k) => `Heilt dich um ${(0.5 + k * 0.25).toFixed(1).replace('.', ',')} % des Schadens` },
+  brennen: { fusion: 'Glut', adj: 'Brennende', text: (k) => `Setzt in Brand (${3 + k * 2} Schaden/s)` },
+  explodieren: { fusion: 'Berst', adj: 'Berstende', text: (k) => `${15 + k * 3} % Chance auf Explosion` },
+  frost: { fusion: 'Frost', adj: 'Frostige', text: (k) => `Verlangsamt um ${25 + k * 3} %, ${k * 2} % Chance zu erstarren` },
+  splitter: { fusion: 'Splitter', adj: 'Splitternde', text: (k) => `Zerbricht beim Treffer in ${2 + Math.floor(k / 4)} Splitter` },
+  kette: { fusion: 'Donner', adj: 'Donnernde', text: (k) => `Blitz springt auf ${1 + Math.floor(k / 3)} Gegner über` },
+  betaeuben: { fusion: 'Donnerhall', adj: 'Betäubende', text: (k) => `${8 + k * 2} % Chance zu betäuben` },
+  gift: { fusion: 'Gift', adj: 'Giftige', text: (k) => `Vergiftet (${String(2 + k * 1.5).replace('.', ',')} Schaden/s, stapelt sich)` },
+  dornen: { fusion: 'Dornen', adj: 'Dornige', text: (k) => `Getötete Gegner verschießen ${3 + Math.floor(k / 2)} Dornen` },
+  groesse: { fusion: 'Titanen', adj: 'Riesige', text: (k) => `+${10 + k * 4} % Fläche und Größe` },
+  geister: { fusion: 'Geister', adj: 'Spukende', text: (k) => `${8 + k * 2} % Chance, beim Kill einen Geist zu rufen` },
+  blutung: { fusion: 'Blut', adj: 'Reißende', text: (k) => `Blutung (${4 + k * 2} Schaden/s, stapelt sich bis 5)` },
+  tempo: { fusion: 'Wind', adj: 'Flinke', text: (k) => `${8 + k * 3} % schneller` },
+  fluch: { fusion: 'Fluch', adj: 'Verfluchte', text: (k) => `Getroffene nehmen ${8 + k * 2} % mehr Schaden` },
+  schild: { fusion: 'Wächter', adj: 'Schützende', text: (k) => `${4 + k} % Chance auf einen Schutzschild` },
 };
 
 const W = 'waffe', G = 'gabe';
@@ -106,6 +106,31 @@ export const ITEMS = [
     text: 'Ein Lichtstrahl kreist um dich.', st: (L) => ({ dmg: 18 + L * 6, cd: 0.25, n: 1 + Math.floor(L / 5), area: 110 + L * 9, spd: 1.4 + L * 0.06 }) },
   { id: 'mondsichel', gen: 'f', typ: W, name: 'Mondsichel', farbe: '#d8d0ff', tags: ['licht', 'geist'], praeg: 'splitter', partner: ['sonnenspiegel', 'frostkranz', 'kraehenfeder', 'doppelsehne'],
     text: 'Sicheln drehen sich spiralförmig nach außen.', st: (L) => ({ dmg: 15 + L * 5, cd: 1.8 - L * 0.06, n: 2 + Math.floor(L / 2), spd: 150, pierce: 99 }) },
+  // ───────────── Neue Waffen ─────────────
+  { id: 'feuerwirbel', gen: 'm', typ: W, name: 'Feuerwirbel', farbe: '#ff7a30', tags: ['feuer', 'aura'], praeg: 'brennen', partner: ['zunderbuechse', 'kriegsbanner', 'kriegstrommel'],
+    text: 'Eine Feuerhose zieht wild um dich herum.', st: (L) => ({ dmg: 7 + L * 2.5, cd: 5.5 - L * 0.2, n: 1 + Math.floor(L / 4), area: 18 + L * 1.6, dur: 3.5 + L * 0.3, spd: 70 }) },
+  { id: 'blasrohr', gen: 'n', typ: W, name: 'Blasrohr', farbe: '#9ac050', tags: ['gift', 'fern'], praeg: 'gift', partner: ['nachtschatten', 'falke', 'doppelsehne'],
+    text: 'Schnelle Giftpfeile auf die nächsten Gegner.', st: (L) => ({ dmg: 5 + L * 2, cd: 0.6 - L * 0.025, n: 1 + Math.floor(L / 3), spd: 420 }) },
+  { id: 'kugelblitz', gen: 'm', typ: W, name: 'Kugelblitz', farbe: '#fff27a', tags: ['blitz', 'wurf'], praeg: 'kette', partner: ['sturmfeder', 'sternenstaub', 'kriegstrommel'],
+    text: 'Eine langsame Blitzkugel, die alles in ihrer Nähe trifft.', st: (L) => ({ dmg: 9 + L * 3.5, cd: 2.4 - L * 0.08, n: 1 + Math.floor(L / 4), spd: 55, area: 34 + L * 3, dur: 3.5 + L * 0.2 }) },
+  { id: 'gletscherspeer', gen: 'm', typ: W, name: 'Gletscherspeer', farbe: '#bfefff', tags: ['eis', 'fern'], praeg: 'frost', partner: ['eisherz', 'falke', 'schildwall'],
+    text: 'Ein Eisspeer, der durch ganze Reihen fliegt und sie gefrieren lässt.', st: (L) => ({ dmg: 26 + L * 9, cd: 2.2 - L * 0.08, n: 1 + Math.floor(L / 4), spd: 360, pierce: 99 }) },
+  { id: 'peitsche', gen: 'f', typ: W, name: 'Lederpeitsche', farbe: '#a07040', tags: ['tier', 'stahl'], praeg: 'blutung', partner: ['zahnkette', 'kriegsbanner', 'sense'],
+    text: 'Peitscht abwechselnd nach links und rechts.', st: (L) => ({ dmg: 13 + L * 4.5, cd: 1.1 - L * 0.04, n: L >= 5 ? 2 : 1, area: 70 + L * 6 }) },
+  { id: 'sense', gen: 'f', typ: W, name: 'Sense', farbe: '#b0b8c8', tags: ['geist', 'stahl'], praeg: 'lebensraub', partner: ['peitsche', 'mondstein', 'zahnkette'],
+    text: 'Ein weiter Rundumschlag, der Leben stiehlt.', st: (L) => ({ dmg: 22 + L * 7, cd: 3.0 - L * 0.1, area: 54 + L * 5 }) },
+  { id: 'steinhagel', gen: 'm', typ: W, name: 'Steinhagel', farbe: '#9a8a7a', tags: ['erde', 'wurf'], praeg: 'betaeuben', partner: ['drachenschuppe', 'schildwall', 'kriegstrommel'],
+    text: 'Felsbrocken prasseln auf eine Stelle mit vielen Gegnern.', st: (L) => ({ dmg: 16 + L * 5.5, cd: 2.6 - L * 0.09, n: 4 + L, area: 14 + L }) },
+  { id: 'schildwall', gen: 'm', typ: W, name: 'Rundschild', farbe: '#a88a5a', tags: ['stahl', 'erde'], praeg: 'schild', partner: ['steinhagel', 'gletscherspeer', 'eisherz', 'drachenschuppe'],
+    text: 'Schilde kreisen um dich, halten Geschosse auf und stoßen Gegner weg.', st: (L) => ({ dmg: 10 + L * 3, cd: 0, n: 1 + Math.floor(L / 3), area: 30 + L * 1.5, spd: 2.2 + L * 0.1 }) },
+  { id: 'falke', gen: 'm', typ: W, name: 'Jagdfalke', farbe: '#c0904a', tags: ['tier', 'fern'], praeg: 'durchbohren', partner: ['blasrohr', 'gletscherspeer', 'sturmfeder', 'falkenauge'],
+    text: 'Ein Falke stößt in langen Bahnen durch die Gegner.', st: (L) => ({ dmg: 16 + L * 5, cd: 1.8 - L * 0.06, n: 1 + Math.floor(L / 4), spd: 340, pierce: 99 }) },
+  { id: 'pilzring', gen: 'm', typ: W, name: 'Pilzring', farbe: '#d06a5a', tags: ['natur', 'gift'], praeg: 'explodieren', partner: ['nachtschatten', 'quellwasser', 'sternenstaub'],
+    text: 'Pilze sprießen um dich und platzen zu Sporenwolken.', st: (L) => ({ dmg: 14 + L * 4.5, cd: 2.2 - L * 0.08, n: 2 + Math.floor(L / 2), area: 26 + L * 2 }) },
+  { id: 'kriegstrommel', gen: 'f', typ: W, name: 'Kriegstrommel', farbe: '#c87a4a', tags: ['aura', 'erde'], praeg: 'tempo', partner: ['feuerwirbel', 'kugelblitz', 'steinhagel', 'kriegsbanner'],
+    text: 'Jeder Trommelschlag trifft alles um dich und macht dich kurz schneller.', st: (L) => ({ dmg: 9 + L * 3, cd: 2.0 - L * 0.06, area: 70 + L * 6 }) },
+  { id: 'sternenstaub', gen: 'm', typ: W, name: 'Sternenstaub', farbe: '#fff8c0', tags: ['licht', 'geist'], praeg: 'groesse', partner: ['kugelblitz', 'pilzring', 'mondstein', 'geisterlaterne'],
+    text: 'Sterne stürzen irgendwo auf den Kampfplatz und reißen Krater.', st: (L) => ({ dmg: 40 + L * 13, cd: 2.8 - L * 0.1, n: 1 + Math.floor(L / 3), area: 32 + L * 2.5 }) },
   // ───────────── Gaben ─────────────
   { id: 'eisenwille', typ: G, name: 'Eisenwille', farbe: '#8a8a90', tags: ['erde'], praeg: 'rueckstoss', partner: ['wurfaxt', 'frostkranz', 'sturmglocke', 'morgenstern'],
     text: '+12 % Leben, +1 Rüstung je zwei Stufen.', mod: (L) => ({ hpMul: 0.12 * L, armor: Math.floor(L / 2) }) },
@@ -151,6 +176,23 @@ export const ITEMS = [
     text: '+4 % Schaden und +4 % Erfahrung.', mod: (L) => ({ dmg: 0.04 * L, xp: 0.04 * L }) },
   { id: 'trollblut', typ: G, name: 'Trollblut', farbe: '#5a8a6a', tags: ['natur'], praeg: 'betaeuben', partner: ['wurzelschlag', 'morgenstern', 'moosherz', 'frostzahn', 'dornenpanzer'],
     text: '+0,25 Leben pro Sekunde, +5 % Leben. Auf Stufe 10: einmal wiederaufstehen.', mod: (L) => ({ regen: 0.25 * L, hpMul: 0.05 * L, revive: L >= 10 ? 1 : 0 }) },
+  // ───────────── Neue Gaben ─────────────
+  { id: 'drachenschuppe', typ: G, name: 'Drachenschuppe', farbe: '#c05a3a', tags: ['feuer', 'erde'], praeg: 'brennen', partner: ['steinhagel', 'schildwall', 'eisherz'],
+    text: '+1 Rüstung, Brand +10 %.', mod: (L) => ({ armor: Math.ceil(L / 2), burn: 0.1 * L }) },
+  { id: 'nachtschatten', typ: G, name: 'Nachtschatten', farbe: '#6a4a9a', tags: ['gift', 'natur'], praeg: 'fluch', partner: ['blasrohr', 'pilzring', 'quellwasser'],
+    text: 'Gift +15 %, vergiftete Gegner nehmen mehr Schaden.', mod: (L) => ({ poison: 0.15 * L, poisonCurse: 0.03 * L }) },
+  { id: 'sturmfeder', typ: G, name: 'Sturmfeder', farbe: '#a0c8e8', tags: ['blitz', 'tier'], praeg: 'tempo', partner: ['kugelblitz', 'falke', 'zahnkette'],
+    text: '+5 % Laufgeschwindigkeit, Ketten springen weiter.', mod: (L) => ({ speed: 0.05 * L, chain: Math.floor(L / 4) }) },
+  { id: 'mondstein', typ: G, name: 'Mondstein', farbe: '#c8c0f0', tags: ['geist', 'licht'], praeg: 'geister', partner: ['sense', 'sternenstaub', 'quellwasser'],
+    text: '+3 % kritische Treffer, +5 % Erfahrung.', mod: (L) => ({ crit: 0.03 * L, xp: 0.05 * L }) },
+  { id: 'kriegsbanner', typ: G, name: 'Kriegsbanner', farbe: '#b03a3a', tags: ['stahl', 'aura'], praeg: 'wucht', partner: ['feuerwirbel', 'peitsche', 'kriegstrommel', 'kriegshorn'],
+    text: '+5 % Schaden, +5 % Fläche.', mod: (L) => ({ dmg: 0.05 * L, area: 0.05 * L }) },
+  { id: 'quellwasser', typ: G, name: 'Quellwasser', farbe: '#7ac8e0', tags: ['natur', 'licht'], praeg: 'lebensraub', partner: ['pilzring', 'nachtschatten', 'mondstein'],
+    text: '+0,3 Leben pro Sekunde, Brot und Herzen heilen doppelt.', mod: (L) => ({ regen: 0.3 * L, pickupHeal: 0.1 * L }) },
+  { id: 'zahnkette', typ: G, name: 'Zahnkette', farbe: '#e0d0b0', tags: ['tier', 'stahl'], praeg: 'krit', partner: ['peitsche', 'sense', 'sturmfeder'],
+    text: 'Kritische Treffer +10 % stärker, Blutung +10 %.', mod: (L) => ({ critMul: 0.1 * L, bleed: 0.1 * L }) },
+  { id: 'eisherz', typ: G, name: 'Eisherz', farbe: '#9ad8f0', tags: ['eis'], praeg: 'frost', partner: ['gletscherspeer', 'schildwall', 'drachenschuppe'],
+    text: 'Verlangsamung +5 %; unter halbem Leben +3 Rüstung.', mod: (L) => ({ frost: 0.05 * L, lowArmor: Math.ceil(L * 0.3) }) },
 ];
 export const ITEM = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 
@@ -184,3 +226,24 @@ export function partnerVon(id) {
   for (const it of ITEMS) if (it.partner.includes(id)) s.add(it.id);
   return [...s].filter((x) => ITEM[x]);
 }
+
+// Seltenheit der Angebote: verstärkt die Wirkung des Items dauerhaft (für diesen Kampf)
+export const SELTEN = [
+  { id: 'gewoehnlich', name: 'Gewöhnlich', farbe: '#d8ccb0', mult: 1, chance: 0.72 },
+  { id: 'ungewoehnlich', name: 'Ungewöhnlich', farbe: '#7ad070', mult: 1.12, chance: 0.19 },
+  { id: 'selten', name: 'Selten', farbe: '#6ab0ff', mult: 1.25, chance: 0.065 },
+  { id: 'episch', name: 'Episch', farbe: '#c070ff', mult: 1.5, chance: 0.021 },
+  { id: 'legendaer', name: 'Legendär', farbe: '#ffc840', mult: 2, chance: 0.004 },
+];
+
+// Relikte: sehr seltene, einzigartige Gegenstände im Goldrahmen (keine Stufen)
+export const RELIKTE = [
+  { id: 'herzdeswaldes', name: 'Herz des Waldes', farbe: '#7aff6a', text: 'Alle Natur-Merkmale zählen doppelt, +40 % Leben, +1 Leben pro Sekunde.' },
+  { id: 'ruprechtsglocke', name: 'Ruprechts Glocke', farbe: '#ffd070', text: 'Alle 8 Sekunden läutet sie: eine riesige Druckwelle betäubt alles.' },
+  { id: 'adelheidssiegel', name: 'Adelheids Siegel', farbe: '#ffe8a0', text: '+1 Geschoss für alle Waffen und +20 % Schaden.' },
+  { id: 'phoenixfeder', name: 'Phönixfeder', farbe: '#ff8a3a', text: 'Einmal aus der Asche auferstehen; danach brennt alles um dich.' },
+  { id: 'zeitsand', name: 'Sand der Zeit', farbe: '#f0d890', text: 'Alle Waffen 25 % schneller.' },
+  { id: 'mondsilber', name: 'Mondsilberklinge', farbe: '#e0e8ff', text: 'Kritische Treffer schleudern Blitze auf drei Gegner.' },
+  { id: 'rattenkrone', name: 'Krone des Rattenkönigs', farbe: '#d0a040', text: 'Jeder 15. Kill ruft eine Rattenschar, die für dich kämpft.' },
+  { id: 'sturmauge', name: 'Auge des Sturms', farbe: '#b0e0ff', text: 'Gegner in deiner Nähe sind stark verlangsamt, Geschosse fliegen 30 % schneller.' },
+];

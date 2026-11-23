@@ -1,9 +1,9 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
 import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale, LANTERNS } from './world.js?v=5';
-import { Nature } from './nature.js?v=1';
+import { Nature } from './nature.js?v=2';
 import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=6';
+import { Village, fieldSprite } from './life.js?v=7';
 import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 import { drawExtra, drawScaffold } from './extras.js?v=2';
@@ -282,7 +282,7 @@ export class Scene {
       c.lineWidth = sel ? 4 : 3; c.setLineDash(used ? [3, 3] : [6, 4]);
       c.beginPath(); c.ellipse(p.x * 2, p.y * 2, p.rad * 1.3, p.rad * 0.6, 0, 0, Math.PI * 2); c.stroke();
       c.setLineDash([]); c.fillStyle = 'rgba(20,16,12,.8)'; c.fillRect(p.x * 2 - 13, p.y * 2 - 10, 26, 20);
-      c.fillStyle = sel ? '#ffe08a' : '#efe6cf'; c.font = 'bold 16px "Pixelify Sans", monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = sel ? '#ffe08a' : '#efe6cf'; c.font = '800 17px "Alegreya Sans", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText(String(p.id), p.x * 2, p.y * 2 + 1);
     }
   }

@@ -295,7 +295,7 @@ export class Village {
     return list;
   }
   drawNames(c, list, scale2) {
-    c.font = 'bold 13px "Pixelify Sans", monospace'; c.textAlign = 'center'; c.textBaseline = 'bottom'; c.lineJoin = 'round';
+    c.font = '800 15px "Alegreya Sans", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom'; c.lineJoin = 'round';
     const placed = [];
     for (const p of list.slice().sort((a, b) => b.y - a.y)) {
       const x = p.x * scale2, wdt = c.measureText(p.name).width + 4; let y = (p.y - 18) * scale2;

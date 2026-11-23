@@ -237,7 +237,7 @@ sz['konfrontation'] = K('wald', 'Kuno sieht die Menge aus dem Wald kommen. Seine
     B('Es wird hässlich – kurz, wild, blutig. Du gehst zu Boden, aber deine Leute halten stand, bis Kunos Männer fliehen.', 'ende_sieg_kampf', {'gefahr': 1}),
     P('„Geht. Heute noch. Sonst wird es hässlich.“', 'einschuechtern', 12, B('Kuno spuckt aus, aber er gibt das Zeichen zum Abzug. Bis zum Abend ist das Lager leer.', 'ende_sieg_menge'),
       B('Ein Bolzen fliegt. Dann ein zweiter. Es wird hässlich – kurz, wild, dann fliehen Kunos Männer.', 'ende_sieg_kampf', {'gefahr': 1})),
-    spieltext='Kuno und seine Söldner gegen dich und deine Verbündeten.', kampfort='wald')
+    spieltext='Schlagt euch durch Kunos Söldner bis zu seinem Lager durch.', kampfort='wald', modus='marsch')
 sz['wache'] = S('dorf', 'Das Dorf stellt Wachen an den Waldrand. Jede Nacht sitzt jemand am Feuer und horcht. Nach zwei Wochen kommen keine Wilderer mehr – aber am Ostkamm qualmt der Meiler weiter.',
     O('So muss es fürs Erste reichen', 'ende_wache'))
 sz['ende_abzug'] = E('dorf', 'Am Ostkamm wird es still. Der Meiler erlischt. Im Frühjahr wachsen zwischen den verkohlten Stümpfen die ersten Birken.',
@@ -333,7 +333,7 @@ sz['woelfe_kampf'] = K('berg', 'Du ziehst deine Waffe. Die drei Wölfe knurren �
     'Das Rudel am Pass', 'berg', 720,
     B('Der letzte Wolf flieht jaulend in die Dunkelheit. Du stehst keuchend im blutigen Schnee – das Salz ist sicher.', 'heim'),
     B('Die Wölfe reißen dich zu Boden. Erst als du ihnen das Pökelfleisch hinwirfst, lassen sie ab. Das Salz behältst du – und ein paar Narben.', 'heim', {'gefahr': 2}),
-    spieltext='Überstehe das Rudel.', kampfort='berg')
+    spieltext='Kämpf dich durch das Rudel über den Pass hinab.', kampfort='berg', modus='marsch')
 sz['woelfe_bogen'] = MG('berg', 'Du spannst den Bogen. Ein Schuss vor ihre Pfoten sollte reichen.', 'bogen', 2, 'Die Wölfe vertreiben',
     B('Der Pfeil schlägt zwischen ihnen in den Schnee. Sie fliehen.', 'heim'),
     B('Der Pfeil geht weit daneben. Die Wölfe kommen näher – du musst ihnen das Fleisch hinwerfen.', 'heim'))

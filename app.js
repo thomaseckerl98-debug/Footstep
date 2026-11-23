@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=10';
+import { Scene, realMood } from './game/scene.js?v=11';
 import { openCreator } from './game/creator.js?v=3';
 import { buildTalk } from './game/dialog.js?v=7';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
@@ -10,10 +10,10 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=2';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=8';
+import { openQuest } from './game/questui.js?v=9';
 import { playMinigame } from './game/minigames.js?v=2';
-import { playBattle } from './game/horde.js?v=3';
-import { iconURL } from './game/kampf_icons.js?v=2';
+import { playBattle } from './game/horde.js?v=4';
+import { iconURL } from './game/kampf_icons.js?v=3';
 const KAMPF = () => `<img class="q-kicon" src="${iconURL('kampf')}" alt="">`;
 
 const $ = (id) => document.getElementById(id);

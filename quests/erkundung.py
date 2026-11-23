@@ -196,7 +196,7 @@ sz['los'] = R('wald', 'Du gehst den Handelsweg ein Stück nach Süden.', 15, 'we
 sz['weg'] = S('wald', 'Ein umgestürzter Baum versperrt den Weg – zu sauber umgestürzt. Hinter den Büschen klirrt Metall. „Geldbeutel her, und keiner wird verletzt.“',
     O('„Hol ihn dir.“', 'kampf'), P('Sie wegschicken', 'einschuechtern', 13, B('„Pah. Nicht wert.“ Die Wegelagerer verschwinden im Wald.', 'ende'), B('Sie lachen. Dann ziehen sie die Messer.', 'kampf')))
 sz['kampf'] = K('wald', 'Aus den Büschen kommen mehr, als du gedacht hast.', 'Wegelagerer', 'banditen', 600,
-    B('Die Wegelagerer fliehen und lassen ihre Beute zurück.', 'ende_gut'), B('Du rennst zurück zum Dorf, verfolgt von höhnischem Gelächter.', 'ende', {'gefahr': 1}), kampfort='wald')
+    B('Du brichst durch den Hohlweg. Die Wegelagerer fliehen und lassen ihre Beute zurück.', 'ende_gut'), B('Du rennst zurück zum Dorf, verfolgt von höhnischem Gelächter.', 'ende', {'gefahr': 1}), kampfort='wald', modus='marsch', spieltext='Schlag dich durch den Hohlweg bis zum anderen Ende.')
 sz['ende_gut'] = E('wald', 'Unter dem Baum liegt ein Sack mit Diebesgut. Was man davon zurückgeben kann, gibst du zurück.', {'dorf': {'waren': 3, 'stimmung': 1}, 'beute': {'stufe': 2, 'chance': 0.5}})
 sz['ende'] = E('wald', 'Den Handelsweg meidest du heute.')
 add('wegelagerer', 'Der versperrte Weg', 'Auf dem Handelsweg lauert manchmal Gesindel.', 'los', sz)

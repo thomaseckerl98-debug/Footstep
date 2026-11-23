@@ -2,8 +2,8 @@
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=3';
 import { playMinigame } from './minigames.js?v=2';
-import { playBattle } from './horde.js?v=3';
-import { iconURL } from './kampf_icons.js?v=2';
+import { playBattle } from './horde.js?v=4';
+import { iconURL } from './kampf_icons.js?v=3';
 
 const LW = 240, LH = 100, GROUND = 88;
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -184,7 +184,7 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
         if (kampf) {
           const { data: kw } = await db.rpc('kampf_werte');
           const helfer = [...(v.begleiter || []).filter((x) => x.look), ...((kw && kw.helfer) || [])].filter((x, i, a) => a.findIndex((y) => y.id === x.id) === i);
-          const res = await playBattle({ titel: mg.titel, text: mg.text || v.text, dauer: mg.dauer || 180, schwer: mg.schwer || 2, gegner: mg.gegner, ort: mg.kampfort || v.ort, boss: mg.boss, heroPlan, helfer, meta: kw || {} });
+          const res = await playBattle({ titel: mg.titel, text: mg.text || v.text, dauer: mg.dauer || 180, schwer: mg.schwer || 2, gegner: mg.gegner, ort: mg.kampfort || v.ort, boss: mg.boss, modus: mg.modus, heroPlan, helfer, meta: kw || {} });
           ok = res.sieg;
         } else ok = await playMinigame(mg.art, { schwer: mg.schwer, titel: mg.titel, text: mg.text });
         busy = false; send('quest_minigame', { p_run: v.run, p_erfolg: ok });
