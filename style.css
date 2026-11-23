@@ -334,3 +334,19 @@ details.kat summary .ampel { width: 8px; height: 8px; margin: 0 1px; }
 .hb-build { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; } .hb-bitem { display: flex; align-items: center; gap: 5px; font-size: 12px; background: #1f1912; border-radius: 4px; padding: 2px 6px 2px 2px; }
 .hb-list { margin: 2px 0 0; padding-left: 18px; font-size: 13px; color: #d8ccb0; } .hb-list li { margin: 2px 0; } .hb-list li.fused { color: #ffd070; }
 @media (max-width: 520px) { .hb-top { font-size: 13px; gap: 8px; } .hb-zeit { font-size: 17px; } .hb-card { padding: 7px 8px; } .hb-ctext { font-size: 12px; } }
+.hb-icon { width: 28px; height: 28px; flex: none; border-radius: 5px; display: flex; align-items: center; justify-content: center; background: #15110c; border: 1px solid #8a6a40; overflow: hidden; font-size: 10px; color: #efe6d0; }
+.hb-icon img { width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.hb-icon.gabe { border-radius: 50%; }
+.hb-icon.big { width: 40px; height: 40px; }
+.hb-bar { position: absolute; left: 6px; top: 40px; bottom: 8px; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; gap: 3px; pointer-events: none; max-width: 40vw; }
+.hb-bslot { position: relative; opacity: .92; } .hb-bslot .hb-icon { width: 22px; height: 22px; }
+.hb-bslot.kombi .hb-icon { box-shadow: 0 0 0 1px #a8f0a0, 0 0 5px #a8f0a0; } .hb-bslot.leg .hb-icon { box-shadow: 0 0 0 1px #ffd070, 0 0 6px #ffd070; }
+.hb-blv { position: absolute; right: -3px; bottom: -3px; font-size: 9px; line-height: 1; padding: 1px 2px; border-radius: 3px; background: rgba(0,0,0,.8); color: #9ad0ff; font-weight: bold; }
+.hb-blv.max { color: #ffd070; }
+.hb-legli { display: flex; align-items: center; gap: 6px; list-style: none; margin-left: -18px; }
+@media (max-width: 520px) { .hb-bslot .hb-icon { width: 18px; height: 18px; } .hb-bar { top: 36px; } }
+.q-kampfbadge { display: inline-block; font-size: 11px; font-weight: bold; color: #ffb59a; border: 1px solid #c8543a; background: rgba(200,84,58,.15); border-radius: 3px; padding: 0 5px; vertical-align: middle; white-space: nowrap; }
+.q-kampfhint { color: #e8a890; }
+.dl-opt.kampf { border: 1px solid #c8543a !important; background: linear-gradient(90deg, rgba(200,84,58,.25), rgba(200,84,58,.05)) !important; display: flex; align-items: center; gap: 8px; text-align: left; }
+.dl-opt.kampf:hover { background: linear-gradient(90deg, rgba(200,84,58,.4), rgba(200,84,58,.1)) !important; }
+.q-kampficon { font-size: 22px; color: #ffb59a; line-height: 1; }

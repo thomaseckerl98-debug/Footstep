@@ -3,6 +3,7 @@
 // opts: { titel, text, dauer (Sekunden, 0 = endlos), schwer (1–3), gegner ('wald'|'banditen'|'gruft'|'berg'|'tiere'), ort, heroPlan, helfer: [{name, beruf, look}], meta }
 import { ITEMS, ITEM, PRAEG, MERKMALE, LEGENDEN, partnerVon } from './kampf_items.js?v=1';
 import { sheetData, SW, SH } from './chars.js?v=3';
+import { iconURL } from './kampf_icons.js?v=1';
 
 const TAU = Math.PI * 2;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -149,8 +150,8 @@ export function playBattle(opts = {}) {
     const root = el('div', 'hb-root'), cv = el('canvas', 'hb-canvas'), hud = el('div', 'hb-hud');
     const hTop = el('div', 'hb-top'), hZeit = el('span', 'hb-zeit'), hKills = el('span', 'hb-kills'), hLv = el('span', 'hb-lv'), btnPause = el('button', 'hb-pause', 'Ⅱ');
     const xpBar = el('div', 'hb-xp'), xpFill = el('div', 'hb-xpfill'); xpBar.append(xpFill);
-    const banner = el('div', 'hb-banner'), ticker = el('div', 'hb-ticker');
-    hTop.append(hLv, hZeit, hKills, btnPause); hud.append(xpBar, hTop, banner, ticker);
+    const banner = el('div', 'hb-banner'), ticker = el('div', 'hb-ticker'), bar = el('div', 'hb-bar');
+    hTop.append(hLv, hZeit, hKills, btnPause); hud.append(xpBar, hTop, banner, ticker, bar);
     const joy = el('div', 'hb-joy'), joyKnob = el('div', 'hb-joyknob'); joy.append(joyKnob); joy.hidden = true;
     const modal = el('div', 'hb-modal'); modal.hidden = true;
     root.append(cv, hud, joy, modal); document.body.append(root);
@@ -179,7 +180,7 @@ export function playBattle(opts = {}) {
     // ── Zustand ──
     const P = { x: 0, y: 0, fx: 1, fy: 0, hp: 100, maxhp: 100, inv: 0, shield: 0, walk: 0, dir: 2, moving: false, revive: 0 };
     let t = 0, kills = 0, lvl = 1, xp = 0, xpNeed = 5, paused = false, over = false, rerolls = 2 + meta.rerolls, bossKilled = false, bossOut = false;
-    let nextId = 1, spawnAcc = 0, waveAt = 60, eliteAt = dauer ? dauer * 0.45 : 150, bossAt = dauer ? dauer * 0.8 : 300, quakeT = 6, ghostKills = 0;
+    let nextId = 1, spawnAcc = 0, waveAt = 60, eliteAt = 120, bossAt = dauer ? dauer * 0.8 : 300, quakeT = 6, ghostKills = 0;
     const enemies = [], shots = [], zones = [], summons = [], gems = [], fx = [], texts = [], pickups = [];
     const owned = new Map(); // id → { id, lv, t, st }
     const legends = new Map(); // id → { id, t, st }
@@ -449,11 +450,11 @@ export function playBattle(opts = {}) {
     let buffT = 0, shake = 0;
 
     /* ───────── Gegner erzeugen ───────── */
-    function scale() { const f = t / 60, diff = [0.75, 0.75, 1, 1.35][schwer] || 1; const erwartet = 1 + f * 5.5, vor = Math.max(0, (lvl - erwartet) / 12); return (1 + 0.3 * f + 0.028 * f * f) * diff * (1 + Math.min(0.8, vor) * 0.6); }
+    function scale() { const f = t / 60, diff = [0.75, 0.75, 1, 1.35][schwer] || 1; const erwartet = 1 + f * 10, vor = Math.max(0, (lvl - erwartet) / 15); return (1 + 0.3 * f + 0.045 * f * f) * diff * (1 + Math.min(1.2, vor) * 0.5); }
     function spawn(art, opt = {}) {
       const A = ARCH[art], d = GS[art], ang = opt.ang ?? rnd(0, TAU), extra = rnd(14, 40);
       const k = scale(), elite = !!opt.elite, boss = !!opt.boss;
-      const hp = A.hp * k * (elite ? 14 : 1) * (boss ? 200 + t * 0.8 : 1);
+      const hp = A.hp * k * (elite ? 14 : 1) * (boss ? 120 + t * 0.25 : 1);
       const e = { id: nextId++, arch: art, name: boss ? d[0] : (elite ? 'Anführer: ' : '') + d[0], x: P.x + Math.cos(ang) * (VW / 2 + extra), y: P.y + Math.sin(ang) * (VH / 2 + extra), r: A.r * (elite ? 1.6 : 1) * (boss ? 2.6 : 1), hp, maxhp: hp, spd: A.spd * (1 + Math.min(0.5, t / 600)) * (boss ? 0.9 : 1), dmg: A.dmg * (1 + t / 240) * (boss ? 2 : elite ? 1.5 : 1) * ([1, 0.8, 1, 1.25][schwer] || 1), xp: A.xp * (elite ? 25 : 1) * (boss ? 80 : 1), elite, boss, kx: 0, ky: 0, slow: 0, slowT: 0, freezeT: 0, stunT: 0, burnDps: 0, burnT: 0, poisonN: 0, poisonDps: 0, poisonT: 0, bleedN: 0, bleedDps: 0, bleedT: 0, curse: 0, curseT: 0, flash: 0, anim: rnd(0, 2), shootT: rnd(1.5, 3), chargeT: rnd(3, 6), col: typeof d[1] === 'string' ? d[2] : (d[1].top || '#888'), spr: sprFor(art, boss), wob: rnd(0, TAU) };
       enemies.push(e); return e;
     }
@@ -464,12 +465,12 @@ export function playBattle(opts = {}) {
       return r < 0.36 ? 'laeufer' : r < 0.58 ? 'schnell' : r < 0.74 ? 'schwarm' : r < 0.88 ? 'tank' : 'schuetze';
     }
     function spawnTick(dt) {
-      if (enemies.length > 420) return;
-      const f = t / 60, rate = Math.min(28, (1.3 + f * 0.95 + f * f * 0.1) * ([0, 0.8, 1, 1.2][schwer] || 1));
+      if (enemies.length > 480) return;
+      const f = t / 60, rate = Math.min(36, (1.3 + f * 0.95 + f * f * 0.12) * ([0, 0.8, 1, 1.2][schwer] || 1));
       spawnAcc += rate * dt;
       while (spawnAcc >= 1) { spawnAcc--; const a = mix(); if (a === 'schwarm') { const ang = rnd(0, TAU); for (let i = 0; i < 4; i++) spawn('schwarm', { ang: ang + rnd(-0.2, 0.2) }); } else spawn(a); }
-      if (t >= waveAt) { waveAt += 60; meldung('Eine Welle rollt heran!', '#ff9a7a'); const n = 24 + Math.floor(f * 8); for (let i = 0; i < n; i++) spawn(f > 2 ? pick(['laeufer', 'schnell', 'tank']) : 'laeufer', { ang: (i / n) * TAU }); }
-      if (t >= eliteAt) { eliteAt += endlos ? 90 : 9e9; const e = spawn(pick(['laeufer', 'tank']), { elite: true }); meldung(`${e.name} taucht auf!`, '#ffb070'); }
+      if (t >= waveAt) { const gross = Math.round(waveAt / 60) % 5 === 0; waveAt += 60; meldung(gross ? 'Eine gewaltige Welle rollt heran!' : 'Eine Welle rollt heran!', '#ff9a7a', gross); const n = Math.round((24 + Math.floor(f * 8)) * (gross ? 2.5 : 1)); for (let i = 0; i < n; i++) spawn(f > 2 ? pick(['laeufer', 'schnell', 'tank']) : 'laeufer', { ang: (i / n) * TAU }); }
+      if (t >= eliteAt) { eliteAt += 120; const e = spawn(pick(['laeufer', 'tank']), { elite: true }); meldung(`${e.name} taucht auf!`, '#ffb070'); }
       if (!bossOut && t >= bossAt) { bossOut = true; const e = spawn('tank', { boss: true }); e.spr = sprFor('boss', true); e.name = opts.boss || GS.boss[0]; e.col = typeof GS.boss[1] === 'string' ? GS.boss[2] : '#a02828'; meldung(`${e.name} erscheint!`, '#ff6060', true); if (endlos) { bossOut = false; bossAt += 300; } }
     }
 
@@ -505,6 +506,7 @@ export function playBattle(opts = {}) {
       for (const k of aktiveKombis()) if (!vorher.has(k.key) && !still) meldung(k.fused ? `Verschmolzen: ${k.name}!` : `Kombi: ${k.name}`, k.fused ? '#ffd070' : '#a8f0a0', k.fused);
       if (ST.lvlHeal) heal(P.maxhp * ST.lvlHeal);
       if (ST.heilVoll) P.hp = P.maxhp;
+      renderBar();
     }
     function aktiveKombis() {
       const out = [];
@@ -522,7 +524,15 @@ export function playBattle(opts = {}) {
       if (!modal.hidden) return; zeigeAuswahl();
     }
     function itemIcon(it, big) {
-      const d = el('div', 'hb-icon' + (big ? ' big' : '')); d.style.background = it.farbe; d.textContent = it.name.slice(0, 2); if (it.typ === 'gabe') d.classList.add('gabe'); return d;
+      const d = el('div', 'hb-icon' + (big ? ' big' : '') + (it.typ === 'gabe' ? ' gabe' : '')); d.style.borderColor = it.farbe || '#8a6a40';
+      const u = iconURL(it.id); if (u) { const im = new Image(); im.src = u; im.alt = ''; d.append(im); } else d.textContent = it.name.slice(0, 2);
+      return d;
+    }
+    function renderBar() {
+      bar.innerHTML = '';
+      const list = [...owned.values()].sort((a, b) => (ITEM[a.id].typ === ITEM[b.id].typ ? b.lv - a.lv : ITEM[a.id].typ === 'waffe' ? -1 : 1));
+      for (const o of list) { const it = ITEM[o.id], c = el('div', 'hb-bslot'); c.append(itemIcon(it), el('span', 'hb-blv' + (o.lv >= 10 ? ' max' : ''), o.lv >= 10 ? 'M' : String(o.lv))); if (aktiveKombis().some((k) => k.waffe === o.id || k.a === o.id || k.b === o.id)) c.classList.add('kombi'); bar.append(c); }
+      for (const id of legends.keys()) { const l = LEGENDEN.find((x) => x.id === id), c = el('div', 'hb-bslot leg'); c.append(itemIcon({ id, farbe: l.farbe, name: l.name }), el('span', 'hb-blv max', '★')); bar.append(c); }
     }
     function zeigeAuswahl(neu = true) {
       paused = true; modal.hidden = false; modal.innerHTML = '';
@@ -572,7 +582,7 @@ export function playBattle(opts = {}) {
       const sets = Object.entries(ST.sets).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
       if (sets.length) { box.append(el('h4', 'hb-h4', 'Merkmale')); const ul = el('ul', 'hb-list'); for (const [tg, n] of sets) { const M = MERKMALE[tg], aktivS = Object.entries(M.sets).filter(([th]) => n >= +th).map(([, v]) => v[2]), naechst = Object.keys(M.sets).find((th) => n < +th); ul.append(el('li', null, `${M.name} ${n}: ${aktivS.join(', ') || '–'}${naechst ? ` (ab ${naechst}: ${M.sets[naechst][2]})` : ''}`)); } box.append(ul); }
       const legs = LEGENDEN.map((l) => ({ l, n: l.braucht.filter((b) => owned.has(b)).length })).filter((x) => x.n >= 1 && !legends.has(x.l.id)).sort((a, b) => b.n - a.n).slice(0, 4);
-      if (legends.size || legs.length) { box.append(el('h4', 'hb-h4', 'Legenden')); const ul = el('ul', 'hb-list'); for (const id of legends.keys()) { const l = LEGENDEN.find((x) => x.id === id); ul.append(el('li', 'fused', `★ ${l.name}: ${l.text}`)); } for (const { l } of legs) ul.append(el('li', null, `${l.name}: ${l.braucht.map((b) => `${ITEM[b].name} ${owned.get(b)?.lv || 0}/6`).join(' · ')}`)); box.append(ul); }
+      if (legends.size || legs.length) { box.append(el('h4', 'hb-h4', 'Legenden')); const ul = el('ul', 'hb-list'); for (const id of legends.keys()) { const l = LEGENDEN.find((x) => x.id === id), li = el('li', 'fused hb-legli'); li.append(itemIcon({ id, farbe: l.farbe, name: l.name }), el('span', null, `${l.name}: ${l.text}`)); ul.append(li); } for (const { l } of legs) ul.append(el('li', null, `${l.name}: ${l.braucht.map((b) => `${ITEM[b].name} ${owned.get(b)?.lv || 0}/6`).join(' · ')}`)); box.append(ul); }
       if (meta.quellen.length && !ausAuswahl) { box.append(el('h4', 'hb-h4', 'Dauerhafte Stärken')); box.append(el('p', 'hb-sub', meta.quellen.slice(0, 6).join(' · '))); }
       const row = el('div', 'hb-row');
       const b1 = el('button', 'hb-btn', ausAuswahl ? 'Zurück zur Auswahl' : 'Weiterkämpfen'); b1.onclick = () => { if (ausAuswahl) zeigeAuswahl(false); else { modal.hidden = true; paused = false; last = performance.now(); } };

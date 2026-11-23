@@ -170,9 +170,9 @@ sz['baer'] = S('wald', 'Ein Bär! Jung, aber ein Bär. Er frisst Beeren und sieh
     P('Langsam zurückweichen', 'beruhigen', 12, B('Er frisst weiter. Du bist weg.', 'ende'), B('Er brummt und kommt einen Schritt näher. Du rennst – und stolperst.', 'ende', {'gefahr': 1})),
     O('Dich dem Bären stellen', 'baer_kampf'),
     O('Ihm die Beeren lassen', 'ende')])
-sz['baer_kampf'] = K('wald', 'Du bleibst stehen. Der Bär richtet sich auf – und das Gebrüll lockt alles an, was im Wald Hunger hat.', 'Der Beerenhang', 'wildnis', 90,
+sz['baer_kampf'] = K('wald', 'Du bleibst stehen. Der Bär richtet sich auf – und das Gebrüll lockt alles an, was im Wald Hunger hat.', 'Der Beerenhang', 'wildnis', 600,
     B('Der Bär trottet davon, und mit ihm der Rest. Die Sträucher gehören dir.', 'ende_baer'), B('Du flüchtest den Hang hinunter, zerkratzt und zerschunden.', 'ende', {'gefahr': 1}),
-    spieltext='Halte dich 90 Sekunden.', kampfort='wald')
+    spieltext='Halte zehn Minuten durch.', kampfort='wald')
 sz['ende_baer'] = E('wald', 'Mit einem Korb voller Beeren und einer Geschichte, die dir keiner glauben wird, kehrst du heim.', {'dorf': {'nahrung': 4, 'stimmung': 2}, 'beute': {'stufe': 1, 'chance': 0.5}})
 sz['ende_gut'] = E('wald', 'Beeren für alle.', {'dorf': {'nahrung': 2, 'stimmung': 1}})
 sz['ende'] = E('wald', 'Du kehrst heim.')
@@ -183,7 +183,7 @@ sz = {}
 sz['los'] = R('wald', 'Hinter dem Erlenbruch riecht es seltsam süßlich.', 15, 'bruch', unterwegs='Du gehst zum Erlenbruch.')
 sz['bruch'] = S('wald', 'Zwischen den Erlen blubbert der Boden. Grünliche Klumpen schieben sich aus dem Schlamm – Moderlinge, so nennen die Alten sie. Sie werden mehr.',
     O('Angreifen, bevor es zu viele werden', 'kampf'), O('Leise zurückgehen und im Dorf Bescheid sagen', 'ende_warnung'))
-sz['kampf'] = K('wald', 'Die Moderlinge drehen sich zu dir um. Alle gleichzeitig.', 'Der Erlenbruch', 'wald', 120,
+sz['kampf'] = K('wald', 'Die Moderlinge drehen sich zu dir um. Alle gleichzeitig.', 'Der Erlenbruch', 'wald', 600,
     B('Der letzte Moderling zerfällt zu Erde. Der süßliche Geruch verfliegt.', 'ende_gut'), B('Du ziehst dich zurück, über und über mit Schlamm bedeckt.', 'ende', {'gefahr': 1}), kampfort='wald')
 sz['ende_gut'] = E('wald', 'Im Schlamm, wo die Moderlinge herkamen, glitzert etwas.', {'dorf': {'stimmung': 2}, 'beute': {'stufe': 1, 'chance': 0.7, 'text': 'Etwas, das jemand vor langer Zeit im Bruch verloren hat.'}})
 sz['ende_warnung'] = E('dorf', 'Die Jäger meiden den Bruch jetzt. Vorerst.')
@@ -195,7 +195,7 @@ sz = {}
 sz['los'] = R('wald', 'Du gehst den Handelsweg ein Stück nach Süden.', 15, 'weg', unterwegs='Du gehst den Handelsweg entlang.')
 sz['weg'] = S('wald', 'Ein umgestürzter Baum versperrt den Weg – zu sauber umgestürzt. Hinter den Büschen klirrt Metall. „Geldbeutel her, und keiner wird verletzt.“',
     O('„Hol ihn dir.“', 'kampf'), P('Sie wegschicken', 'einschuechtern', 13, B('„Pah. Nicht wert.“ Die Wegelagerer verschwinden im Wald.', 'ende'), B('Sie lachen. Dann ziehen sie die Messer.', 'kampf')))
-sz['kampf'] = K('wald', 'Aus den Büschen kommen mehr, als du gedacht hast.', 'Wegelagerer', 'banditen', 120,
+sz['kampf'] = K('wald', 'Aus den Büschen kommen mehr, als du gedacht hast.', 'Wegelagerer', 'banditen', 600,
     B('Die Wegelagerer fliehen und lassen ihre Beute zurück.', 'ende_gut'), B('Du rennst zurück zum Dorf, verfolgt von höhnischem Gelächter.', 'ende', {'gefahr': 1}), kampfort='wald')
 sz['ende_gut'] = E('wald', 'Unter dem Baum liegt ein Sack mit Diebesgut. Was man davon zurückgeben kann, gibst du zurück.', {'dorf': {'waren': 3, 'stimmung': 1}, 'beute': {'stufe': 2, 'chance': 0.5}})
 sz['ende'] = E('wald', 'Den Handelsweg meidest du heute.')
@@ -206,7 +206,7 @@ sz = {}
 sz['los'] = R('ruine', 'Auf der Heide liegt ein alter Grabhügel. Heute steht der Eingang offen.', 20, 'grab', unterwegs='Du gehst über die Heide.')
 sz['grab'] = S('hoehle', 'Ein Gang aus Steinplatten führt in den Hügel. Drinnen klappert es. Knochen auf Stein.',
     O('Hineingehen', 'kampf'), O('Den Eingang mit Steinen verschließen', 'ende_zu'))
-sz['kampf'] = K('hoehle', 'Aus den Nischen steigen die Toten des Hügels.', 'Das Hügelgrab', 'gruft', 150,
+sz['kampf'] = K('hoehle', 'Aus den Nischen steigen die Toten des Hügels.', 'Das Hügelgrab', 'gruft', 600,
     B('Die Knochen fallen in sich zusammen. In der hintersten Kammer steht eine Truhe.', 'ende_gut'), B('Du stolperst ins Freie und schiebst einen Stein vor den Eingang.', 'ende', {'gefahr': 1}), kampfort='hoehle')
 sz['ende_gut'] = E('hoehle', 'Die Grabbeigaben sind alt und schön.', {'beute': {'stufe': 2, 'chance': 0.85, 'text': 'Eine Grabbeigabe, älter als jedes Dorf im Tal.'}})
 sz['ende_zu'] = E('ruine', 'Was im Hügel ist, bleibt im Hügel.')
@@ -218,7 +218,7 @@ sz = {}
 sz['los'] = R('berg', 'Du steigst zu den Almwiesen hinauf.', 20, 'alm', unterwegs='Du steigst zur Alm hinauf.')
 sz['alm'] = S('berg', 'Auf der Alm liegen zwei gerissene Schafe. Die Spuren führen zu den Felsen – und von dort beobachten dich gelbe Augen.',
     O('Dem Rudel entgegentreten', 'kampf'), O('Die Hirten warnen', 'ende_warnung'))
-sz['kampf'] = K('berg', 'Der Leitwolf heult. Von allen Seiten kommen sie.', 'Das Rudel auf der Alm', 'wildnis', 120,
+sz['kampf'] = K('berg', 'Der Leitwolf heult. Von allen Seiten kommen sie.', 'Das Rudel auf der Alm', 'wildnis', 600,
     B('Das Rudel zieht sich in die Berge zurück. Die Herden sind sicher.', 'ende_gut'), B('Du ziehst dich zurück. Die Wölfe bleiben.', 'ende', {'gefahr': 1}), kampfort='berg')
 sz['ende_gut'] = E('berg', 'Die Hirten schenken dir einen Käse, groß wie ein Wagenrad.', {'dorf': {'nahrung': 5, 'stimmung': 2}})
 sz['ende_warnung'] = E('berg', 'Die Hirten treiben die Herden tiefer ins Tal.', {'dorf': {'nahrung': -1}})

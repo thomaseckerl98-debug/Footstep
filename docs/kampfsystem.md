@@ -12,6 +12,8 @@ Stand: 23.11.2026. Wird aus `game/kampf_items.js` erzeugt.
 - **Legenden:** Drei bestimmte Items auf Stufe 6 → eine zusätzliche, sehr starke Legendenwaffe.
 - Angebote bevorzugen Items, die zu deinem Aufbau passen (Partner, gleiche Merkmale, fast fertige Legenden), damit am Ende fast immer etwas zusammenpasst.
 - Gegner werden mit der Zeit stärker und etwas stärker, wenn du weit vorne bist – aber langsamer als du wachsen kannst.
+- Alle 60 Sekunden eine Welle, alle 5 Minuten eine gewaltige Welle, alle 2 Minuten ein Anführer mit Truhe, bei 80 % der Zeit der große Anführer. Kämpfe lassen sich jederzeit pausieren.
+- Quests mit Kampf sind im Questmenü und im Questfenster mit ⚔ und der ungefähren Dauer markiert.
 - Truhen von Anführern geben mehrere Stufen auf einmal. Seltene Funde: Brot (Leben), Lichtstein (alle Erfahrung einsammeln).
 
 ## Dauerhafte Stärken
@@ -22,8 +24,8 @@ Stand: 23.11.2026. Wird aus `game/kampf_items.js` erzeugt.
 - Helfer: Die zwei Bewohner, die dich am meisten mögen, und deine Quest-Begleiter erscheinen regelmäßig kurz im Kampf – je nach Beruf mit Pfeilsalven, Hammerschlägen, Heilung, Axtwirbel, Kampflied oder Schlachtruf.
 
 ## Wo es Kämpfe gibt
-- Erkunden: Erlenbruch (Moderlinge), Versperrter Weg (Wegelagerer), Hügelgrab (Untote), Alm (Wolfsrudel), Beerenhang (Bär) – 1,5 bis 2,5 Minuten.
-- Lange Quests: „Die Burg im Norden“ (Gruft, 2,5 Min.), „Über den Weißen Pass“ (Rudel, 2,5 Min.), „Die Männer mit den Armbrüsten“ (Schlacht am Ostkamm, 5 Min.).
+- Erkunden: Erlenbruch (Moderlinge), Versperrter Weg (Wegelagerer), Hügelgrab (Untote), Alm (Wolfsrudel), Beerenhang (Bär) – je ca. 10 Minuten.
+- Lange Quests: „Die Burg im Norden“ (Gruft, 12 Min.), „Über den Weißen Pass“ (Rudel, 12 Min.), „Die Männer mit den Armbrüsten“ (Schlacht am Ostkamm, 15 Min.).
 - Übungsplatz im Quests-Menü: endlos, ohne Folgen, mit Rekord.
 - Später: Belagerungen als Tower Defense (wenn Dörfer größer sind), offene Großschlachten auf der Weltkarte.
 

@@ -10,9 +10,9 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
 import { drawIcon } from './game/icons.js?v=2';
 import { PLOTS } from './game/world.js?v=5';
 import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=6';
+import { openQuest } from './game/questui.js?v=7';
 import { playMinigame } from './game/minigames.js?v=2';
-import { playBattle } from './game/horde.js?v=1';
+import { playBattle } from './game/horde.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -661,7 +661,7 @@ function renderHeute(wrap, h) {
   }
   const e = h.erkunden || {};
   const ec = document.createElement('div'); ec.className = 'adv q-erk';
-  ec.innerHTML = '<b>Umgebung erkunden</b><br><span class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Geht auch, während du auf einer größeren Reise bist.</span>';
+  ec.innerHTML = '<b>Umgebung erkunden</b><br><span class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Geht auch, während du auf einer größeren Reise bist.</span><br><span class="small q-kampfhint">⚔ Manche Streifzüge enden in einem Kampf (ca. 10 Min.) – du siehst es oben im Fenster.</span>';
   if (e.lauf) ec.append(row(btn('Weiter erkunden', true, () => resumeQuest(e.lauf))));
   else if (e.rest > 0) {
     const msg = p('', 'small error');
@@ -676,7 +676,7 @@ function renderHeute(wrap, h) {
   // Übungsplatz: endloser Horde-Kampf ohne Folgen
   const uc = document.createElement('div'); uc.className = 'adv q-erk';
   let rek = 0; try { rek = +localStorage.getItem('mh_uebung_rekord') || 0; } catch { /* egal */ }
-  uc.innerHTML = `<b>Übungsplatz</b><br><span class="small">Kämpfe, so lange du durchhältst, und probiere Kombinationen aus. Keine Folgen, keine Beute.${rek ? ` Dein Rekord: ${Math.floor(rek / 60)}:${String(rek % 60).padStart(2, '0')}.` : ''}</span>`;
+  uc.innerHTML = `<span class="q-kampfbadge">⚔ Kampf</span> <b>Übungsplatz</b><br><span class="small">Kämpfe, so lange du durchhältst, und probiere Kombinationen aus. Keine Folgen, keine Beute.${rek ? ` Dein Rekord: ${Math.floor(rek / 60)}:${String(rek % 60).padStart(2, '0')}.` : ''}</span>`;
   const gegnerWahl = [['wald', 'Moderwald', 'wald'], ['banditen', 'Söldner', 'wald'], ['gruft', 'Gruft', 'hoehle'], ['berg', 'Bergwinter', 'berg'], ['wildnis', 'Wildnis', 'wald']];
   const r2 = document.createElement('div'); r2.className = 'row';
   for (const [gid, gname, gort] of gegnerWahl) r2.append(btn(gname, false, async () => {
@@ -708,7 +708,7 @@ function renderQuests(body) {
     for (const o of board.angebote.filter((x) => x.slot !== 'individuell')) {
       const [lab, cls] = SLOT[o.slot];
       const card = document.createElement('div'); card.className = 'adv ' + cls;
-      card.innerHTML = `<span class="q-slot">${lab}</span> <b>${esc(o.titel)}</b>${o.status === 'erledigt' ? ' <span class="muted small">· erledigt</span>' : o.status === 'angenommen' ? ' <span class="muted small">· läuft</span>' : ''}<br><span class="small">${esc(o.kurz)}</span><br><span class="muted small">Beteiligt: ${o.rollen.map((r) => `${esc(r.name)} (${esc(r.beruf)})`).join(', ')}</span>`;
+      card.innerHTML = `<span class="q-slot">${lab}</span>${o.kampf ? ` <span class="q-kampfbadge" title="In diesem Abenteuer kommt es zu einem Kampf.">⚔ Kampf · ca. ${o.kampf} Min.</span>` : ''} <b>${esc(o.titel)}</b>${o.status === 'erledigt' ? ' <span class="muted small">· erledigt</span>' : o.status === 'angenommen' ? ' <span class="muted small">· läuft</span>' : ''}<br><span class="small">${esc(o.kurz)}</span><br><span class="muted small">Beteiligt: ${o.rollen.map((r) => `${esc(r.name)} (${esc(r.beruf)})`).join(', ')}</span>`;
       if (o.status === 'offen' && !list.laufend) {
         const open = btn('Ansehen', false, () => {
           open.remove();

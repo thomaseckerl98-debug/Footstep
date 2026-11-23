@@ -90,7 +90,7 @@ sz['wendel'] = S('ruine', 'Wendel ist ein schmaler Mann mit einer Narbe über de
       B('Wendel lacht. „Der Junge war ein Nichtsnutz.“', 'kampf'), wenn={'flag': 'junge_freund'}),
     O('Kämpfen', 'kampf'))
 sz['kampf'] = K('hoehle', 'In der engen Gruft ist kein Platz für Heldentum. Wendel brüllt, seine Männer stürmen los – und aus den Seitengängen kommen noch mehr: Wendel hat Verstärkung mitgebracht.',
-    'Kampf in der Gruft', 'banditen', 150,
+    'Kampf in der Gruft', 'banditen', 720,
     B('Als der letzte Grabräuber die Treppe hinaufflieht, wird es still. Wendel ist mit ihnen verschwunden. Nur sein Hut liegt noch im Staub.', 'grufttuer'),
     B('Ein Hieb trifft dich an der Seite, du gehst zu Boden – aber die Männer fliehen, als von oben Steine herunterpoltern. Tammo? Oder nur die alte Burg?', 'grufttuer', {'gefahr': 2}),
     spieltext='Wendel und seine Grabräuber – überstehe den Ansturm.', kampfort='hoehle')
@@ -232,7 +232,7 @@ sz['harrek'] = S('dorf', 'Harrek kommt mit seinen vier Söldnern vom Steg. Er be
     O('Gemeinsam zum Lager ziehen', 'aufmarsch'))
 sz['aufmarsch'] = R('wald', 'Ihr zieht zum Ostkamm hinauf – nicht als Spione, sondern als Menge.', 240, 'konfrontation', unterwegs='Ihr steigt gemeinsam zum Kamm hinauf.')
 sz['konfrontation'] = K('wald', 'Kuno sieht die Menge aus dem Wald kommen. Seine Männer greifen nach den Armbrüsten. Wenn jetzt jemand zögert, wird es eine Schlacht.',
-    'Die Schlacht am Ostkamm', 'banditen', 300,
+    'Die Schlacht am Ostkamm', 'banditen', 900,
     B('Kunos Männer weichen zurück, dann fliehen sie. Am Ende steht nur noch Kuno da – und dann rennt auch er. Das Lager gehört euch.', 'ende_sieg_menge'),
     B('Es wird hässlich – kurz, wild, blutig. Du gehst zu Boden, aber deine Leute halten stand, bis Kunos Männer fliehen.', 'ende_sieg_kampf', {'gefahr': 1}),
     P('„Geht. Heute noch. Sonst wird es hässlich.“', 'einschuechtern', 12, B('Kuno spuckt aus, aber er gibt das Zeichen zum Abzug. Bis zum Abend ist das Lager leer.', 'ende_sieg_menge'),
@@ -330,7 +330,7 @@ sz['woelfe'] = S('berg', 'Kurz vor der Schutzhütte, in der Dämmerung: Augen zw
     P('Ein Feuer entfachen und sie verscheuchen', 'anpacken', 14, B('Funken, Rauch – die Wölfe weichen zurück und verschwinden in der Nacht.', 'heim'), B('Das Feuer will nicht brennen. Ein Wolf schnappt nach deinem Bein, bevor sie fliehen.', 'heim', {'gefahr': 2})),
     O('Ihnen das Pökelfleisch hinwerfen', 'heim', ergebnis='Die Wölfe stürzen sich darauf. Du gehst rückwärts davon, ohne sie aus den Augen zu lassen. Das Salz ist wichtiger als das Fleisch.')])
 sz['woelfe_kampf'] = K('berg', 'Du ziehst deine Waffe. Die drei Wölfe knurren – und aus den Felsen kommen mehr. Viel mehr. Ein ganzes Rudel, ausgehungert vom Winter.',
-    'Das Rudel am Pass', 'berg', 150,
+    'Das Rudel am Pass', 'berg', 720,
     B('Der letzte Wolf flieht jaulend in die Dunkelheit. Du stehst keuchend im blutigen Schnee – das Salz ist sicher.', 'heim'),
     B('Die Wölfe reißen dich zu Boden. Erst als du ihnen das Pökelfleisch hinwirfst, lassen sie ab. Das Salz behältst du – und ein paar Narben.', 'heim', {'gefahr': 2}),
     spieltext='Überstehe das Rudel.', kampfort='berg')
