@@ -317,7 +317,7 @@ begin
   return lab;
 end $$;
 
-create or replace function public.npc_erkrankt(p_npc bigint, p_zustand text, p_tage numeric) returns void language sql security definer set search_path = public as $$
+create or replace function public.npc_erkrankt(p_npc bigint, p_zustand text, p_tage double precision) returns void language sql security definer set search_path = public as $$
   update npcs set zustand = p_zustand, zustand_bis = now() + make_interval(secs => (p_tage * 86400)::int) where id = p_npc and tot_at is null;
 $$;
 
@@ -666,7 +666,7 @@ begin
 end $$;
 
 revoke execute on function public.npc_label(bigint, boolean), public.npc_namen_cap(bigint), public.volk_gunst(uuid, bigint), public.npc_neu_namenlos(bigint, text),
-  public.npc_tot(bigint, text), public.npc_erkrankt(bigint, text, numeric), public.krieg_verluste(bigint, numeric, int, text), public.krise_folgen(bigint, int, numeric),
+  public.npc_tot(bigint, text), public.npc_erkrankt(bigint, text, double precision), public.krieg_verluste(bigint, numeric, int, text), public.krise_folgen(bigint, int, numeric),
   public.amt_weg(uuid, bigint) from public, anon, authenticated;
 revoke execute on function public.krise_helfen(bigint, boolean), public.amt_lagerfeuer(boolean) from public, anon;
 grant execute on function public.krise_helfen(bigint, boolean), public.amt_lagerfeuer(boolean) to authenticated;
