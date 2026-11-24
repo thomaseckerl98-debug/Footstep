@@ -32,8 +32,8 @@ begin
   n := replace(d, '    select p.id into plot from eco_plots p
       where not exists', '    if b.id in (''palisade'', ''steinmauer'') then
       plot := case b.id when ''palisade'' then 90 else 91 end;
-      continue when exists (select 1 from jsonb_array_elements(coalesce(v.layout, ''[]''::jsonb)) x where (x->>1)::int = plot)
-        or exists (select 1 from village_projects q where q.village_id = p_v and q.status in (''geplant'',''im_bau'') and q.plot = plot);
+      continue when exists (select 1 from jsonb_array_elements(coalesce(v.layout, ''[]''::jsonb)) x where (x->>1)::int = (case b.id when ''palisade'' then 90 else 91 end))
+        or exists (select 1 from village_projects q where q.village_id = p_v and q.status in (''geplant'',''im_bau'') and q.plot = (case b.id when ''palisade'' then 90 else 91 end));
     else
     select p.id into plot from eco_plots p
       where p.id < 90 and not exists');
