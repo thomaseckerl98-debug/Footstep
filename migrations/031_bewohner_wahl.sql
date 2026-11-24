@@ -27,6 +27,9 @@ alter table public.dorf_taten enable row level security;
 revoke all on public.dorf_taten from anon, authenticated;
 
 /* ---------- Hilfsfunktionen ---------- */
+create or replace function public.dorf_typen(p_v bigint) returns text[] language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(e.value->>0), '{}') from jsonb_array_elements(coalesce((select layout from villages where id = p_v), '[]'::jsonb)) e;
+$$;
 create or replace function public.job_weiblich(p_job text) returns boolean language sql immutable as $$
   select coalesce(p_job, '') ~ '(in|frau|maid)$' or p_job in ('Wache', 'Dorfälteste');
 $$;
@@ -57,7 +60,7 @@ declare types text[]; j text; w int; base jsonb; nm text; nid bigint; owner uuid
   mn text[] := array['Ansgar','Bertold','Cuno','Dietmar','Eberhard','Folkmar','Gernot','Hagen','Ingo','Jost','Konrad','Lothar','Merten','Notker','Otwin','Poppo','Rudolf','Siegbert','Thankmar','Ulrich','Volker','Walram','Wigand','Odo','Arnulf','Balduin','Egbert','Hartwig','Lambert','Meinrad','Gerlach','Henning','Ludger','Ruprecht','Tammo'];
   fn text[] := array['Adelheid','Berta','Clothilde','Dietlinde','Edda','Frieda','Gisela','Hedwig','Irmgard','Jutta','Kunigunde','Liutgard','Mechthild','Notburga','Oda','Richenza','Sigrid','Thea','Uta','Walburga','Agnes','Brigitta','Elsbeth','Gertrud','Hiltrud','Imma','Margret','Ricarda','Swanhild','Wendelgard'];
 begin
-  select coalesce(array_agg(x->>0), '{}') into types from villages v, jsonb_array_elements(coalesce(v.layout, '[]'::jsonb)) x where v.id = p_v;
+  types := dorf_typen(p_v);
   j := p_job;
   if j is null then
     select ej.job into j from eco_jobs ej where ej.gebaeude = any(types) and exists (select 1 from npcs o where o.job = ej.job) order by random() limit 1;
@@ -323,7 +326,7 @@ create or replace function public.krieg_verluste(p_v bigint, p_gegner numeric, p
 declare types text[]; ausr numeric := 1; loy numeric; ges numeric; staerke numeric; verh numeric; x record; tote text[] := '{}'; verl int := 0; owner uuid;
 begin
   select owner_id into owner from villages where id = p_v;
-  select coalesce(array_agg(e->>0), '{}') into types from villages v, jsonb_array_elements(coalesce(v.layout, '[]'::jsonb)) e where v.id = p_v;
+  types := dorf_typen(p_v);
   ausr := 1 + 0.15 * (select count(*) from unnest(types) t where t = 'schmiede') + 0.25 * (select count(*) from unnest(types) t where t = 'kaserne') + 0.12 * (select count(*) from unnest(types) t where t = 'wachturm');
   select avg(coalesce(r.loyalty, 30)), avg(case when n.zustand = 'gesund' then 1.0 else 0.5 end) into loy, ges
     from npcs n left join npc_relations r on r.npc_id = n.id and r.player_id = owner where n.village_id = p_v and n.tot_at is null;
@@ -356,7 +359,7 @@ declare e dorf_ereignisse; r jsonb; heiler boolean; teile text[] := '{}'; kr int
 begin
   select * into e from dorf_ereignisse where id = p_ev; r := krise_risiko(e.vorlage, p_wahl);
   if r = '{}'::jsonb then return ''; end if;
-  heiler := exists (select 1 from villages v, jsonb_array_elements(coalesce(v.layout, '[]'::jsonb)) z where v.id = e.village_id and z->>0 = 'heilerhaus');
+  heiler := 'heilerhaus' = any(dorf_typen(e.village_id));
   grund := case e.vorlage when 'fieber' then 'am Fieber' when 'scheunenbrand' then 'beim Brand' when 'sturm' then 'im Sturm' when 'woelfe' then 'bei der Wolfsjagd' else 'bei einem Unglück' end;
   if r ? 'krank' then
     kr := round((r->>'krank')::numeric * p_faktor * (0.5 + random()))::int;
