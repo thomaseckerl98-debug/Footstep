@@ -134,7 +134,7 @@ $$;
 /* ---------- Das Leben der Welt (alle 3 Stunden) ---------- */
 create or replace function public.welt_tick() returns void language plpgsql security definer set search_path = public as $$
 declare o record; dt numeric; tr int; neg int; target numeric; cap int; base numeric; wl numeric; hs int; mz int; tz int; art_neu text; drohung boolean;
-  r record; sa numeric; sb numeric; los text; sieg text; ln text; sn text; spez text; liefer text; ziel record;
+  r record; sa numeric; sb numeric; los text; sieg text; ln text; sn text; spez text; liefer text; zo record;
 begin
   -- Spielerdörfer: Größe und Ereignisse aus dem echten Spiel
   for o in select w.id, w.name, w.village_id, v.layout, v.name vname from welt_orte w join villages v on v.id = w.village_id loop
@@ -230,13 +230,13 @@ begin
     select o2.*, s into r from welt_orte o2, unnest(o2.spezial) s
       where o2.village_id is null and s in ('kuehe', 'korn', 'salz', 'silber', 'wein', 'holz', 'fischerei', 'kohle', 'wolle', 'kraeuter', 'pilze', 'steinbruch', 'torf', 'pelz', 'harz', 'bier') order by random() limit 1;
     if r.id is not null then
-      select x.* into ziel from welt_orte x where x.art in ('stadt', 'grossstadt') and x.id <> r.id and sqrt(power(x.x - r.x, 2) + power(x.y - r.y, 2)) < 1500
+      select x.* into zo from welt_orte x where x.art in ('stadt', 'grossstadt') and x.id <> r.id and sqrt(power(x.x - r.x, 2) + power(x.y - r.y, 2)) < 1500
         and not exists (select 1 from welt_beziehungen b where (b.a = r.id and b.b = x.id) or (b.a = x.id and b.b = r.id)) order by random() limit 1;
-      if ziel.id is not null then
+      if zo.id is not null then
         liefer := case r.s when 'kuehe' then 'Milch und Käse' when 'korn' then 'Korn' when 'salz' then 'Salz' when 'silber' then 'Silber' when 'wein' then 'Wein' when 'holz' then 'Holz' when 'fischerei' then 'Fisch'
           when 'kohle' then 'Holzkohle' when 'wolle' then 'Wolle' when 'kraeuter' then 'Kräuter' when 'pilze' then 'Heilpilze' when 'steinbruch' then 'Bausteine' when 'torf' then 'Torf' when 'pelz' then 'Pelze' when 'harz' then 'Harz' else 'Bier' end;
-        insert into welt_beziehungen (a, b, art, grund) values (r.id, ziel.id, 'handel', liefer) on conflict do nothing;
-        perform welt_ereignis(r.id, 'abkommen', r.name || ' liefert künftig ' || liefer || ' nach ' || ziel.name || '.', interval '1 day', ziel.id);
+        insert into welt_beziehungen (a, b, art, grund) values (r.id, zo.id, 'handel', liefer) on conflict do nothing;
+        perform welt_ereignis(r.id, 'abkommen', r.name || ' liefert künftig ' || liefer || ' nach ' || zo.name || '.', interval '1 day', zo.id);
       end if;
     end if;
   end if;
