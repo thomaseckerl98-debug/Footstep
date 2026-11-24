@@ -1,8 +1,8 @@
 // Quest-Fenster: Szenenbild (Held + Begleiter), Wanderanimation bei Reisen, Wahlmöglichkeiten, Würfelzeilen.
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
-import { sheetData, SW, SH } from './chars.js?v=3';
+import { sheetData, SW, SH } from './chars.js?v=4';
 import { playMinigame } from './minigames.js?v=2';
-import { playBattle } from './horde.js?v=5';
+import { playBattle } from './horde.js?v=6';
 import { iconURL } from './kampf_icons.js?v=3';
 
 const LW = 240, LH = 100, GROUND = 88;

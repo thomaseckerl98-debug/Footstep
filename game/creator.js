@@ -1,21 +1,26 @@
 // Charaktererstellung: Auswahl von Volk, Gesicht, Haut, Haaren, Bart, Augen und Umhang mit Live-Vorschau.
 import { setMood } from './core.js?v=1';
 import { HERKUNFT, ATTRS, charAttrs } from './rules.js?v=1';
-import { RACES, FACES, SKINS, HAIRS, HAIR_STYLES, BEARDS, EYES, CLOAKS, DEFAULT_LOOK, randomLook, planFromLook, portraitSprite, sheetData, heroSprite, SW, SH, PW, PH, HERO_W } from './chars.js?v=3';
+import { RACES, FACES, SKINS, HAIRS, HAIR_STYLES, BEARDS, EYES, CLOAKS, DEFAULT_LOOK, randomLook, planFromLook, portraitSprite, sheetData, SW, SH, PW, PH } from './chars.js?v=4';
+import { heroSprite, HERO_W, gearFromInventory } from './hero.js?v=1';
+
+const START = { waldlaeufer: 'Bogen, Lederwams', krieger: 'Schwert, Kettenhemd', haendler: 'Dolch, feine Kleidung', gelehrter: 'Alte Chronik, Laterne', heiler: 'Kräutertasche, Seil', schurke: 'Dolch, Dietrich, dunkler Umhang' };
+import { iconURL } from './kampf_icons.js?v=3';
+const ROLE_ICON = { waldlaeufer: 'bogen', krieger: 'kurzschwert', haendler: 'gluecksklee', gelehrter: 'geisterlaterne', heiler: 'kraeuterbeutel', schurke: 'wurfmesser' };
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let raf = 0;
 
-export function openCreator({ root, name, look, first, onSave, onCancel, restoreMood }) {
+export function openCreator({ root, name, look, first, roleFocus = false, onSave, onCancel, restoreMood }) {
   let L = { ...DEFAULT_LOOK, herkunft: 'waldlaeufer', ...(look || {}) };
   root.hidden = false;
   root.innerHTML = `
     <div class="cr-wrap">
-      <header class="cr-head"><h1>${first ? 'Erschaffe deinen Charakter' : 'Aussehen ändern'}</h1><p class="muted">${esc(name)}${first ? ' – so wirst du im Dorf gesehen. Du kannst es später noch ändern.' : ''}</p></header>
+      <header class="cr-head"><h1>${first ? 'Erschaffe deinen Charakter' : roleFocus ? 'Wähle deine Rolle' : 'Aussehen ändern'}</h1><p class="muted">${esc(name)}${first ? ' – so wirst du im Dorf gesehen. Du kannst es später noch ändern.' : roleFocus ? ' – neu: Deine Rolle bestimmt Ausrüstung und Aussehen. Einmalig bekommst du ihre Startausrüstung.' : ''}</p></header>
       <div class="cr-body">
         <section class="cr-preview px-frame">
           <div class="cr-row"><canvas id="cr-portrait" width="${PW}" height="${PH}"></canvas><canvas id="cr-small" width="${SW}" height="${SH}"></canvas></div>
-          <canvas id="cr-hero" width="170" height="120"></canvas>
+          <canvas id="cr-hero" width="170" height="140"></canvas>
           <p id="cr-race" class="small"></p>
         </section>
         <section class="cr-options px-frame" id="cr-options"></section>
@@ -41,8 +46,17 @@ export function openCreator({ root, name, look, first, onSave, onCancel, restore
     }
     g.append(row); opts.append(g);
   };
+  { // Rolle: große Karten mit Beschreibung und Startausrüstung
+    const g = document.createElement('div'); g.className = 'cr-group cr-roles'; const h = document.createElement('h3'); h.textContent = 'Rolle'; g.append(h);
+    const row = document.createElement('div'); row.className = 'cr-rolegrid';
+    for (const [k, hk] of Object.entries(HERKUNFT)) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'px-btn cr-role'; b.dataset.key = 'herkunft'; b.dataset.val = k;
+      b.innerHTML = `<img class="cr-ri" alt="" src="${iconURL(ROLE_ICON[k])}"><b>${esc(hk.name)}</b><span class="small">${esc(hk.desc)}</span><span class="small muted">Start: ${esc(START[k] || '')}</span>`;
+      b.onclick = () => { L.herkunft = k; refresh(); }; row.append(b);
+    }
+    g.append(row); opts.append(g);
+  }
   group('Volk', 'race', Object.entries(RACES).map(([k, r]) => [k, r.name]));
-  group('Herkunft', 'herkunft', Object.entries(HERKUNFT).map(([k, h]) => [k, h.name]));
   group('Gesicht', 'face', Object.entries(FACES).map(([k, n]) => [k, n]));
   group('Hautfarbe', 'skin', SKINS.map((c, i) => [i, `Ton ${i + 1}`, c]), true);
   group('Haarfarbe', 'hair', Object.entries(HAIRS).map(([k, c]) => [k, k, c]), true);
@@ -55,15 +69,15 @@ export function openCreator({ root, name, look, first, onSave, onCancel, restore
   let sheet = null;
   function refresh() {
     setMood('mittag', 'sommer');
-    const plan = planFromLook(L, name);
+    const plan = planFromLook(L, name); plan.herkunft = L.herkunft; plan.gear = gearFromInventory(L.herkunft, null);
     pc.getContext('2d').putImageData(new ImageData(portraitSprite(plan).data, PW, PH), 0, 0);
     const sh = sheetData(plan); sheet = document.createElement('canvas'); sheet.width = sh.w; sheet.height = sh.h; sheet.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0);
-    const hero = heroSprite(plan, 0), tmp = document.createElement('canvas'); tmp.width = HERO_W; tmp.height = 270; tmp.getContext('2d').putImageData(new ImageData(hero.data, HERO_W, 270), 0, 0);
-    const hx = hc.getContext('2d'); hx.clearRect(0, 0, 170, 120); hx.drawImage(tmp, 0, 150, 170, 120, 0, 0, 170, 120);
+    const hero = heroSprite(plan, 0, 'wache'), tmp = document.createElement('canvas'); tmp.width = HERO_W; tmp.height = 270; tmp.getContext('2d').putImageData(new ImageData(hero.data, HERO_W, 270), 0, 0);
+    const hx = hc.getContext('2d'); hx.clearRect(0, 0, 170, 140); hx.drawImage(tmp, 10, 110, 170, 140, 0, 0, 170, 140);
     restoreMood?.();
     root.querySelectorAll('.cr-options .px-btn').forEach((b) => b.classList.toggle('on', String(L[b.dataset.key]) === b.dataset.val));
     const at = charAttrs(L.race, L.herkunft), hk = HERKUNFT[L.herkunft];
-    root.querySelector('#cr-race').innerHTML = `<b>${esc(RACES[L.race].name)}</b>: ${esc(RACES[L.race].desc)}<br><b>${esc(hk.name)}</b>: ${esc(hk.desc)}<br><span class="attrs">${Object.entries(ATTRS).map(([k, n]) => `<span>${n} ${'●'.repeat(at[k])}${'○'.repeat(6 - at[k])}</span>`).join('')}</span><span class="muted small">Eigenschaften bestimmen, welche Antworten du in Gesprächen hast und wie gut deine Würfe gelingen.</span>`;
+    root.querySelector('#cr-race').innerHTML = `<b>${esc(hk.name)}</b>: ${esc(hk.desc)}<br><span class="small">Startausrüstung: ${esc(START[L.herkunft] || '')}</span><br><b>${esc(RACES[L.race].name)}</b>: ${esc(RACES[L.race].desc)}<br><span class="attrs">${Object.entries(ATTRS).map(([k, n]) => `<span>${n} ${'●'.repeat(at[k])}${'○'.repeat(6 - at[k])}</span>`).join('')}</span><span class="muted small">Eigenschaften bestimmen, welche Antworten du in Gesprächen hast und wie gut deine Würfe gelingen.</span>`;
   }
   const dirs = [0, 2, 1, 3];
   const loop = (t) => { raf = requestAnimationFrame(loop); if (!sheet) return; const c = sc.getContext('2d'); c.clearRect(0, 0, SW, SH); const d = dirs[Math.floor(t / 2400) % 4], f = Math.floor(t / 220) % 4; c.drawImage(sheet, f * SW, d * SH, SW, SH, 0, 0, SW, SH); };
@@ -72,6 +86,7 @@ export function openCreator({ root, name, look, first, onSave, onCancel, restore
   root.querySelector('#cr-random').onclick = () => { L = { ...randomLook(), herkunft: L.herkunft }; refresh(); };
   const close = () => { cancelAnimationFrame(raf); root.hidden = true; root.innerHTML = ''; };
   if (!first) root.querySelector('#cr-cancel').onclick = () => { close(); onCancel?.(); };
+  if (roleFocus) root.querySelector('#cr-save').textContent = 'Rolle übernehmen';
   root.querySelector('#cr-save').onclick = async () => {
     const btn = root.querySelector('#cr-save'), msg = root.querySelector('#cr-msg'); btn.disabled = true; msg.textContent = 'Speichere …'; msg.className = 'msg';
     try { await onSave({ ...L }); close(); } catch (e) { msg.textContent = 'Fehler: ' + (e.message || e); msg.className = 'msg error'; btn.disabled = false; }

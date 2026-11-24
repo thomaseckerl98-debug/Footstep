@@ -1,8 +1,10 @@
 // Ökosystem: Tiere mit eigenem Verhalten, Pfützen, Fußspuren im Schnee, Wasser in Bewegung.
 // Alles reagiert aufeinander: Tiere fliehen vor Bewohnern, Krähen gehen aufs Feld, Wetter verändert Wege.
 import * as CORE from './core.js?v=1';
-import { PLAZA, STREAM, WATERFALL, streamWidth } from './world.js?v=5';
-import { meadowY } from './life.js?v=7';
+import { PLAZA, STREAMS, CASCADES, ROADS, LAND, horizonY } from './world.js?v=6';
+import { roadPoint } from './lands.js?v=1';
+const meadowY = (x) => horizonY(x);
+const freeY = (x, y0, span) => { for (let i = 0; i < 12; i++) { const y = y0 + Math.random() * span; if (!LAND.inFace(x, y, 4) && !LAND.onStream(x, y, 3)) return y; } return y0; };
 
 const R = Math.random;
 const near = (a, list, d) => list.some((p) => Math.hypot(p.x - a.x, (p.y - a.y) * 1.4) < d);
@@ -25,14 +27,14 @@ export class Nature {
     // Rehe in der Dämmerung am Waldrand
     if (dusk && !rain && count('reh') < 3 && t > this.next.reh) { const x = 260 + R() * 460; this.spawn('reh', x, meadowY(x) + 4, { a: 0 }); this.next.reh = t + 25000 + R() * 40000; }
     // Fuchs nachts
-    if (night && count('fuchs') < 1 && t > this.next.fuchs) { const west = R() < 0.5; this.spawn('fuchs', west ? 120 : 890, 470 + R() * 50, { dir: west ? 1 : -1, tx: west ? 890 : 120 }); this.next.fuchs = t + 60000 + R() * 90000; }
+    if (night && count('fuchs') < 1 && t > this.next.fuchs) { const west = R() < 0.5; this.spawn('fuchs', west ? 120 : 890, 526 + R() * 8, { dir: west ? 1 : -1, tx: west ? 890 : 120 }); this.next.fuchs = t + 60000 + R() * 90000; }
     // Hasen tagsüber
-    if (day && !rain && season !== 'winter' && count('hase') < 2 && t > this.next.hase) { const x = 220 + R() * 560; this.spawn('hase', x, meadowY(x) + 12 + R() * 30); this.next.hase = t + 20000 + R() * 30000; }
+    if (day && !rain && season !== 'winter' && count('hase') < 2 && t > this.next.hase) { const x = 220 + R() * 560; this.spawn('hase', x, freeY(x, meadowY(x) + 12, 30)); this.next.hase = t + 20000 + R() * 30000; }
     // Krähen auf dem Feld
     const field = sprites.find((s) => s.type === 'feld');
     if (day && field && !rain && count('kraehe') < 4 && t > this.next.kraehe) { for (let i = 0; i < 2 + Math.floor(R() * 3); i++) { const x = field.x + 4 + R() * (field.w - 8), y = field.y + 3 + R() * (field.h - 5); this.spawn('kraehe', x, y - 60, { tx: x, ty: y, state: 'land', life: 50 + R() * 40 }); } this.next.kraehe = t + 70000 + R() * 60000; }
     // Schmetterlinge im Frühling/Sommer
-    if (day && !rain && (season === 'sommer' || season === 'fruehling') && count('falter') < 5 && t > this.next.falter) { this.spawn('falter', 250 + R() * 500, 420 + R() * 100, { col: ['#f4f0e0', '#f0d060', '#e8904a', '#c8d8f0'][Math.floor(R() * 4)], life: 90 }); this.next.falter = t + 8000; }
+    if (day && !rain && (season === 'sommer' || season === 'fruehling') && count('falter') < 5 && t > this.next.falter) { this.spawn('falter', 250 + R() * 500, 400 + R() * 110, { col: ['#f4f0e0', '#f0d060', '#e8904a', '#c8d8f0'][Math.floor(R() * 4)], life: 90 }); this.next.falter = t + 8000; }
 
     for (const a of this.animals) {
       a.t += dt; a.life -= dt;
@@ -70,17 +72,28 @@ export class Nature {
   drawGround(c, t) {
     // Pfützen auf Weg und Dorfplatz
     if (this.puddle > 0.02) {
-      const spots = [[488, 532, 7], [482, 505, 6], [493, 474, 5], [508, 446, 9], [486, 438, 6], [520, 434, 5], [470, 520, 4]];
+      if (!this.spots || this.spotsLand !== LAND) { this.spotsLand = LAND; const hp = ROADS[0].pts; this.spots = [0.12, 0.3, 0.5, 0.7, 0.9].map((t, i) => { const p = roadPoint(hp, t); return [Math.round(p.x + (i % 2 ? 3 : -3)), Math.round(p.y), 4 + (i % 3) * 2]; }).filter(([x, y]) => !LAND.inFace(x, y, 3)); this.spots.push([PLAZA.x + 10, PLAZA.y - 4, 9], [PLAZA.x - 14, PLAZA.y + 2, 6]); }
+      const spots = this.spots;
       for (const [x, y, rr] of spots) { c.globalAlpha = 0.55 * this.puddle; c.fillStyle = tone('#5a7088'); c.beginPath(); c.ellipse(x, y, rr * this.puddle + 1, (rr * this.puddle + 1) * 0.35, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 0.5 * this.puddle; c.fillStyle = tone('#b8cad8'); c.fillRect(x - 2, Math.round(y - 1), 3, 1); }
       c.globalAlpha = 1;
     }
     for (const f of this.prints) { c.globalAlpha = Math.max(0, 0.45 * (1 - f.t / 120)); c.fillStyle = '#6a7488'; c.fillRect(Math.round(f.x), Math.round(f.y), 1, 1); }
     c.globalAlpha = 1;
-    // fließendes Wasser: Glitzer wandert den Bach hinab, Wasserfall rauscht
-    const n = STREAM.length - 1;
-    for (let k = 0; k < 26; k++) { const u = ((t / 9000) + k / 26) % 1, seg = Math.min(n - 1, Math.floor(u * n)), tt = u * n - seg, [ax, ay] = STREAM[seg], [bx, by] = STREAM[seg + 1], w = streamWidth(u); c.fillStyle = k % 3 ? 'rgba(220,235,245,.55)' : 'rgba(255,255,255,.75)'; c.fillRect(Math.round(ax + (bx - ax) * tt + Math.sin(k * 2.3) * w * 0.3), Math.round(ay + (by - ay) * tt), k % 4 ? 1 : 2, 1); }
-    const { x: wx, y0, y1 } = WATERFALL;
-    for (let k = 0; k < 14; k++) { const u = ((t / 1600) + k / 14) % 1; c.fillStyle = 'rgba(255,255,255,.6)'; c.fillRect(wx + ((k % 3) - 1), Math.round(y0 + (y1 - y0) * u), 1, 2); }
+    // fließendes Wasser: Glitzer wandert den Bach hinab (zum See hin bergauf), an den Stufen schäumt es
+    for (const st of STREAMS) {
+      const P = st.pts, n = P.length - 1, dirDown = !st.toLake;
+      for (let k = 0; k < 34; k++) {
+        let u = ((t / 11000) + k / 34) % 1; if (!dirDown) u = 1 - u;
+        const seg = Math.min(n - 1, Math.floor(u * n)), tt = u * n - seg, [ax, ay] = P[seg], [bx, by] = P[seg + 1], w = st.w(u), x = ax + (bx - ax) * tt, y = ay + (by - ay) * tt;
+        if (LAND.inFace(x, y)) continue;
+        const len = Math.hypot(bx - ax, by - ay) || 1, off = Math.sin(k * 2.3) * w * 0.32;
+        c.fillStyle = k % 3 ? 'rgba(220,235,245,.55)' : 'rgba(255,255,255,.8)'; c.fillRect(Math.round(x - (by - ay) / len * off), Math.round(y), k % 4 ? 1 : 2, 1);
+      }
+    }
+    for (const cs of CASCADES) {
+      for (let k = 0; k < 10; k++) { const u = ((t / 900) + k / 10) % 1; c.fillStyle = 'rgba(255,255,255,.75)'; c.fillRect(Math.round(cs.x + ((k % 5) - 2) * cs.w * 0.18), Math.round(cs.y0 + (cs.y1 - cs.y0) * u), 1, 2); }
+      for (let k = 0; k < 6; k++) { const a = (t / 700 + k) % 6.28, rr = 2 + ((t / 400 + k * 0.7) % 1) * cs.w; c.fillStyle = 'rgba(240,248,250,.5)'; c.fillRect(Math.round(cs.x + Math.cos(a) * rr), Math.round(cs.y1 + 2 + Math.sin(a) * rr * 0.3), 1, 1); }
+    }
   }
   drawAnimals(c, t) {
     for (const a of this.animals.slice().sort((p, q) => p.y - q.y)) {

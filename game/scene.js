@@ -1,10 +1,11 @@
 // Szene: Kamera, Ebenen, Filmeffekte, Leben (Wind, Vögel, Wetter, Rauch, Atmung) und Testmodus.
-import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale, LANTERNS } from './world.js?v=5';
-import { Nature } from './nature.js?v=2';
-import { heroSprite, HERO_PLAN, HERO_W, HERO_H, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
+import { W, H, setMood, PLOTS, ROADS, TREES, PLAZA, BUILDINGS, buildingSprite, WORLD_VERSION, depthScale, LANTERNS, LAND, setLand, LAND_IDS, horizonY } from './world.js?v=6';
+import { Nature } from './nature.js?v=3';
+import { HERO_PLAN, sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=4';
+import { heroSprite, HERO_W, HERO_H, poseOfDay } from './hero.js?v=1';
 import { VILLAGERS } from './villagers.js?v=1';
-import { Village, fieldSprite } from './life.js?v=7';
-import './buildings.js?v=2'; // meldet die zusätzlichen Bausätze an
+import { Village, fieldSprite } from './life.js?v=8';
+import './buildings.js?v=3'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 import { drawExtra, drawScaffold } from './extras.js?v=2';
 
@@ -36,9 +37,10 @@ export class Scene {
     this.sprites = []; this.hero = null; this.heroFrames = null; this.extras = []; this.baustelle = null;
     this.particles = []; this.birds = null; this.nextBirds = performance.now() + 15000;
     this.pal = null; this.ready = false;
+    { let l0 = 'hochtal'; try { l0 = localStorage.getItem('mossheart_land') || l0; } catch { /* */ } this.land = LAND_IDS.includes(l0) ? l0 : 'hochtal'; setLand(this.land); }
     this.village = new Village(); this.nature = new Nature(); this.showNames = false; this.residentsSet = false; this.selection = null; this.camTarget = null;
     this.build();
-    this.worker = new Worker(new URL('./worker.js?v=2', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('./worker.js?v=3', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e) => this.onWorld(e.data);
     this.loadMood(this.mood.time, this.mood.season);
     window.addEventListener('resize', () => this.applyCamera(true));
@@ -79,15 +81,22 @@ export class Scene {
 
   /* ---------- Welt laden ---------- */
   setMood(time, season, auto = false) { this.auto = auto; this.loadMood(time, season); }
+  // Gegend des Dorfes (jedes Dorf hat eine eigene Landschaft)
+  setLand(id, persist = true) {
+    if (!LAND_IDS.includes(id) || id === this.land) return;
+    this.land = id; setLand(id); if (persist) try { localStorage.setItem('mossheart_land', id); } catch { /* */ }
+    this.selection = null; this.camTarget = null; this.nature = new Nature();
+    this.loadMood(this.mood.time, this.mood.season);
+  }
   async loadMood(time, season) {
     this.mood = { time, season };
     this.hooks.onMood?.(this.mood, this.auto);
-    const key = `${WORLD_VERSION}|${time}|${season}`;
+    const land = this.land, key = `${WORLD_VERSION}|${land}|${time}|${season}`;
     this.loader.style.display = 'grid';
     const cached = await cacheGet(key);
-    if (cached && this.mood.time === time && this.mood.season === season) { this.applyWorld(cached, time, season); return; }
+    if (cached && this.mood.time === time && this.mood.season === season && this.land === land) { this.applyWorld(cached, time, season); return; }
     this.reqId = (this.reqId || 0) + 1;
-    this.worker.postMessage({ time, season, id: this.reqId, key });
+    this.worker.postMessage({ time, season, land, id: this.reqId, key });
     this.pendingKey = key;
   }
   onWorld(d) {
@@ -104,7 +113,7 @@ export class Scene {
     { const d = v.back; this.root.style.background = `rgb(${d[0]},${d[1]},${d[2]})`; }
     put(this.cv.back, v.back); put(this.cv.mid, v.mid); put(this.cv.roads, v.roads); put(this.cv.front, v.front);
     this.rebuildSprites();
-    this.heroFrames = [heroSprite(this.heroPlan || HERO_PLAN, 0), heroSprite(this.heroPlan || HERO_PLAN, 1)];
+    this.makeHeroFrames();
     if (!this.residentsSet) this.setResidents(null); else this.village.refreshSheets();
     this.drawHero(0, true);
     this.makeGrass();
@@ -332,7 +341,11 @@ export class Scene {
   toggleNames(v) { this.showNames = v ?? !this.showNames; }
 
   /* ---------- Held ---------- */
-  setHeroPlan(plan) { this.heroPlan = plan; if (!this.pal) return; setMood(this.mood.time, this.mood.season); this.heroFrames = [heroSprite(plan, 0), heroSprite(plan, 1)]; this.drawHero(this.heroFrame || 0, true); }
+  setHeroPlan(plan) { this.heroPlan = plan; if (!this.pal) return; setMood(this.mood.time, this.mood.season); this.makeHeroFrames(); this.drawHero(this.heroFrame || 0, true); }
+  // Pose des Tages (wechselt um Mitternacht); im Testmodus fest einstellbar
+  heroPose() { const p = this.heroPlan || HERO_PLAN; if (this.forcedPose) return this.forcedPose; let h = 0; for (const ch of String(p.name || '')) h = (h * 31 + ch.charCodeAt(0)) | 0; return poseOfDay(h); }
+  setPose(pose) { this.forcedPose = pose || null; if (this.pal) { setMood(this.mood.time, this.mood.season); this.makeHeroFrames(); this.drawHero(this.heroFrame || 0, true); } }
+  makeHeroFrames() { const plan = this.heroPlan || HERO_PLAN, pose = this.heroPose(); this.poseDay = new Date().toDateString(); this.heroFrames = [heroSprite(plan, 0, pose), heroSprite(plan, 1, pose)]; }
   restoreMood() { setMood(this.mood.time, this.mood.season); }
   drawHero(frame, force = false) {
     if (!this.heroFrames || (!force && frame === this.heroFrame)) return;
@@ -361,10 +374,11 @@ export class Scene {
       this.grassVariants.push(frames);
     }
     const rnd = CORE.rng(5); this.grass = [];
-    for (let i = 0; i < 420; i++) {
-      const x = rnd() * W, y = 380 + rnd() * 160;
+    for (let i = 0; i < 700; i++) {
+      const x = rnd() * W, y = 300 + rnd() * 240;
       if (PLOTS.some((p) => Math.hypot((p.x - x) / (p.rad * 0.9), (p.y - y) / (p.rad * 0.45)) < 1)) continue;
       if (Math.hypot(x - PLAZA.x, (y - PLAZA.y) * 2) < 34) continue;
+      if (y < horizonY(x) + 8 || LAND.inFace(x, y, 2) || LAND.onStream(x, y, 3)) continue;
       this.grass.push({ x, y, v: Math.floor(rnd() * 12), ph: rnd() * 6.28 });
     }
     this.grass.sort((a, b) => a.y - b.y);
@@ -515,18 +529,33 @@ export class Scene {
     if (this.mood.time === 'nacht' && this.mood.season !== 'winter') for (let i = 0; i < 16; i++) { const ph = ((t / 9000) + i / 16) % 1, a = Math.sin(ph * Math.PI); c.fillStyle = `rgba(210,255,150,${(a * 0.9).toFixed(2)})`; c.fillRect((300 + ((i * 71) % 420) + Math.sin(ph * 6 + i) * 6) * S2, (420 + ((i * 37) % 90) - a * 8) * S2, S2, S2); }
   }
   drawHeroFx(t) {
-    // ruhiges Atmen: 6,4 s pro Atemzug (2,6 s ein, Rest aus), alle ~3 Atemzüge ein Pfeifenzug
+    // ruhiges Atmen: 6,4 s pro Atemzug (2,6 s ein, Rest aus)
     const cyc = 6400, ph = (t % cyc) / cyc, frame = ph > 0.08 && ph < 0.45 ? 1 : 0;
+    if (this.poseDay && this.poseDay !== new Date().toDateString() && this.pal) { setMood(this.mood.time, this.mood.season); this.makeHeroFrames(); this.drawHero(frame, true); }
     this.drawHero(frame);
     const c = this.cv.heroFx.getContext('2d'); c.clearRect(0, 0, HERO_W, HERO_H);
     if (!this.heroFrames) return;
-    const [px, py] = this.heroFrames[frame].pipe;
-    const breath = Math.floor(t / cyc), puff = breath % 3 === 0;
-    const inhale = puff && ph > 0.08 && ph < 0.45;
-    // Glut
-    c.fillStyle = inhale ? 'rgba(255,170,80,.95)' : 'rgba(255,120,50,.7)'; c.fillRect(Math.round(px), Math.round(py), 1, 1);
-    // Rauch nach dem Pfeifenzug + dünner Faden aus der Pfeife
-    for (let i = 0; i < 6; i++) { const q = ((t / 4200) + i / 6) % 1; c.fillStyle = `rgba(232,230,226,${(0.45 * (1 - q)).toFixed(2)})`; c.fillRect(Math.round(px + q * 6 + Math.sin(q * 5 + i) * 1.2), Math.round(py - 2 - q * 22), 1, 1); }
-    if (puff && ph > 0.5) { const q = (ph - 0.5) / 0.5; for (let i = 0; i < 9; i++) { const k = q * (0.6 + i * 0.05); c.fillStyle = `rgba(236,234,230,${(0.6 * (1 - q)).toFixed(2)})`; const sz = k > 0.3 ? 2 : 1; c.fillRect(Math.round(px - 4 + k * 16 + Math.sin(i * 2 + k * 4) * 2), Math.round(py - 4 - k * 18 - i * 0.6), sz, sz); } }
+    const F = this.heroFrames[frame];
+    if (F.pipe) {
+      // Pfeife: Glut, dünner Rauchfaden, alle ~3 Atemzüge ein Zug mit Rauchwolke
+      const [px, py] = F.pipe, breath = Math.floor(t / cyc), puff = breath % 3 === 0, inhale = puff && ph > 0.08 && ph < 0.45;
+      c.fillStyle = inhale ? 'rgba(255,170,80,.95)' : 'rgba(255,120,50,.7)'; c.fillRect(Math.round(px), Math.round(py), 1, 1);
+      for (let i = 0; i < 6; i++) { const q = ((t / 4200) + i / 6) % 1; c.fillStyle = `rgba(232,230,226,${(0.45 * (1 - q)).toFixed(2)})`; c.fillRect(Math.round(px + q * 6 + Math.sin(q * 5 + i) * 1.2), Math.round(py - 2 - q * 22), 1, 1); }
+      if (puff && ph > 0.5) { const q = (ph - 0.5) / 0.5; for (let i = 0; i < 9; i++) { const k = q * (0.6 + i * 0.05); c.fillStyle = `rgba(236,234,230,${(0.6 * (1 - q)).toFixed(2)})`; const sz = k > 0.3 ? 2 : 1; c.fillRect(Math.round(px - 4 + k * 16 + Math.sin(i * 2 + k * 4) * 2), Math.round(py - 4 - k * 18 - i * 0.6), sz, sz); } }
+    }
+    if (F.fire) {
+      // Lagerfeuer: Glut, flackernde Flammen, Funken, Rauch und warmes Licht
+      const [fx, fy] = F.fire, night = this.mood.time === 'nacht' || this.mood.time === 'abend';
+      const g = c.createRadialGradient(fx, fy - 6, 1, fx, fy - 6, night ? 60 : 34); g.addColorStop(0, `rgba(255,170,80,${night ? 0.32 : 0.16})`); g.addColorStop(1, 'rgba(255,140,60,0)'); c.fillStyle = g; c.fillRect(fx - 70, fy - 70, 140, 100);
+      const cols = ['#fff2b0', '#ffd060', '#ff9a30', '#e05a20'];
+      for (let i = 0; i < 26; i++) {
+        const lane = (i % 7) - 3, life = ((t / (380 + (i % 5) * 70)) + i * 0.37) % 1, hgt = (1 - Math.abs(lane) / 4) * 15;
+        const x = fx + lane * 1.6 + Math.sin(t / 120 + i) * (1 + life * 1.5), y = fy - 2 - life * hgt;
+        c.fillStyle = cols[Math.min(3, Math.floor(life * 4 + Math.abs(lane) * 0.3))]; c.globalAlpha = 1 - life * 0.6; c.fillRect(Math.round(x), Math.round(y), life < 0.4 ? 2 : 1, life < 0.5 ? 2 : 1);
+      }
+      c.globalAlpha = 1;
+      for (let i = 0; i < 5; i++) { const q = ((t / 1700) + i / 5) % 1; c.fillStyle = `rgba(255,${200 - q * 80 | 0},90,${(1 - q).toFixed(2)})`; c.fillRect(Math.round(fx + Math.sin(i * 3 + q * 6) * 5), Math.round(fy - 10 - q * 34), 1, 1); }
+      for (let i = 0; i < 7; i++) { const q = ((t / 5200) + i / 7) % 1; c.fillStyle = `rgba(200,200,205,${(0.35 * (1 - q)).toFixed(2)})`; c.fillRect(Math.round(fx + q * 10 + Math.sin(q * 6 + i) * 2), Math.round(fy - 16 - q * 40), q > 0.4 ? 2 : 1, q > 0.4 ? 2 : 1); }
+    }
   }
 }

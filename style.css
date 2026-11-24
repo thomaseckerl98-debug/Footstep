@@ -423,3 +423,16 @@ img.q-kampficon { width: 28px; height: 28px; image-rendering: pixelated; flex: n
 .hb-truhenitem.gold { border-color: #ffc840; box-shadow: 0 0 8px rgba(255,200,64,.5); }
 .hb-truhenitem.q2 { border-color: #6ab0ff; } .hb-truhenitem.q3 { border-color: #c070ff; } .hb-truhenitem.q4 { border-color: #ffc840; }
 @media (max-width: 520px) { .hb-top { font-size: 1rem; gap: 10px; top: 14px; } .hb-zeit { font-size: 1.4rem; } .hb-hp { top: 52px; } .hb-marsch { top: 76px; } .hb-bar { top: 52px; } .hb-bslot .hb-icon { width: 26px; height: 26px; } .hb-lvlnum { font-size: 3rem; } .hb-card { padding: 9px 10px; } }
+
+/* Rollenwahl im Charakter-Ersteller */
+.cr-rolegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 0.5rem; }
+.cr-role { display: grid; grid-template-columns: 2.2rem 1fr; grid-template-rows: auto auto auto; gap: 0.1rem 0.5rem; text-align: left; padding: 0.55rem 0.6rem; white-space: normal; line-height: 1.25; }
+.cr-role .cr-ri { grid-row: 1 / span 3; width: 2.2rem; height: 2.2rem; image-rendering: pixelated; align-self: start; }
+.cr-role b { font-size: 1.05rem; }
+.cr-role .small { font-size: 0.82rem; }
+.cr-role.on { outline: 2px solid var(--gold, #e0b04a); outline-offset: -2px; background: rgba(224, 176, 74, 0.16); }
+#cr-hero { width: 100%; max-width: 340px; height: auto; image-rendering: pixelated; }
+.cr-role.on, .cr-role.on b, .cr-role.on .small { color: #f6ead0; }
+.cr-role.on .muted { color: #d8c8a0; }
+.menu-row { display: grid; gap: 0.2rem; margin: 0.35rem 0; }
+.menu-row select { font: inherit; font-size: 0.95rem; padding: 0.3rem 0.4rem; background: #2a221a; color: #f1e6cc; border: 2px solid #5a4630; border-radius: 4px; }

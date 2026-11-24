@@ -2,7 +2,7 @@
 // Beide Größen nutzen dieselben Farben aus dem Bauplan und dieselbe Lichtfunktion shade(), damit sie zusammenpassen.
 import { clamp, mul, add, sc, hex, step, rng, makeNoise, N1, N4 } from './core.js?v=1';
 import * as CORE from './core.js?v=1';
-import { Sprite } from './world.js?v=5';
+import { Sprite } from './world.js?v=6';
 
 const C3 = (c) => (typeof c === 'string' ? hex(c) : c);
 export function shade(base, nx, ny, nz, rimK = 1) {
@@ -290,108 +290,7 @@ export function sheetData(plan) {
   return { w: SW * cols, h: SH * 4, data: out };
 }
 
-/* ======================================================================
-   Großer Held: sitzt auf dem Felsen, Rückansicht, ruhige Atmung (2 Phasen) – aus demselben Bauplan
-   ====================================================================== */
-export const HERO_W = 480, HERO_H = 270, HERO = { x: 92, y: 228 };
-function facetRock(L, cx, cy, rx, ry) {
-  const nz = makeNoise(Math.round(cx * 13 + cy * 7)), S = CORE.S;
-  for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
-    const dx = (x - cx) / rx, dy = (y - cy) / ry;
-    if (dx * dx + dy * dy > 1 - nz.noise(x * 0.12, y * 0.12) * 0.3) continue;
-    const fx = Math.round(nz.noise(x * 0.07, y * 0.09) * 4) / 4 - 0.5, fy = Math.round(nz.noise(x * 0.07 + 5, y * 0.09) * 4) / 4 - 0.5;
-    const n = [dx * 0.8 + fx * 1.4, dy * 0.6 - 0.45 + fy, 0.7], l = Math.hypot(...n);
-    let col = CORE.lit(hex('#6f788c'), n[0] / l, n[1] / l, n[2] / l, 3);
-    if (nz.noise(x * 0.5, y * 0.25) > 0.78) col = sc(col, 0.8);
-    if (dy < -0.4 + nz.noise(x * 0.2, 3) * 0.3) col = S.groundSnow ? CORE.lit(hex('#eef1f4'), 0, -1, 0.5, 2) : flat(hex(nz.noise(x * 0.4, y * 0.4) > 0.5 ? S.grass[1] : S.dry), 0.8);
-    L.set(x, y, col);
-  }
-}
-export function heroSprite(plan = HERO_PLAN, breath = 0) {
-  const L = new Sprite(HERO_W, HERO_H, 0, 0), { x: fx, y: fy } = HERO, LD = CORE.LDIR, b = breath, S = CORE.S;
-  const shadeN = shade;
-  const ell = (cx, cy, rx, ry, base, tex) => { for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) { const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, d2 = dx * dx + dy * dy; if (d2 > 1) continue; let c = shadeN(base, dx, dy, Math.sqrt(1 - d2)); if (tex) c = sc(c, tex(x, y)); L.set(x, y, c); } };
-  const limb = (x0, y0, x1, y1, r0, r1, base, tex) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2); const ax = -(y1 - y0), ay = x1 - x0, al = Math.hypot(ax, ay) || 1; for (let s2 = 0; s2 <= n; s2++) { const t = s2 / n, cx = x0 + (x1 - x0) * t, cy = y0 + (y1 - y0) * t, r = r0 + (r1 - r0) * t; for (let k = -r; k <= r; k += 0.5) { const u = k / r; let c = shadeN(base, (ax / al) * u, (ay / al) * u, Math.sqrt(Math.max(0, 1 - u * u))); if (tex) c = sc(c, tex(cx + (ax / al) * k, cy + (ay / al) * k, t)); L.set(cx + (ax / al) * k, cy + (ay / al) * k, c); } } };
-  const poly = (pts, fn) => { const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); for (let y = Math.floor(Math.min(...ys)); y <= Math.max(...ys); y++) for (let x = Math.floor(Math.min(...xs)); x <= Math.max(...xs); x++) { let ins = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y + 0.5) !== (yj > y + 0.5) && x + 0.5 < ((xj - xi) * (y + 0.5 - yi)) / (yj - yi) + xi) ins = !ins; } if (ins) { const c = fn(x, y); if (c) L.set(x, y, c); } } };
-  const C = {
-    cloak: C3(plan.cape), cloakD: sc(C3(plan.cape), 0.72), trim: C3(plan.trim), top: C3(plan.top), pants: C3(plan.legs), boot: C3(plan.boots),
-    hair: C3(plan.hair), skin: C3(plan.skin), bow: hex('#7a5232'), pipe: C3(plan.pipe || '#5e3a20'), quiver: C3(plan.quiver || '#5e3a20'), fletch: C3(plan.fletch || '#e8e0cc'), beard: C3(plan.beardColor || plan.hair),
-  };
-  // Fels und Gras (Sitzplatz) am Bildschirmrand
-  facetRock(L, fx - 10, fy + 30, 104, 34); facetRock(L, fx + 90, fy + 46, 40, 18);
-  const r = rng(7), g = S.grass.map(hex);
-  for (let i = 0; i < 160; i++) { const x = r() * 220 - 20, y = HERO_H - r() * 26, hh = 5 + r() * 9, base = r() < 0.4 && !S.groundSnow ? hex(S.dry) : g[1]; for (let k = 0; k < hh; k++) L.set(x + (k / hh) * (r() * 3 - 1.5), y - k, flat(S.groundSnow && k < hh * 0.4 ? hex('#dfe5ee') : base, k > hh * 0.6 ? 0.85 : 0.5)); }
-  // Langbogen an den Fels gelehnt (gespannt, Sehne gerade)
-  const bx0 = fx - 46, by0 = fy + 24, bx1 = fx - 30, by1 = fy - 92;
-  for (let k = 0; k <= 120; k++) { const t = k / 120, x = bx0 + (bx1 - bx0) * t - Math.sin(t * Math.PI) * 9, y = by0 + (by1 - by0) * t; const c = shadeN(C.bow, -0.4, -0.3, 0.85); L.set(x, y, c); L.set(x + 1, y, shadeN(C.bow, 0.5, -0.3, 0.8)); if (t > 0.46 && t < 0.54) { L.set(x, y, flat(hex('#3a2618'), 0.8)); L.set(x + 1, y, flat(hex('#3a2618'), 0.9)); } }
-  for (let k = 0; k <= 116; k++) { const t = k / 116; L.set(bx0 + 1 + (bx1 - bx0) * t, by0 + (by1 - by0) * t, flat(hex('#a8a090'), 0.65)); }
-  // Bein (sitzend, Blick nach rechts ins Tal): Oberschenkel waagrecht, Schienbein nach unten
-  limb(fx + 6, fy - 2, fx + 30, fy - 4, 4.6, 4, C.pants);
-  ell(fx + 30, fy - 3, 4.4, 4.2, C.pants);
-  limb(fx + 31, fy - 2, fx + 35, fy + 16, 3.6, 3, C.pants);
-  limb(fx + 35, fy + 12, fx + 36, fy + 20, 3.4, 3.2, C.boot, (x, y) => (Math.floor(y) === Math.floor(fy + 12) ? 1.2 : 1));
-  ell(fx + 39, fy + 22, 5.5, 3, C.boot);
-  // Umhang über Rücken und Fels
-  const race = plan.race || 'mensch', drop = race === 'zwerg' ? 9 : race === 'halbling' ? 13 : 0, wide = race === 'zwerg' ? 3 : race === 'halbling' ? -2 : race === 'elf' ? -1 : 0;
-  const top = fy - 58 - b + drop;
-  poly([[fx - 13 - wide, top], [fx + 12 + wide, top - 1], [fx + 17 + wide, fy - 30 + drop * 0.5], [fx + 20 + wide, fy + 2], [fx + 6, fy + 10], [fx - 20 - wide, fy + 12], [fx - 22 - wide, fy - 20 + drop * 0.5]], (x, y) => {
-    const u = clamp((x - fx) / 20, -1, 1), spread = 1 + Math.max(0, y - top) * 0.025;
-    const fold = Math.sin(((x - fx) / spread) * 0.6 + N1.noise(x * 0.07, y * 0.04) * 3) * 0.5 + 0.5;
-    let c = shadeN(C.cloak, u * 0.95, -0.1, Math.sqrt(Math.max(0, 1 - u * u * 0.85)));
-    c = sc(c, fold > 0.62 ? 1.1 : fold < 0.22 ? 0.82 : 1);
-    if (y > fy + 7 - (x - fx) * 0.05) c = flat(sc(C.cloak, 0.6), 0.8); // ausgefranster, dunkler Saum
-    if (y > fy + 9 - (x - fx) * 0.05 && N4.noise(x * 0.8, 3) > 0.55) return null;
-    return c;
-  });
-  // Köcher schräg über dem Rücken, Pfeile ragen über die linke Schulter
-  for (let k = 0; k <= 34; k++) { const t = k / 34, qx = fx - 15 + t * 15, qy = top - 4 + t * 30; for (let w = -2.5; w <= 2.5; w += 0.5) L.set(qx + w, qy + w * 0.3, shadeN(C.quiver, w / 2.5, -0.2, Math.sqrt(1 - (w / 2.6) ** 2))); if (k % 9 === 4) for (let w = -2.5; w <= 2.5; w += 0.5) L.set(qx + w, qy + w * 0.3, flat(sc(C.quiver, 0.6), 0.8)); }
-  for (let a = 0; a < 5; a++) { const ax = fx - 17 + a * 1.6, ay = top - 6 - (a % 2) * 2; for (let k = 0; k < 4; k++) { L.set(ax - k * 0.4, ay - k, flat(a % 2 ? C.fletch : hex('#a83a3a'), 0.95)); L.set(ax - k * 0.4 + 1, ay - k, flat(sc(a % 2 ? C.fletch : hex('#a83a3a'), 0.8), 0.9)); } L.set(ax - 1.8, ay - 5, flat(hex('#8a6a4a'), 0.9)); }
-  // zurückgeschlagene Kapuze im Nacken
-  for (let y = top - 6; y <= top + 9; y++) for (let x = fx - 15; x <= fx + 14; x++) { const dx = (x - fx + 0.5) / 15, dy = (y - top - 1) / 8; if (dx * dx + dy * dy > 1) continue; const fold = Math.sin(dx * 7 + N4.noise(x * 0.3, y * 0.3) * 2); L.set(x, y, sc(shadeN(C.cloak, dx, dy - 0.7, 0.6), fold > 0.5 ? 1.08 : fold < -0.6 ? 0.8 : 1)); }
-  for (let x = fx - 3; x <= fx + 2; x++) L.set(x, top + 7, flat(C.trim, 0.95)); // Umhangspange
-  // Arm zur Pfeife (Lederwams-Ärmel)
-  limb(fx + 13, top + 2, fx + 21, top + 17, 3.6, 3.2, C.cloakD);
-  limb(fx + 21, top + 17, fx + 13, top - 1, 2.9, 2.6, C.cloak);
-  limb(fx + 13.6, top - 1, fx + 12, top - 5, 2.6, 2.5, C.top); // Lederarmschiene
-  ell(fx + 11, top - 7, 2.7, 2.5, C.skin);
-  // Kopf (Volk, Frisur, Bart aus dem Bauplan)
-  const style = plan.hairStyle || 'zopf', beard = plan.beard || null, hx0 = fx + 2, hy0 = top - 17;
-  if (style === 'lang' || style === 'wild') limb(fx, top - 14, fx - 2, top + (style === 'lang' ? 16 : 4), style === 'lang' ? 6 : 7, style === 'lang' ? 4 : 5, C.hair, (x, y) => 0.7 + N4.noise(x * 1.3, y * 0.35) * 0.6);
-  ell(hx0, hy0, 8.5, 10, C.skin);
-  if (race === 'elf') for (let k = 0; k < 7; k++) { L.set(hx0 + 7 + k * 0.45, hy0 - 2 - k, shadeN(C.skin, 0.8, -0.3, 0.5)); L.set(hx0 + 6 + k * 0.45, hy0 - 1 - k, shadeN(C.skin, 0.3, -0.3, 0.9)); }
-  else ell(hx0 + 7, hy0 + 1, 1.6, 2.4, sc(C.skin, 0.95));
-  if (beard === 'kurz' || beard === 'lang' || beard === 'zopfbart') {
-    const len = beard === 'kurz' ? 5.2 : 9;
-    ell(fx + 8, top - 12 + (len - 5.2) * 0.6, 4.2, len, C.beard, (x, y) => 0.8 + N4.noise(x * 1.4, y * 0.5) * 0.4);
-    if (beard === 'zopfbart') for (let k = 0; k < 3; k++) L.set(fx + 9, top - 3 + k * 2, flat(hex('#b88a3e'), 0.95));
-  } else if (beard === 'stoppel') { for (let y = top - 15; y < top - 8; y++) for (let x = fx + 5; x < fx + 11; x++) if ((x + y) % 2 === 0) L.set(x, y, sc(shadeN(C.skin, 0.6, 0, 0.7), 0.75)); }
-  else if (beard === 'schnurr') { for (let x = fx + 7; x <= fx + 11; x++) L.set(x, top - 14, shadeN(C.beard, 0.5, 0, 0.8)); }
-  if (style !== 'glatze') {
-    const bump = style === 'locken' || style === 'wild';
-    for (let y = top - 29; y <= top - 7; y++) for (let x = fx - 9; x <= fx + 10; x++) {
-      const dx = (x + 0.5 - (fx + 1)) / 9, dy = (y + 0.5 - (top - 18)) / 10.5; let rr = dx * dx + dy * dy;
-      if (bump) rr -= N4.noise(x * 0.6, y * 0.6) * 0.25;
-      if (rr > 1) continue; if (x > fx + 3 && y > top - 21) continue;
-      if (style === 'kurz' && y > top - 12) continue;
-      const c = shadeN(C.hair, dx, dy, Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy)), 1.4);
-      L.set(x, y, sc(c, bump ? 0.7 + N4.noise(x * 0.9, y * 0.9) * 0.6 : 0.75 + N4.noise(x * 1.2, y * 0.14) * 0.5));
-    }
-  } else for (let x = fx - 7; x <= fx + 3; x++) for (let y = top - 15; y <= top - 11; y++) if (N4.noise(x, y) > 0.4) L.set(x, y, shadeN(C.hair, -0.3, 0, 0.8));
-  if (style === 'zopf') {
-    limb(fx - 3, top - 12, fx - 5, top + 4, 2.2, 1.2, C.hair, (x, y) => 0.7 + N4.noise(x * 1.5, y * 0.5) * 0.6);
-    for (let k = 0; k < 3; k++) { L.set(fx - 4, top - 10 + k, flat(hex('#3a2618'), 0.9)); L.set(fx - 3, top - 10 + k, flat(hex('#3a2618'), 0.9)); }
-  }
-  if (style === 'dutt') ell(fx - 2, top - 27, 4, 3.6, C.hair, (x, y) => 0.75 + N4.noise(x * 1.1, y * 0.4) * 0.5);
-  // Pfeife
-  for (let k = 0; k < 6; k++) L.set(fx + 9 + k, top - 10 + k * 0.2, shadeN(C.pipe, 0.3, -0.5, 0.7));
-  ell(fx + 15.5, top - 11, 1.8, 2.3, C.pipe);
-  L.set(fx + 15, top - 14, [1.3, 0.6, 0.2]); L.set(fx + 16, top - 14, [1.1, 0.5, 0.15]);
-  // Kontur auf der Schattenseite der Figur
-  const out = [], dir = Math.sign(LD[0] || 1);
-  for (let y = top - 34; y < fy + 26; y++) for (let x = fx - 52; x < fx + 46; x++) { const i = y * HERO_W + x; if (L.a[i] && !L.a[i - dir] && y < fy + 8) out.push([x - dir, y]); }
-  for (const [x, y] of out) L.set(x, y, [0.1, 0.1, 0.14]);
-  return { data: toRGBA(L), pipe: [fx + 15.5, top - 14] };
-}
+export { HERO_W, HERO_H, heroSprite } from './hero.js?v=1';
 
 /* ======================================================================
    Charaktererstellung: Auswahl -> Bauplan; Portrait (Vorderansicht) für Erstellung und spätere Gespräche
@@ -418,7 +317,7 @@ export function randomLook() {
 export function planFromLook(look = DEFAULT_LOOK, name = 'Du') {
   const l = { ...DEFAULT_LOOK, ...look }, skin = SKINS[l.skin] || SKINS[3];
   return {
-    ...HERO_PLAN, name, beruf: RACES[l.race]?.name || 'Mensch', race: l.race, face: l.face, eyes: EYES[l.eyes],
+    ...HERO_PLAN, name, beruf: RACES[l.race]?.name || 'Mensch', race: l.race, face: l.face, eyes: EYES[l.eyes], herkunft: l.herkunft || 'waldlaeufer',
     skin, hair: HAIRS[l.hair], hairStyle: l.hairStyle, beard: l.beard === 'keiner' ? null : l.beard, cape: CLOAKS[l.cloak],
     boots: l.race === 'halbling' ? skin : HERO_PLAN.boots,
   };

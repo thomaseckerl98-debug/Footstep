@@ -1,14 +1,14 @@
 // Dorfleben: Wegfindung (Häuser blockieren, Wege werden bevorzugt), Tagesablauf, Berufe, Gespräche, Namen.
-import { PLOTS, PLAZA, ROADS, TREES, STREAM, BRIDGE, streamWidth } from './world.js?v=5';
+import { PLOTS, PLAZA, ROADS, TREES, STREAMS, BRIDGES, LAND, horizonY } from './world.js?v=6';
+import { distPoly } from './lands.js?v=1';
 import * as CORE from './core.js?v=1';
-import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=3';
-import { CATALOG, jobsAt } from './buildings.js?v=2';
+import { sheetData, SW, SH, FOOT, DIRS } from './chars.js?v=4';
+import { CATALOG, jobsAt } from './buildings.js?v=3';
 const FEM = new Set(['huette', 'muehle', 'baeckerei', 'brauerei', 'imkerei', 'jagdhuette', 'holzfaeller', 'steinmetz', 'koehlerei', 'schmiede', 'gerberei', 'weberei', 'toepferei', 'scheune', 'kaserne', 'schreibstube']);
 const ORT = (t) => t === 'feld' ? 'auf dem Feld' : t === 'markt' ? 'auf dem Marktplatz' : (FEM.has(t) ? 'in der ' : 'im ') + (CATALOG[t]?.name || t);
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-export const meadowY = (x) => 357 + Math.sin(x * 0.007) * 4 + CORE.N1.fbm(x * 0.013, 4, 3) * 9;
-const rightSlope = (x) => 468 - Math.pow(Math.max(0, x - 700) / 260, 1.1) * 200 + CORE.N2.fbm(x * 0.02, 5, 4) * 16;
+export const meadowY = (x) => horizonY(x);
 function distSeg(px, py, ax, ay, bx, by) { const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? clamp(((px - ax) * dx + (py - ay) * dy) / l, 0, 1) : 0; return Math.hypot(px - ax - dx * t, py - ay - dy * t); }
 function hash(n) { let x = (n * 2654435761) >>> 0; x ^= x >>> 13; x = Math.imul(x, 1274126177) >>> 0; return (x >>> 0) / 4294967296; }
 
@@ -16,25 +16,35 @@ function hash(n) { let x = (n * 2654435761) >>> 0; x ^= x >>> 13; x = Math.imul(
    Wegfindung auf einem Raster (3×3 Weltpixel pro Zelle)
    ====================================================================== */
 export class Nav {
-  constructor() { this.c = 3; this.x0 = 108; this.y0 = 366; this.cols = Math.ceil((906 - 108) / 3); this.rows = Math.ceil((540 - 366) / 3); this.cost = new Float32Array(this.cols * this.rows); }
+  constructor() { this.c = 3; this.x0 = 60; this.setup(); }
+  setup() {
+    // Raster an die Gegend anpassen: oben bis zur höchsten Horizontlinie
+    let top = 540; for (let x = this.x0; x < 906; x += 4) top = Math.min(top, horizonY(x));
+    this.y0 = Math.floor(top); this.cols = Math.ceil((906 - this.x0) / this.c); this.rows = Math.ceil((540 - this.y0) / this.c);
+    this.cost = new Float32Array(this.cols * this.rows); this.land = LAND;
+  }
   center(cx, cy) { return [this.x0 + (cx + 0.5) * this.c, this.y0 + (cy + 0.5) * this.c]; }
   cell(x, y) { return [Math.floor((x - this.x0) / this.c), Math.floor((y - this.y0) / this.c)]; }
   at(x, y) { const [cx, cy] = this.cell(x, y); if (cx < 0 || cy < 0 || cx >= this.cols || cy >= this.rows) return Infinity; return this.cost[cy * this.cols + cx]; }
   free(x, y) { return this.at(x, y) < Infinity; }
   build(sprites) {
-    const { cols, rows, cost } = this, road = ROADS[0].pts, built = new Set(sprites.map((s) => s.plotId));
+    if (this.land !== LAND) this.setup();
+    const { cols, rows, cost } = this, L = LAND, built = new Set(sprites.map((s) => s.plotId));
     for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) {
       const [x, y] = this.center(cx, cy); let k = 1;
-      if (y < meadowY(x) + 6 || y > 537) k = Infinity;
-      // Nadelwald am rechten Hang (außer auf bebauten Bauplätzen)
-      if (x > 715 && y > rightSlope(x) + 4 && y < 462 && !PLOTS.some((p) => built.has(p.id) && Math.hypot(p.x - x, (p.y - y) * 1.6) < p.rad + 10)) k = Infinity;
+      if (y < horizonY(x) + 6 || y > 537) k = Infinity;
+      if (k === 1 && L.inForest(x, y) && !PLOTS.some((p) => built.has(p.id) && Math.hypot(p.x - x, (p.y - y) * 1.6) < p.rad + 10)) k = Infinity;
       if (k === 1) {
-        let d = 99; for (let i = 0; i < road.length - 1; i++) d = Math.min(d, distSeg(x, y, road[i][0], road[i][1], road[i + 1][0], road[i + 1][1]));
-        if (d < 5) k = 0.45;
-        if (((x - PLAZA.x) / 30) ** 2 + ((y - PLAZA.y) / 12) ** 2 < 1) k = 0.55;
-        if (((x - PLAZA.x) / 10) ** 2 + ((y - PLAZA.y + 2) / 5) ** 2 < 1) k = Infinity; // Brunnen
-        for (const [tx, ty] of TREES) if (Math.abs(x - tx) < 5 && y > ty - 4 && y < ty + 3) k = Infinity;
-        for (let i = 0; i < STREAM.length - 1; i++) { const [ax, ay] = STREAM[i], [bx, by] = STREAM[i + 1]; if (distSeg(x, y, ax, ay, bx, by) < streamWidth((i + 0.5) / (STREAM.length - 1)) / 2 + 2) k = Math.abs(y - BRIDGE.y) < 4 && Math.abs(x - BRIDGE.x) < BRIDGE.w ? 0.6 : Infinity; }
+        let d = 99; for (const r of ROADS) d = Math.min(d, distPoly(x, y, r.pts) * (r.id === 'haupt' ? 1 : 1.25));
+        // Stufen: nur über Treppen begehbar
+        if (L.inFace(x, y, 2)) k = d < 6 ? 0.6 : Infinity;
+        else {
+          if (d < 5) k = 0.45;
+          if (((x - PLAZA.x) / 30) ** 2 + ((y - PLAZA.y) / 12) ** 2 < 1) k = 0.55;
+          if (((x - PLAZA.x) / 10) ** 2 + ((y - PLAZA.y + 2) / 5) ** 2 < 1) k = Infinity; // Brunnen
+          for (const [tx, ty] of TREES) if (Math.abs(x - tx) < 5 && y > ty - 4 && y < ty + 3) k = Infinity;
+          if (L.onStream(x, y, 2)) k = BRIDGES.some((b) => Math.hypot(x - b.x, (y - b.y) * 1.4) < b.w / 2 + 4) ? 0.6 : Infinity;
+        }
       }
       cost[cy * cols + cx] = k;
     }
@@ -165,9 +175,9 @@ export class Village {
   door(s) { const base = s.y + s.h - 1; return this.nav.nearestFree(PLOTS.find((q) => q.id === s.plotId)?.x ?? s.x + s.w / 2, base + 4); }
   workSpot(place, p) {
     const r = Math.random;
-    if (place === 'bach') { const i = 2 + Math.floor(r() * (STREAM.length - 3)), t = r(), [ax, ay] = STREAM[i], [bx, by] = STREAM[i + 1]; return this.nav.nearestFree(ax + (bx - ax) * t + 7, ay + (by - ay) * t); }
+    if (place === 'bach') { const st = STREAMS[0].pts, i = 4 + Math.floor(r() * (st.length - 8)), t = r(), [ax, ay] = st[i], [bx, by] = st[i + 1]; return this.nav.nearestFree(ax + (bx - ax) * t + 8, ay + (by - ay) * t); }
     if (place === 'platz') { const a = r() * Math.PI * 2; return this.nav.nearestFree(PLAZA.x + Math.cos(a) * 22, PLAZA.y + 3 + Math.sin(a) * 7); }
-    if (place === 'wald') { if (r() < 0.6) { const x = 740 + r() * 130; return this.nav.nearestFree(x, 466 + r() * 4); } const x = 330 + r() * 360; return this.nav.nearestFree(x, meadowY(x) + 8 + r() * 3); }
+    if (place === 'wald') { const f = LAND.FORESTS[0]; if (f && r() < 0.5) { const x = f.x0 + 10 + r() * (Math.min(900, f.x1) - f.x0 - 20); return this.nav.nearestFree(x, f.bottom(x) + 4); } const x = 200 + r() * 560; return this.nav.nearestFree(x, horizonY(x) + 8 + r() * 3); }
     const s = this.spriteOf(place) || this.byType(place)[0];
     if (!s) return this.workSpot('platz', p);
     if (s.type === 'feld') return this.nav.nearestFree(s.x + 5 + r() * (s.w - 10), s.y + 4 + r() * (s.h - 7));
@@ -210,7 +220,9 @@ export class Village {
     // Wanderer
     if (!this.wanderer && t > this.nextWanderer && this.wanderPool.length && phaseOf(hour) !== 'schlaf') {
       const w = this.wanderPool[Math.floor(Math.random() * this.wanderPool.length)], west = Math.random() < 0.5;
-      const from = this.nav.nearestFree(west ? 112 : 902, west ? 432 : 470), to = this.nav.nearestFree(west ? 902 : 112, west ? 470 : 432);
+      const wr = ROADS.find((q) => q.id === 'west'), er = ROADS.find((q) => q.id === 'ost'), wp = wr ? wr.pts[wr.pts.length - 1] : [112, 432], ep = er ? er.pts[er.pts.length - 1] : [902, 470];
+      const W0 = [Math.max(70, wp[0]), wp[1]], E0 = [Math.min(900, ep[0]), ep[1]];
+      const from = this.nav.nearestFree(...(west ? W0 : E0)), to = this.nav.nearestFree(...(west ? E0 : W0));
       this.wanderer = { ...w, x: from[0], y: from[1], path: this.nav.path(from[0], from[1], PLAZA.x + 12, PLAZA.y + 6), dest: to, dir: 'right', dist: 0, ph: 0, alpha: 0, rest: 18, state: 'walk', activity: 'zieht durchs Dorf', wanderer: true };
       this.refreshSheets();
     }

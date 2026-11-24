@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
   <!-- Anmeldung -->
@@ -56,6 +56,10 @@
         <button type="button" class="px-btn icon" id="gear-btn" aria-label="Einstellungen">⚙</button>
         <div class="px-frame small menu" id="gear-menu" hidden>
           <p class="muted" id="who"></p>
+          <label class="small menu-row">Gegend ansehen
+            <select id="land-preview"></select></label>
+          <label class="small menu-row">Haltung des Helden
+            <select id="pose-preview"></select></label>
           <button type="button" class="px-btn" id="logout-btn">Abmelden</button>
         </div>
       </div>
@@ -73,6 +77,6 @@
     <section class="ui quest px-frame" id="questbox" hidden></section>
   </div>
 
-  <script type="module" src="app.js?v=30"></script>
+  <script type="module" src="app.js?v=31"></script>
 </body>
 </html>

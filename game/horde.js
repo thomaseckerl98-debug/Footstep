@@ -2,7 +2,7 @@
 // playBattle(opts) → Promise<{ sieg, aufgegeben, kills, stufe, zeit, boss }>
 // opts: { titel, text, dauer (Sekunden, 0 = endlos), schwer (1–3), gegner ('wald'|'banditen'|'gruft'|'berg'|'tiere'), ort, heroPlan, helfer: [{name, beruf, look}], meta }
 import { ITEMS, ITEM, PRAEG, MERKMALE, LEGENDEN, SELTEN, RELIKTE, partnerVon } from './kampf_items.js?v=2';
-import { sheetData, SW, SH } from './chars.js?v=3';
+import { sheetData, SW, SH } from './chars.js?v=4';
 import { iconURL } from './kampf_icons.js?v=3';
 
 const TAU = Math.PI * 2;

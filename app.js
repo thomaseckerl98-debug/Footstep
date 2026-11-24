@@ -1,18 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=11';
-import { openCreator } from './game/creator.js?v=3';
+import { Scene, realMood } from './game/scene.js?v=12';
+import { openCreator } from './game/creator.js?v=4';
 import { buildTalk } from './game/dialog.js?v=7';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
-import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=3';
+import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=4';
+import { gearFromInventory } from './game/hero.js?v=1';
+import { landFor, LAND_IDS, LAND_NAMES } from './game/lands.js?v=1';
+import { POSES, POSE_NAMES } from './game/hero.js?v=1';
 import { setMood } from './game/core.js?v=1';
-import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=2';
+import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
 import { drawIcon } from './game/icons.js?v=2';
-import { PLOTS } from './game/world.js?v=5';
-import { SW, SH } from './game/chars.js?v=3';
-import { openQuest } from './game/questui.js?v=10';
+import { SW, SH } from './game/chars.js?v=4';
+import { openQuest } from './game/questui.js?v=11';
 import { playMinigame } from './game/minigames.js?v=2';
-import { playBattle } from './game/horde.js?v=5';
+import { playBattle } from './game/horde.js?v=6';
 import { iconURL } from './game/kampf_icons.js?v=3';
 const KAMPF = () => `<img class="q-kicon" src="${iconURL('kampf')}" alt="">`;
 
@@ -319,16 +321,24 @@ function buildingInfo(s) {
   const bau = villageState?.baustelle && villageState.baustelle.plot === s.plotId && villageState.baustelle.art === 'ausbau';
   return { name: c?.name || s.type, lvl, stufe: stufeWort(lvl), workers, folge: c?.folgen?.[0] || '', bau };
 }
-function showCreator(first) {
+// Held: Aussehen aus der Erstellung, Kleidung und Waffe aus Rolle + Inventar
+let heroInv = null;
+function heroPlan() { const plan = planFromLook(me?.look, me?.name); plan.herkunft = me?.herkunft || me?.look?.herkunft || 'waldlaeufer'; plan.gear = gearFromInventory(plan.herkunft, heroInv); return plan; }
+function refreshHero(reloadInv = false) {
+  if (!scene || !me?.look) return;
+  if (!reloadInv) { scene.setHeroPlan(heroPlan()); return; }
+  db.rpc('get_inventory').then(({ data, error }) => { if (!error && data) heroInv = data; scene.setHeroPlan(heroPlan()); });
+}
+function showCreator(first, roleFocus = false) {
   hideTip();
   openCreator({
-    root: $('creator'), name: me?.name || 'Du', look: me?.look, first,
+    root: $('creator'), name: me?.name || 'Du', look: me?.look ? { ...me.look, herkunft: me.rolle_gewaehlt === false ? (me.look.herkunft || 'waldlaeufer') : (me.herkunft || me.look.herkunft) } : null, first, roleFocus,
     restoreMood: () => scene?.restoreMood(),
     onSave: async (look) => {
       const { data, error } = await db.rpc('save_character', { p_look: look });
       if (error) throw new Error(error.message);
       me = data && typeof data === 'object' && data.look ? data : { ...(me || {}), look };
-      scene.setHeroPlan(planFromLook(me.look, me.name));
+      refreshHero(true);
       if (!$('panel').hidden && active === 'charakter') renderPanel('charakter');
     },
   });
@@ -609,8 +619,8 @@ const companionCv = (id) => scene?.village.people.find((q) => q.id === id)?.cv |
 let questWin = null;
 function launchQuest(view) {
   closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
-  questWin = openQuest({ db, box: $('questbox'), view, heroPlan: planFromLook(me?.look, me?.name), companionCv, CHECKS, ATTRS,
-    onClose: (changed) => { questWin = null; if (changed) loadVillageState(); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
+  questWin = openQuest({ db, box: $('questbox'), view, heroPlan: heroPlan(), companionCv, CHECKS, ATTRS,
+    onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
 }
 async function resumeQuest(run) {
   const { data, error } = await db.rpc('quest_view', { p_run: run });
@@ -815,6 +825,7 @@ function renderInventory(body) {
   db.rpc('get_inventory').then(({ data, error }) => {
     wrap.innerHTML = '';
     if (error) { wrap.append(p('Konnte das Inventar nicht laden.', 'error')); return; }
+    if (JSON.stringify(heroInv) !== JSON.stringify(data)) { heroInv = data; refreshHero(); }
     const z = data.zustand;
     wrap.append(p(z?.zustand === 'verletzt' ? `Du bist verletzt (Proben −2) – heilt bis ${clock(z.bis)} Uhr.` : 'Du bist gesund.', z?.zustand === 'verletzt' ? 'error small' : 'small'));
     const SPEZ = { neuwurf: 'Glücksbringer: einmal pro Abenteuer neu würfeln', unverwuestlich: 'nutzt sich nicht ab', erster_sicher_flink: 'erster Versuch (Flink) jedes Abenteuers gelingt' };
@@ -915,12 +926,22 @@ async function startGame() {
   db.rpc('get_my_character').then(({ data, error }) => {
     if (error) console.warn('Charakter:', error.message);
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
-    if (me.look) scene.setHeroPlan(planFromLook(me.look, me.name)); else showCreator(true);
+    if (me.look) { refreshHero(true); if (!me.startpaket) setTimeout(() => showCreator(false, true), 800); } else showCreator(true);
   });
   loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(loadVillageState, 120000);
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';
+  if (village) scene.setLand(landFor(village));
+  // Vorschau im Zahnrad-Menü: andere Gegenden und Haltungen nur ansehen (wird nicht gespeichert)
+  { const own = village ? landFor(village) : 'hochtal', ls = $('land-preview'), ps = $('pose-preview');
+    if (ls && !ls.options.length) {
+      ls.innerHTML = LAND_IDS.map((id) => `<option value="${id}">${esc(LAND_NAMES[id])}${id === own ? ' (dein Dorf)' : ''}</option>`).join('');
+      ls.onchange = () => scene.setLand(ls.value, false);
+      ps.innerHTML = `<option value="">Wechselt täglich</option>` + POSES.map((p) => `<option value="${p}">${esc(POSE_NAMES[p])}</option>`).join('');
+      ps.onchange = () => scene.setPose(ps.value || null);
+    }
+    if (ls) ls.value = own; }
 }
 function stopGame() { $('game').hidden = true; $('auth-screen').hidden = false; $('password').value = ''; setPwVisible($('pw-toggle'), false); $('gear-menu').hidden = true; }
 db.auth.onAuthStateChange((ev, session) => {
