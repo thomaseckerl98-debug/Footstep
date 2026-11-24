@@ -242,11 +242,11 @@ async function showVorschlaege(box) {
   const { data, error } = await db.rpc('dorf_vorschlaege');
   if (error) { box.innerHTML = `<p class="error">${esc(error.message)}</p>`; return; }
   box.innerHTML = '';
-  box.append(p('Was sollte als Nächstes entstehen? Der Dorfrat hört auf dich – einmal am Tag.', 'small muted'));
+  box.append(p(amt?.amt?.ich ? 'Was soll als Nächstes gebaut werden? Als Dorfmeister bestimmst du es – einmal am Tag.' : 'Was sollte als Nächstes entstehen? Einmal am Tag kannst du etwas vorschlagen – gehört wirst du erst, wenn man dich schätzt.', 'small muted'));
   for (const v of data || []) {
     const it = document.createElement('div'); it.className = 'bitem';
     const t = document.createElement('div'); t.innerHTML = `<b>${esc(v.art === 'ausbau' ? v.name + ' ausbauen' : v.name)}</b><br><span class="small muted">${esc(v.grund)}</span>`;
-    const b = btn('Vorschlagen', false, async () => {
+    const b = btn(amt?.amt?.ich ? 'Anordnen' : 'Vorschlagen', false, async () => {
       const r = await db.rpc('dorf_vorschlagen', { p_gebaeude: v.gebaeude });
       if (r.error) return toast(esc(r.error.message));
       toast(r.data.ok ? esc(r.data.text) : r.data.grund === 'schon_heute' ? 'Du hast heute schon etwas vorgeschlagen.' : 'Das geht gerade nicht.');
@@ -256,9 +256,33 @@ async function showVorschlaege(box) {
   }
   if (!(data || []).length) box.append(p('Gerade gibt es nichts, was der Dorfrat bauen könnte.', 'small muted'));
 }
+const FOKUS = { ausgewogen: ['Ausgewogen', 'Kein besonderer Schwerpunkt.'], nahrung: ['Nahrung', 'Felder, Jagd und Vorräte zuerst (+25 %).'], baustoffe: ['Holz & Stein', 'Mehr Baumaterial für schnellere Bauten (+20 %).'], handwerk: ['Handwerk', 'Werkstätten arbeiten mehr Waren (+30 %).'], wachstum: ['Wachstum', 'Mehr Bittsteller und Zuzug.'] };
+function renderFuehrung(body) {
+  const A = amt; if (!A) return;
+  const box = document.createElement('div'); box.className = 'fuehrung';
+  if (A.amt.ich) {
+    box.innerHTML = `<div class="fh-kopf"><span class="amt-label">Dorfmeister</span><b>Du führst das Dorf</b><span class="small">Volle Kraft · ${esc(A.amt.gunst)}</span></div>`;
+    box.append(h3('Schwerpunkt der Ratssitzung'));
+    const r = document.createElement('div'); r.className = 'row fokus-row';
+    for (const [k, [n, d]] of Object.entries(FOKUS)) { const b = btn(n, A.amt.fokus === k, async () => { const { data, error } = await db.rpc('amt_fokus', { p_fokus: k }); if (error || !data?.ok) return toast(esc(error?.message || data?.grund)); await loadAmt(false); renderPanel('dorf'); }); b.title = d; r.append(b); }
+    box.append(r, p(FOKUS[A.amt.fokus]?.[1] || '', 'small muted'));
+    if (A.offen.length) box.append(p(`Am Brett ${A.offen.length === 1 ? 'wartet ein Aushang' : `warten ${A.offen.length} Aushänge`} auf deine Entscheidung.`, 'small fh-warn'), row(btn('Zum Brett', true, () => openMenu('quests'))));
+    const rt = btn('Amt niederlegen', false, () => {
+      rt.remove(); const msg = p('Wirklich? Dann führt der Vorsteher das Dorf wieder – nur mit halber Kraft. Erneut antreten kannst du frühestens in drei Tagen.', 'small');
+      box.append(msg, row(btn('Ja, niederlegen', false, async () => { await db.rpc('amt_ruecktritt'); await loadAmt(false); renderPanel('dorf'); }), btn('Doch nicht', true, () => renderPanel('dorf'))));
+    });
+    box.append(row(rt));
+  } else {
+    box.innerHTML = `<div class="fh-kopf"><span class="amt-label">Vorsteher</span><b>${esc(A.amt.vorsteher || 'Ein Bewohner')} führt das Dorf</b><span class="small">Nur halbe Kraft, bis ein Dorfmeister gewählt ist.</span></div>`;
+    box.append(ansehenBar(A.ansehen));
+    box.append(p(A.chronik ? `Hauptquest: Kapitel ${A.chronik.kapitel} – ${A.chronik.titel}` : '', 'small'), row(btn('Zum Brett', false, () => openMenu('quests'))));
+  }
+  body.append(box);
+}
 function renderDorf(body) {
   const D = villageState?.dorf;
   body.append(p(village ? village.village_name : 'Dein Dorf'));
+  renderFuehrung(body);
   if (!D) { body.append(p('Einen Moment – das Dorf wird gerade erfasst …', 'muted small')); return; }
   body.append(p(`${SEASON_DE[D.jahreszeit] || ''} · Die Stimmung ist ${D.stimmung}.`, 'small muted'));
   // Baustelle
@@ -281,7 +305,7 @@ function renderDorf(body) {
     body.append(p(pl.fehlt?.length ? `Es fehlt noch an ${liste(pl.fehlt)}.` : 'Das Material liegt bereit – es geht los, sobald die Baustelle frei ist.', 'small'));
   }
   const vbox = document.createElement('div');
-  const vb = btn(D.vorschlag_ab ? `Nächster Vorschlag ${whenText(D.vorschlag_ab)}` : 'Im Dorfrat etwas vorschlagen', false, () => showVorschlaege(vbox)); vb.disabled = !!D.vorschlag_ab;
+  const vb = btn(D.vorschlag_ab ? `Nächster ${amt?.amt?.ich ? 'Bauauftrag' : 'Vorschlag'} ${whenText(D.vorschlag_ab)}` : amt?.amt?.ich ? 'Bauauftrag erteilen' : 'Im Dorfrat etwas vorschlagen', false, () => showVorschlaege(vbox)); vb.disabled = !!D.vorschlag_ab;
   body.append(row(vb), vbox);
   // Ampeln
   body.append(h3('Wie es dem Dorf geht'));
@@ -361,6 +385,19 @@ function showSelCard(obj) {
     upd(); selTimer = setInterval(upd, 1000);
     const quest = btn('Auf Quest mitnehmen', false, () => {}); quest.disabled = true; quest.title = 'Quests werden nach dem Tutorial freigeschaltet';
     card.append(row(btn('Ansprechen', false, () => startTalk(p)), quest, btn('Kamera folgen', false, () => scene.select(obj))));
+    if (amt?.amt?.ich && !p.wanderer && Number.isFinite(+p.id) && +p.id !== +amt.amt.vorsteher_id) {
+      const person = p, para = (t, c) => { const e = document.createElement('p'); e.textContent = t; e.className = c; return e; };
+      const vb = btn('Aus dem Dorf weisen', false, () => {
+        vb.remove(); card.append(para(`${person.name} wirklich fortschicken? Die anderen werden es dir übel nehmen, und die Stimmung sinkt.`, 'small'), row(btn('Ja, fortschicken', false, async () => {
+          const { data, error } = await db.rpc('amt_verbannen', { p_npc: +person.id });
+          if (error || !data?.ok) return toast(esc(error?.message || data?.grund));
+          toast(esc(data.text), 8000); scene.select(null);
+          const r = await db.rpc('get_my_residents'); if (!r.error) scene.setResidents(r.data);
+          loadVillageState(); loadAmt(false);
+        }), btn('Nein', true, () => showSelCard(obj))));
+      });
+      card.append(row(vb));
+    }
   } else {
     const s = obj.sprite, bi = buildingInfo(s);
     const h = document.createElement('div'); h.innerHTML = `<b>${esc(bi.name)}</b><br><span class="small muted">${esc(groß(bi.stufe))}${bi.bau ? ' · wird gerade ausgebaut' : ''}</span>`; card.append(h);
@@ -620,7 +657,7 @@ let questWin = null;
 function launchQuest(view) {
   closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
   questWin = openQuest({ db, box: $('questbox'), view, heroPlan: heroPlan(), companionCv, CHECKS, ATTRS,
-    onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
+    onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } checkAmtPopups(); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
 }
 async function resumeQuest(run) {
   const { data, error } = await db.rpc('quest_view', { p_run: run });
@@ -652,28 +689,102 @@ async function heuteHinweis() {
   toast(`<b>Heute im Dorf:</b> ${liste} ${offen.length > 1 ? 'könnten' : 'könnte'} deine Hilfe gebrauchen. Schau unter <b>Quests</b> vorbei.`, 9000);
   try { localStorage.setItem(key, '1'); } catch { /* egal */ }
 }
+/* ───────────── Schwarzes Brett: Hauptquest, Aushänge, Bitten, Aufträge ───────────── */
+let amt = null;
+const ART_NAME = { rechtsfall: 'Rechtsfall', krise: 'Krise', koenig: 'Brief des Königs', bittsteller: 'Bittsteller' };
+async function loadAmt(showChange = true) {
+  const { data, error } = await db.rpc('amt_status');
+  if (error || !data?.ansehen) { if (error) console.warn('Amt:', error.message); return amt; }
+  const before = amt;
+  amt = data;
+  if (showChange && before && data.ansehen.stufe > before.ansehen.stufe) toast(`<b>Im Dorf sagt man jetzt über dich:</b> „${esc(data.ansehen.wort)}“${data.ansehen.kandidat && !before.ansehen.kandidat ? '<br>Man nennt deinen Namen, wenn von der Versammlung die Rede ist.' : ''}`, 9000);
+  return amt;
+}
+async function checkAmtPopups() {
+  await loadAmt();
+  const w = amt?.wahl;
+  if (w && !w.gesehen && (w.status === 'gewaehlt' || w.status === 'verloren')) showWahl(w);
+}
+function zettel(cls = '', rot = 0) { const z = document.createElement('div'); z.className = 'zettel ' + cls; z.style.setProperty('--rot', rot + 'deg'); return z; }
+function schild(text) { const s = document.createElement('div'); s.className = 'brett-schild'; s.textContent = text; return s; }
+const ROT = [-1.4, 0.9, -0.6, 1.3, -1.1, 0.5, 1.6, -0.8];
+function ansehenBar(a, meister = false) {
+  const d = document.createElement('div'); d.className = 'ans';
+  const steps = ['Neu im Dorf', 'Man kennt dich', 'Man schätzt dich', 'Man hört auf dich', 'Man vertraut dir'];
+  d.innerHTML = `<div class="ans-head"><span>Ansehen im Dorf</span><b>${esc(a.wort)}</b></div><div class="ans-bar">${steps.map((s, i) => `<span class="${i <= a.stufe ? 'on' : ''}${i === 3 ? ' wahl' : ''}" title="${esc(s)}"></span>`).join('')}</div>
+    <div class="ans-legend small">${meister ? 'Hältst du dein Ansehen hoch, folgt dir das Dorf auch in schweren Zeiten.' : a.kandidat ? 'Du kannst bei der Versammlung als Dorfmeister antreten.' : 'Ab „Man hört auf dich“ wirst du zur Versammlung aufgestellt.'}</div>`;
+  if (a.zuletzt?.length) { const z = document.createElement('div'); z.className = 'ans-last small'; z.innerHTML = a.zuletzt.slice(0, 3).map((x) => `<span>${x.delta > 0 ? '+' : '−'} ${esc(x.grund)}</span>`).join(''); d.append(z); }
+  return d;
+}
+function renderHaupt(wrap, list) {
+  const A = amt; if (!A) return;
+  const z = zettel('haupt', -0.4);
+  const c = A.chronik;
+  const amtTxt = A.amt.ich ? `Du bist Dorfmeister von ${esc(village?.village_name || 'deinem Dorf')}.` : `${esc(A.amt.vorsteher || 'Der Vorsteher')} führt das Dorf als Vorsteher – mit halber Kraft.`;
+  z.innerHTML = `<div class="haupt-kopf"><span class="haupt-label">Hauptquest · Chronik des Dorfes</span>${c ? `<h3>Kapitel ${c.kapitel}: ${esc(c.titel)}</h3>` : '<h3>Fortsetzung folgt</h3>'}</div>
+    <p class="small">${c ? esc(c.kurz) : A.amt.ich ? 'Als Dorfmeister wartet bald der König auf dich. Die nächsten Kapitel der Chronik sind in Arbeit.' : 'Die Chronik geht bald weiter.'}</p>
+    <p class="small haupt-amt">${amtTxt}</p>`;
+  z.append(ansehenBar(A.ansehen, A.amt.ich));
+  if (c) {
+    if (c.run) z.append(row(btn('Weiterspielen', true, () => resumeQuest(c.run))));
+    else if (c.frei) {
+      const open = btn(c.erledigt ? 'Erneut antreten' : 'Aufbrechen', true, () => {
+        open.remove(); const pk = companionPicker(list.begleiter); const msg = p('', 'small error');
+        z.append(pk.el, row(btn('Los geht’s', true, async () => {
+          const { data: r, error: e } = await db.rpc('chronik_start', { p_begleiter: [...pk.chosen] });
+          if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
+          launchQuest(r.view);
+        })), msg);
+      });
+      z.append(row(open));
+    } else z.append(p(c.grund || '', 'small haupt-grund'));
+  }
+  wrap.append(z);
+}
+function renderAushaenge(wrap) {
+  const A = amt; if (!A) return;
+  if (!A.offen.length && !A.aushaenge.length) return;
+  wrap.append(schild(A.offen.length ? 'Aushänge · Entscheidung nötig' : 'Aushänge'));
+  const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
+  A.offen.forEach((e, i) => {
+    const z = zettel('aushang offen', ROT[i % ROT.length]);
+    z.innerHTML = `<span class="aus-art">${esc(ART_NAME[e.art] || 'Aushang')}</span><b>${esc(e.titel)}</b><p class="small">${esc(e.text)}</p><p class="small muted">Entscheide bis ${esc(whenText(e.frist))}, sonst entscheidet ${esc(A.amt.vorsteher || 'der Vorsteher')}.</p>`;
+    z.append(row(btn('Entscheiden', true, () => showEntscheidung(e))));
+    g.append(z);
+  });
+  if (!A.offen.length) A.aushaenge.slice(0, 3).forEach((e, i) => {
+    const z = zettel('aushang', ROT[(i + 3) % ROT.length]);
+    z.innerHTML = `<span class="aus-art">${esc(ART_NAME[e.art] || 'Bekanntmachung')}</span><b>${esc(e.titel)}</b><p class="small">${esc(e.ergebnis || '')}</p><p class="small muted">${e.von === 'spieler' ? 'Deine Entscheidung' : 'Entschieden von ' + esc(A.amt.vorsteher || 'dem Vorsteher')}: „${esc(e.wahl || '')}“</p>`;
+    g.append(z);
+  });
+}
 function renderHeute(wrap, h) {
-  wrap.append(h3('Heute im Dorf'));
-  wrap.append(p('Kleine Bitten deiner Nachbarn – jeden Tag andere. Wer Hilfe bekommt, merkt es sich, und das Dorf hat etwas davon.', 'muted small'));
+  wrap.append(schild('Heute im Dorf'));
+  const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
   const tw = h.tagwerk || [];
-  if (!tw.length) wrap.append(p('Heute bittet dich niemand um etwas. Genieß den Tag.', 'small'));
-  for (const t of tw) {
-    const card = document.createElement('div'); card.className = 'adv q-tag' + (t.status !== 'offen' ? ' q-done' : '');
-    card.innerHTML = `<b>${esc(t.titel)}</b> <span class="muted small">· ${esc(t.npc)} (${esc(t.beruf)})</span><br><span class="small">„${esc(t.bitte)}“</span>`;
+  if (!tw.length) { const z = zettel('klein', 0.7); z.append(p('Heute bittet dich niemand um etwas. Genieß den Tag.', 'small')); g.append(z); }
+  tw.forEach((t, i) => {
+    const z = zettel('klein' + (t.status !== 'offen' ? ' erledigt' : ''), ROT[i % ROT.length]);
+    z.innerHTML = `<b>${esc(t.titel)}</b><span class="small muted"> · ${esc(t.npc)} (${esc(t.beruf)})</span><p class="small">„${esc(t.bitte)}“</p>`;
     if (t.status === 'offen') {
-      card.append(row(btn('Helfen', true, async () => {
+      z.append(row(btn('Helfen', true, async () => {
         const ok = await playMinigame(t.art, { schwer: t.schwer, titel: t.titel, text: t.npc + ': „' + t.bitte + '“' });
         const { data: r, error: e } = await db.rpc('tagwerk_fertig', { p_id: t.id, p_erfolg: ok });
         if (e) { toast('Das hat nicht geklappt: ' + esc(e.message)); return; }
         if (r.ok) toast(`<b>${esc(t.npc)}:</b> „${esc(r.text)}“${r.extra ? '<br>' + esc(r.extra) : ''}`, 9000);
+        await loadAmt();
         if (!$('panel').hidden && active === 'quests') renderPanel('quests');
       })));
-    } else card.append(p((t.status === 'erledigt' ? '✓ ' : '✗ ') + (t.ergebnis || ''), 'muted small'));
-    wrap.append(card);
-  }
+    } else z.append(p((t.status === 'erledigt' ? '✓ ' : '✗ ') + (t.ergebnis || ''), 'muted small'));
+    g.append(z);
+  });
+}
+function renderUnterwegs(wrap, h) {
+  wrap.append(schild('Hinaus vor das Dorf'));
+  const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
   const e = h.erkunden || {};
-  const ec = document.createElement('div'); ec.className = 'adv q-erk';
-  ec.innerHTML = '<b>Umgebung erkunden</b><br><span class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Geht auch, während du auf einer größeren Reise bist.</span><br><span class="small q-kampfhint">' + KAMPF() + 'Manche Streifzüge enden in einem Kampf (ca. 10 Min.) – du siehst es oben im Fenster.</span>';
+  const ec = zettel('', -0.9);
+  ec.innerHTML = `<b>Umgebung erkunden</b><p class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Geht auch, während du auf einer größeren Reise bist.</p><p class="small q-kampfhint">${KAMPF()}Manche enden in einem Kampf (ca. 10 Min.).</p>`;
   if (e.lauf) ec.append(row(btn('Weiter erkunden', true, () => resumeQuest(e.lauf))));
   else if (e.rest > 0) {
     const msg = p('', 'small error');
@@ -684,66 +795,69 @@ function renderHeute(wrap, h) {
       resumeQuest(r.run);
     })), msg);
   } else ec.append(p('Für heute bist du genug herumgestreift. Morgen gibt es Neues.', 'muted small'));
-  wrap.append(ec);
-  // Übungsplatz: endloser Horde-Kampf ohne Folgen
-  const uc = document.createElement('div'); uc.className = 'adv q-erk';
+  g.append(ec);
+  const uc = zettel('', 1.1);
   let rek = 0; try { rek = +localStorage.getItem('mh_uebung_rekord') || 0; } catch { /* egal */ }
-  uc.innerHTML = `<span class="q-kampfbadge">${KAMPF()}Kampf</span> <b>Übungsplatz</b><br><span class="small">Kämpfe, so lange du durchhältst, und probiere Kombinationen aus. Keine Folgen, keine Beute.${rek ? ` Dein Rekord: ${Math.floor(rek / 60)}:${String(rek % 60).padStart(2, '0')}.` : ''}</span>`;
+  uc.innerHTML = `<span class="q-kampfbadge">${KAMPF()}Kampf</span> <b>Übungsplatz</b><p class="small">Kämpfe, so lange du durchhältst. Keine Folgen, keine Beute.${rek ? ` Dein Rekord: ${Math.floor(rek / 60)}:${String(rek % 60).padStart(2, '0')}.` : ''}</p>`;
   const gegnerWahl = [['wald', 'Moderwald', 'wald'], ['banditen', 'Söldner', 'wald'], ['gruft', 'Gruft', 'hoehle'], ['berg', 'Bergwinter', 'berg'], ['wildnis', 'Wildnis', 'wald']];
   const r2 = document.createElement('div'); r2.className = 'row';
   for (const [gid, gname, gort] of gegnerWahl) r2.append(btn(gname, false, async () => {
     const { data: kw } = await db.rpc('kampf_werte');
-    const res = await playBattle({ titel: `Übungsplatz: ${gname}`, text: 'Alle 5 Minuten taucht ein Anführer auf.', dauer: 0, schwer: 2, gegner: gid, ort: gort, heroPlan: planFromLook(me?.look, me?.name), helfer: kw?.helfer || [], meta: kw || {}, rekord: rek });
+    const res = await playBattle({ titel: `Übungsplatz: ${gname}`, text: 'Alle 5 Minuten taucht ein Anführer auf.', dauer: 0, schwer: 2, gegner: gid, ort: gort, heroPlan: heroPlan(), helfer: kw?.helfer || [], meta: kw || {}, rekord: rek });
     try { if (res.zeit > rek) localStorage.setItem('mh_uebung_rekord', String(res.zeit)); } catch { /* egal */ }
     if (!$('panel').hidden && active === 'quests') renderPanel('quests');
   }));
-  uc.append(r2); wrap.append(uc);
+  uc.append(r2); g.append(uc);
 }
 const SLOT = { einfach: ['Leicht', 'q-leicht'], mittel: ['Mittel', 'q-mittel'], schwer: ['Schwer', 'q-schwer'], individuell: ['Individuell', 'q-indiv'] };
 function renderQuests(body) {
-  const wrap = document.createElement('div'); wrap.className = 'adventures'; wrap.append(p('…', 'muted small')); body.append(wrap);
-  Promise.all([db.rpc('quest_board'), db.rpc('quest_list'), db.rpc('heute')]).then(([b, l, hh]) => {
+  const wrap = document.createElement('div'); wrap.className = 'brett'; wrap.append(p('…', 'small')); body.append(wrap);
+  Promise.all([db.rpc('quest_board'), db.rpc('quest_list'), db.rpc('heute'), loadAmt(false)]).then(([b, l, hh]) => {
     wrap.innerHTML = '';
     if (b.error || l.error) { wrap.append(p('Konnte die Quests nicht laden.', 'error')); return; }
     const board = b.data, list = l.data;
-    if (hh.data) renderHeute(wrap, hh.data); else if (hh.error) console.warn('Heute:', hh.error.message);
+    renderHaupt(wrap, list);
     if (list.laufend) {
       const run = (board.angebote || []).find((o) => o.run === list.laufend.run);
       const q = list.quests.find((x) => x.id === list.laufend.quest);
-      const card = document.createElement('div'); card.className = 'adv adv-run';
-      card.innerHTML = `<b>Unterwegs: ${esc(list.laufend.titel || run?.titel || q?.titel || 'ein Abenteuer')}</b>`;
-      card.append(row(btn('Weiterspielen', true, () => resumeQuest(list.laufend.run)), btn('Abbrechen', false, async () => { await db.rpc('quest_abort', { p_run: list.laufend.run }); renderPanel('quests'); })));
-      wrap.append(card);
+      const z = zettel('laufend', 0.6);
+      z.innerHTML = `<b>Unterwegs: ${esc(list.laufend.titel || run?.titel || q?.titel || 'ein Abenteuer')}</b>`;
+      z.append(row(btn('Weiterspielen', true, () => resumeQuest(list.laufend.run)), btn('Abbrechen', false, async () => { await db.rpc('quest_abort', { p_run: list.laufend.run }); renderPanel('quests'); })));
+      wrap.append(z);
     }
-    wrap.append(h3('Heute am Brett'));
-    wrap.append(p(`Jeden Tag neu (ab Mitternacht). Die Geschichten spielen mit echten Bewohnern deines Dorfes – was du tust, merken sie sich.`, 'muted small'));
-    for (const o of board.angebote.filter((x) => x.slot !== 'individuell')) {
+    renderAushaenge(wrap);
+    if (hh.data) renderHeute(wrap, hh.data); else if (hh.error) console.warn('Heute:', hh.error.message);
+    wrap.append(schild('Aufträge am Brett'));
+    wrap.append(p('Jeden Tag neu (ab Mitternacht). Die Geschichten spielen mit echten Bewohnern deines Dorfes – was du tust, merken sie sich.', 'brett-hinweis small'));
+    const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
+    board.angebote.filter((x) => x.slot !== 'individuell').forEach((o, i) => {
       const [lab, cls] = SLOT[o.slot];
-      const card = document.createElement('div'); card.className = 'adv ' + cls;
-      card.innerHTML = `<span class="q-slot">${lab}</span>${o.kampf ? ` <span class="q-kampfbadge" title="In diesem Abenteuer kommt es zu einem Kampf.">${KAMPF()}Kampf · ca. ${o.kampf} Min.</span>` : ''} <b>${esc(o.titel)}</b>${o.status === 'erledigt' ? ' <span class="muted small">· erledigt</span>' : o.status === 'angenommen' ? ' <span class="muted small">· läuft</span>' : ''}<br><span class="small">${esc(o.kurz)}</span><br><span class="muted small">Beteiligt: ${o.rollen.map((r) => `${esc(r.name)} (${esc(r.beruf)})`).join(', ')}</span>`;
+      const z = zettel('auftrag ' + cls + (o.status === 'erledigt' ? ' erledigt' : ''), ROT[(i + 2) % ROT.length]);
+      z.innerHTML = `<span class="q-slot">${lab}</span>${o.kampf ? ` <span class="q-kampfbadge" title="In diesem Abenteuer kommt es zu einem Kampf.">${KAMPF()}ca. ${o.kampf} Min.</span>` : ''}<b class="auf-titel">${esc(o.titel)}</b>${o.status === 'erledigt' ? ' <span class="muted small">· erledigt</span>' : o.status === 'angenommen' ? ' <span class="muted small">· läuft</span>' : ''}<p class="small">${esc(o.kurz)}</p><p class="muted small">Beteiligt: ${o.rollen.map((r) => `${esc(r.name)} (${esc(r.beruf)})`).join(', ')}</p>`;
       if (o.status === 'offen' && !list.laufend) {
         const open = btn('Ansehen', false, () => {
           open.remove();
           const pk = companionPicker(list.begleiter, new Set(o.rollen.map((r) => r.id))); const msg = p('', 'small error');
-          card.append(pk.el, row(btn('Aufbrechen', true, async () => {
+          z.append(pk.el, row(btn('Aufbrechen', true, async () => {
             const { data: r, error: e } = await db.rpc('quest_take', { p_angebot: o.id, p_begleiter: [...pk.chosen] });
             if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
             launchQuest(r.view);
           })), msg);
         });
-        card.append(row(open));
+        z.append(row(open));
       }
-      wrap.append(card);
-    }
+      g.append(z);
+    });
+    if (hh.data) renderUnterwegs(wrap, hh.data);
     // Eigenes Abenteuer (KI)
     const ind = board.angebote.find((x) => x.slot === 'individuell');
-    wrap.append(h3('Individuell'));
-    const ic = document.createElement('div'); ic.className = 'adv q-indiv';
+    wrap.append(schild('Dein eigenes Abenteuer'));
+    const ic = zettel('indiv', -0.5);
     if (ind && ind.status !== 'fehlgeschlagen') {
-      ic.innerHTML = `<span class="q-slot">Individuell</span> <b>${esc(ind.titel)}</b><br><span class="small">Ziel: ${esc(ind.ziel || '')}</span><br><span class="muted small">${ind.status === 'erledigt' ? 'Heute schon erlebt. Morgen kannst du ein neues Ziel setzen.' : ind.status === 'wird_geschrieben' ? 'Die Geschichte wird gerade geschrieben …' : 'Läuft.'}</span>`;
+      ic.innerHTML = `<span class="q-slot">Individuell</span> <b>${esc(ind.titel)}</b><p class="small">Ziel: ${esc(ind.ziel || '')}</p><p class="muted small">${ind.status === 'erledigt' ? 'Heute schon erlebt. Morgen kannst du ein neues Ziel setzen.' : ind.status === 'wird_geschrieben' ? 'Die Geschichte wird gerade geschrieben …' : 'Läuft.'}</p>`;
     } else {
-      ic.innerHTML = `<span class="q-slot">Individuell</span> <b>Dein eigenes Abenteuer</b><br><span class="small">Setz dir ein Ziel – die KI baut daraus eine Geschichte mit Wendungen, Entscheidungen und Folgen, während du aufbrichst. Einmal pro Tag.</span>`;
-      const ta = document.createElement('textarea'); ta.className = 'q-goal'; ta.maxLength = 200; ta.rows = 2; ta.placeholder = 'z. B. „Ein Bündnis mit dem Dorf am Fluss schließen“ oder „Herausfinden, was mit Bruns Tochter ist“';
+      ic.innerHTML = `<span class="q-slot">Individuell</span> <b>Ein Ziel, eine Geschichte</b><p class="small">Setz dir ein Ziel – die KI baut daraus eine Geschichte mit Wendungen, Entscheidungen und Folgen. Einmal pro Tag.</p>`;
+      const ta = document.createElement('textarea'); ta.className = 'q-goal'; ta.maxLength = 200; ta.rows = 2; ta.placeholder = 'z. B. „Ein Bündnis mit dem Dorf am Fluss schließen“';
       ic.append(ta);
       if (list.laufend) ic.append(p('Erst das laufende Abenteuer beenden.', 'muted small'));
       else {
@@ -754,35 +868,84 @@ function renderQuests(body) {
           const { data: r, error: e } = await db.rpc('quest_custom_start', { p_ziel: ziel, p_begleiter: [...pk.chosen] });
           if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
           launchQuest(r.view);
-          db.functions.invoke('quest-weaver', { body: { run: r.view.run } }).then(({ data: w, error: we }) => {
-            if (we || !w?.ok) console.warn('Quest-Weber:', we?.message || w?.grund);
-          });
+          db.functions.invoke('quest-weaver', { body: { run: r.view.run } }).then(({ data: w, error: we }) => { if (we || !w?.ok) console.warn('Quest-Weber:', we?.message || w?.grund); });
         })), msg);
       }
     }
     wrap.append(ic);
-    // Größere Geschichten
+    // Größere Geschichten (Nebenquests, freigeschaltet durch Wissen)
     if (list.quests.length) {
-      wrap.append(h3('Geschichten'));
-      for (const q of list.quests) {
-        const card = document.createElement('div'); card.className = 'adv';
-        card.innerHTML = `<b>${esc(q.titel)}</b>${q.erledigt ? ' <span class="muted small">· schon erlebt</span>' : ''}<br><span class="small">${esc(q.beschreibung)}</span>`;
-        if (!q.offen) { card.append(p(q.hinweis ? `Du weißt noch zu wenig darüber. Vielleicht erzählen dir ${q.hinweis} mehr.` : 'Du weißt noch zu wenig darüber.', 'muted small')); wrap.append(card); continue; }
+      wrap.append(schild('Geschichten'));
+      const g2 = document.createElement('div'); g2.className = 'zettel-grid'; wrap.append(g2);
+      list.quests.forEach((q, i) => {
+        const z = zettel('geschichte' + (q.offen ? '' : ' gesperrt'), ROT[(i + 5) % ROT.length]);
+        z.innerHTML = `<b>${esc(q.titel)}</b>${q.erledigt ? ' <span class="muted small">· schon erlebt</span>' : ''}<p class="small">${esc(q.beschreibung)}</p>`;
+        if (!q.offen) { z.append(p(q.hinweis ? `Du weißt noch zu wenig darüber. Vielleicht erzählen dir ${q.hinweis} mehr.` : 'Du weißt noch zu wenig darüber.', 'muted small')); g2.append(z); return; }
         if (!list.laufend) {
           const open = btn('Ansehen', false, () => {
             open.remove(); const pk = companionPicker(list.begleiter); const msg = p('', 'small error');
-            card.append(pk.el, row(btn(q.erledigt ? 'Nochmal erleben (Testphase)' : 'Aufbrechen', true, async () => {
+            z.append(pk.el, row(btn(q.erledigt ? 'Nochmal erleben (Testphase)' : 'Aufbrechen', true, async () => {
               const { data: r, error: e } = await db.rpc('quest_start', { p_quest: q.id, p_begleiter: [...pk.chosen] });
               if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
               launchQuest(r.view);
             })), msg);
           });
-          card.append(row(open));
+          z.append(row(open));
         }
-        wrap.append(card);
-      }
+        g2.append(z);
+      });
     }
   });
+}
+/* ───────────── Pop-ups: Bürgerversammlung, Entscheidungen ───────────── */
+function amtOverlay() { const ov = document.createElement('div'); ov.className = 'amt-overlay ui'; const box = document.createElement('div'); box.className = 'amt-rolle'; ov.append(box); document.body.append(ov); requestAnimationFrame(() => ov.classList.add('auf')); return { ov, box, close: () => { ov.classList.remove('auf'); setTimeout(() => ov.remove(), 250); } }; }
+function bohnen(ja, nein) {
+  const d = document.createElement('div'); d.className = 'bohnen';
+  const krug = (n, cls, label) => `<div class="krug"><div class="krug-bohnen">${Array.from({ length: n }, (_, i) => `<i class="bohne ${cls}" style="--d:${(i * 0.09).toFixed(2)}s"></i>`).join('')}</div><span class="small">${label}: <b>${n}</b></span></div>`;
+  d.innerHTML = krug(ja, 'weiss', 'Für dich') + krug(nein, 'schwarz', 'Dagegen');
+  return d;
+}
+function showWahl(w) {
+  const { box, close } = amtOverlay();
+  const gew = w.status === 'gewaehlt';
+  box.innerHTML = `<div class="amt-siegel"></div><span class="amt-label">Bürgerversammlung</span><h2>${gew ? 'Das Dorf hat dich gewählt' : esc(w.gegner || 'Der Vorsteher') + ' bleibt Vorsteher'}</h2>`;
+  box.append(bohnen(w.ja, w.nein));
+  if (gew) {
+    box.append(p(`Mit ${w.ja} zu ${w.nein} Stimmen hat dich die Versammlung zum Dorfmeister gewählt. ${w.gegner || 'Der Vorsteher'} reicht dir die Hand. Alle warten auf deine Antwort.`, ''));
+    const wahl = document.createElement('div'); wahl.className = 'amt-wahl';
+    const ja = document.createElement('div'); ja.className = 'amt-opt ja';
+    ja.innerHTML = '<b>Den Amtseid leisten</b><ul class="small"><li>Du erteilst Bauaufträge und legst den Schwerpunkt des Dorfes fest.</li><li>Du entscheidest, wer einziehen darf – und wer gehen muss.</li><li>Du sprichst Recht, führst durch Krisen und antwortest dem König als seine rechte Hand.</li><li>Das Dorf entwickelt sich mit <b>voller Kraft</b>.</li></ul>';
+    const nein = document.createElement('div'); nein.className = 'amt-opt nein';
+    nein.innerHTML = `<b>Ablehnen</b><ul class="small"><li>Du bleibst Bewohner und kümmerst dich um deine eigenen Wege.</li><li>${esc(w.gegner || 'Der Vorsteher')} führt das Dorf weiter – automatisch, aber nur mit <b>halber Kraft</b>.</li><li>In ein paar Tagen kannst du erneut antreten.</li></ul>`;
+    const msg = p('', 'small error');
+    const antworten = async (j) => {
+      const { data: r, error: e } = await db.rpc('amt_antwort', { p_ja: j });
+      if (e || !r?.ok) { msg.textContent = e?.message || r?.grund || 'Das hat nicht geklappt.'; return; }
+      box.innerHTML = `<div class="amt-siegel ${j ? 'gold' : ''}"></div><span class="amt-label">${j ? 'Amtseid' : 'Entscheidung'}</span><h2>${j ? 'Dorfmeister von ' + esc(village?.village_name || 'deinem Dorf') : 'Du bleibst Bewohner'}</h2>`;
+      box.append(p(r.text, ''), row(btn('Weiter', true, async () => { close(); await loadAmt(false); loadVillageState(); if (!$('panel').hidden && ['quests', 'dorf'].includes(active)) renderPanel(active); })));
+    };
+    ja.append(row(btn('Den Eid leisten', true, () => antworten(true)))); nein.append(row(btn('Ablehnen', false, () => antworten(false))));
+    wahl.append(ja, nein); box.append(wahl, msg);
+  } else {
+    box.append(p(`Die Versammlung stimmte ${w.nein} zu ${w.ja}. Knapp oder nicht – ${w.gegner || 'der Vorsteher'} führt das Dorf weiter. Sammle weiter Ansehen; in vier Tagen kannst du erneut antreten.`, ''));
+    box.append(row(btn('Verstanden', true, async () => { await db.rpc('amt_gesehen', { p_wahl: w.id }); close(); loadAmt(false); })));
+  }
+}
+function showEntscheidung(e) {
+  const { box, close } = amtOverlay();
+  box.classList.add('aushang-rolle');
+  box.innerHTML = `<span class="amt-label">${esc(ART_NAME[e.art] || 'Aushang')}</span><h2>${esc(e.titel)}</h2>`;
+  box.append(p(e.text, ''));
+  const opts = document.createElement('div'); opts.className = 'ent-opts';
+  e.optionen.forEach((t, i) => opts.append(btn(t, false, async () => {
+    opts.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+    const { data: r, error: er } = await db.rpc('amt_entscheiden', { p_ereignis: e.id, p_wahl: i });
+    if (er || !r?.ok) { opts.append(p(er?.message || r?.grund || 'Das hat nicht geklappt.', 'small error')); return; }
+    opts.remove(); spaeter.remove(); box.append(p('„' + t + '“', 'small muted'), p(r.text, 'ent-ergebnis'));
+    box.append(row(btn('Schließen', true, async () => { close(); await loadAmt(false); loadVillageState(); if (!$('panel').hidden && ['quests', 'dorf'].includes(active)) renderPanel(active); })));
+  })));
+  const spaeter = row(btn('Später entscheiden', false, close));
+  box.append(opts, spaeter);
 }
 function renderAdventures(body) {
   body.append(h3('Abenteuer'));
@@ -928,7 +1091,8 @@ async function startGame() {
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
     if (me.look) { refreshHero(true); if (!me.startpaket) setTimeout(() => showCreator(false, true), 800); } else showCreator(true);
   });
-  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(loadVillageState, 120000);
+  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); }, 120000);
+  setTimeout(async () => { await checkAmtPopups(); if (amt?.offen?.length && !document.querySelector('.amt-overlay')) toast(`<b>Am Brett:</b> ${amt.offen.length === 1 ? 'Ein Aushang wartet' : amt.offen.length + ' Aushänge warten'} auf deine Entscheidung als Dorfmeister.`, 9000); }, 3000);
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
   $('who').textContent = village ? `Angemeldet als ${village.character_name}` : '';
