@@ -8,6 +8,7 @@ import { Village, fieldSprite } from './life.js?v=9';
 import './buildings.js?v=3'; // meldet die zusätzlichen Bausätze an
 import * as CORE from './core.js?v=1';
 import { drawExtra, drawScaffold } from './extras.js?v=2';
+import { zeichneUmfassung } from './umfassung.js?v=1';
 
 const ZOOMS = { dorf: { w: 680, cx: 470, cy: 362 }, grossdorf: { w: 820, cx: 480, cy: 316 }, stadt: { w: 960, cx: 480, cy: 270 } };
 const LAYOUT_KEY = 'mossheart_test_layout_v2';
@@ -125,7 +126,8 @@ export class Scene {
   rebuildSprites() {
     if (!this.pal) return;
     setMood(this.mood.time, this.mood.season);
-    this.sprites = this.layout.map(([type, plotId]) => { const plot = PLOTS.find((p) => p.id === plotId); return type === 'feld' ? fieldSprite(plot) : buildingSprite(type, plot, this.pal); }).sort((a, b) => (a.type === 'feld' ? -1 : 0) - (b.type === 'feld' ? -1 : 0) || (a.y + a.h) - (b.y + b.h));
+    this.mauer = this.layout.some((l) => l[0] === 'steinmauer') ? 'steinmauer' : this.layout.some((l) => l[0] === 'palisade') ? 'palisade' : null;
+    this.sprites = this.layout.filter(([, plotId]) => plotId < 90).map(([type, plotId]) => { const plot = PLOTS.find((p) => p.id === plotId); return type === 'feld' ? fieldSprite(plot) : buildingSprite(type, plot, this.pal); }).sort((a, b) => (a.type === 'feld' ? -1 : 0) - (b.type === 'feld' ? -1 : 0) || (a.y + a.h) - (b.y + b.h));
     const c = this.cv.village.getContext('2d'); c.clearRect(0, 0, W, H);
     // Baustelle eines neuen Gebäudes: wächst mit dem Fortschritt von unten nach oben (kein echtes Gebäude, nur Bild)
     const B = this.baustelle, bplot = B && PLOTS.find((p) => p.id === B.plot);
@@ -135,6 +137,12 @@ export class Scene {
     }
     this.bauSprite = bau;
     const order = bau ? [...this.sprites, bau].sort((a, b) => (a.y + a.h) - (b.y + b.h)) : this.sprites;
+    const wallBau = B && B.art === 'neu' && B.plot >= 90 ? B : null;
+    const mauern = (teil) => {
+      if (this.mauer) zeichneUmfassung(c, this.mauer, teil, 1);
+      if (wallBau && wallBau.gebaeude !== this.mauer) zeichneUmfassung(c, wallBau.gebaeude, teil, 0.08 + 0.92 * Math.max(0, Math.min(1, wallBau.fortschritt || 0)));
+    };
+    mauern('hinten');
     for (const s of order) {
       const tmp = document.createElement('canvas'); tmp.width = s.w; tmp.height = s.h;
       tmp.getContext('2d').putImageData(new ImageData(s.data, s.w, s.h), 0, 0);
@@ -151,6 +159,7 @@ export class Scene {
       for (const e of this.extras) if (e.plot === s.plotId && e.gebaeude === s.type && plot) drawExtra(c, s, plot, e.zusatz, e.status);
       if (B && B.art === 'ausbau' && B.plot === s.plotId && plot) drawScaffold(c, s, plot, 'ausbau', 1);
     }
+    mauern('vorne');
     this.village.setSprites(this.sprites);
     this.filterGrass();
     this.drawMarks();
@@ -341,6 +350,7 @@ export class Scene {
   toggleNames(v) { this.showNames = v ?? !this.showNames; }
 
   /* ---------- Held ---------- */
+  setAway(on) { this.away = !!on; if (this.heroWrap) this.heroWrap.style.display = on ? 'none' : ''; }
   setHeroPlan(plan) { this.heroPlan = plan; if (!this.pal) return; setMood(this.mood.time, this.mood.season); this.makeHeroFrames(); this.drawHero(this.heroFrame || 0, true); }
   // Pose des Tages (wechselt um Mitternacht); im Testmodus fest einstellbar
   heroPose() { const p = this.heroPlan || HERO_PLAN; if (this.forcedPose) return this.forcedPose; let h = 0; for (const ch of String(p.name || '')) h = (h * 31 + ch.charCodeAt(0)) | 0; return poseOfDay(h); }

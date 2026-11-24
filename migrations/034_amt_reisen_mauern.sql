@@ -46,6 +46,7 @@ create or replace function public.spieler_unterwegs(p_uid uuid) returns json lan
     'rollen', q.rollen)
   from quest_runs q join quest_templates t on t.id = q.quest_id
   where q.player_id = p_uid and q.status = 'laeuft' and (t.art <> 'chronik' or coalesce((t.def->>'reise')::boolean, false))
+    and not (coalesce(t.def->'heim', '[]'::jsonb) ? q.szene)
   order by q_nebenbei(q.quest_id), q.id desc limit 1;
 $$;
 create or replace function public.pruefe_im_dorf(p_npc bigint default null) returns void language plpgsql stable security definer set search_path = public as $$
@@ -474,7 +475,7 @@ end $$;
 create or replace function public.welt_spieler(p_uid uuid, p_ort text, p_ich boolean) returns json language plpgsql stable security definer set search_path = public as $$
 declare q record; t numeric; dist numeric; seed numeric;
 begin
-  select r.id, r.szene, r.warte_bis, r.updated_at, tp.titel, tp.art, coalesce(tp.schwierigkeit, 1) sw, tp.def->'szenen'->r.szene->>'ort' ort, tp.def->>'ziel' ziel into q
+  select r.id, r.szene, r.warte_bis, r.updated_at, tp.titel, tp.art, coalesce(tp.schwierigkeit, 1) sw, tp.def->'szenen'->r.szene->>'ort' ort, tp.def->>'ziel' ziel, coalesce(tp.def->'heim', '[]'::jsonb) ? r.szene daheim into q
     from quest_runs r join quest_templates tp on tp.id = r.quest_id where r.player_id = p_uid and r.status = 'laeuft' order by q_nebenbei(r.quest_id), r.id desc limit 1;
   if q.id is null then
     return json_build_object('name', (select character_name from profiles where id = p_uid), 'ich', p_ich, 'ort', p_ort, 'unterwegs', null);
@@ -484,7 +485,7 @@ begin
   dist := case q.art when 'erkundung' then 70 + seed * 80 when 'chronik' then 0 + seed * 40 when 'haupt' then 220 + seed * 160 when 'ki' then 200 + seed * 220
     else case q.sw when 1 then 150 + seed * 120 when 2 then 260 + seed * 170 else 420 + seed * 300 end end;
   return json_build_object('name', (select character_name from profiles where id = p_uid), 'ich', p_ich, 'ort', p_ort,
-    'unterwegs', json_build_object('titel', q.titel, 'art', q.art, 'ziel_art', coalesce(q.ort, 'wald'), 'ziel_ort', q.ziel, 't', round(t, 3), 'seed', round(seed, 4), 'dist', round(dist), 'reist', q.warte_bis is not null and q.warte_bis > now(), 'bis', q.warte_bis));
+    'unterwegs', json_build_object('titel', q.titel, 'art', q.art, 'ziel_art', coalesce(q.ort, 'wald'), 'ziel_ort', q.ziel, 'daheim', q.daheim, 't', round(t, 3), 'seed', round(seed, 4), 'dist', round(dist), 'reist', q.warte_bis is not null and q.warte_bis > now(), 'bis', q.warte_bis));
 end $$;
 
 

@@ -286,7 +286,7 @@ ev('koenig_kanzlerin', 'koenig', 'Die Kanzlerin fragt nach Rabenfels', 'Die Kanz
 BITT = None
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 J = lambda x: json.dumps(x, ensure_ascii=False, separators=(',', ':'))
-kap = [dict(id=KAP4['id'], titel=KAP4['titel'], kurz=KAP4['kurz'], kapitel=4, rollen=KAP4['rollen'], **{'def': {'start': KAP4['start'], 'szenen': KAP4['szenen'], 'reise': True, 'ziel': 'moosherz'}})]
+kap = [dict(id=KAP4['id'], titel=KAP4['titel'], kurz=KAP4['kurz'], kapitel=4, rollen=KAP4['rollen'], **{'def': {'start': KAP4['start'], 'szenen': KAP4['szenen'], 'reise': True, 'ziel': 'moosherz', 'heim': ['siegel', 'reiter', 'vertretung', 'heimkehr', 'ende']}})]
 sql = f"""-- Migration 035: Hauptquest Kapitel 4 „Der Brief des Königs“ und neue Aushänge für den Dorfmeister. Erzeugt von quests/amt2.py.
 insert into public.items (id, name, beschreibung, art, bonus)
 select 'ring_des_koenigs', 'Ring des Königs', 'Ein schmaler Ring mit dem goldenen Hirsch. Wer ihn zeigt, spricht für König Ottokar im Hügelland.', 'fund', '{{"ueberreden": 1, "einschuechtern": 1}}'::jsonb

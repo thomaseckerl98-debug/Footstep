@@ -11,7 +11,7 @@ function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) | 0
 const sheetCanvas = (plan) => { const sh = sheetData(plan), cv = document.createElement('canvas'); cv.width = sh.w; cv.height = sh.h; cv.getContext('2d').putImageData(new ImageData(sh.data, sh.w, sh.h), 0, 0); return cv; };
 
 /* ───────── Hintergründe (einfache Pixel-Formen, schnell genug für jedes Bild) ───────── */
-const SKY = { dorf: ['#9cb8c8', '#e8d8b0'], wald: ['#7fa0a8', '#c8d0a8'], mine: ['#8a98a8', '#c8c0a8'], stollen: ['#0c0a0a', '#1a1412'], feuer: ['#0a1020', '#24304a'], berg: ['#a8b8c8', '#e8eef0'], fluss: ['#8cb0c0', '#d8e0c8'], ruine: ['#8a94a0', '#c8c4b0'], hoehle: ['#0c0a0a', '#1a1412'] };
+const SKY = { dorf: ['#9cb8c8', '#e8d8b0'], wald: ['#7fa0a8', '#c8d0a8'], mine: ['#8a98a8', '#c8c0a8'], stollen: ['#0c0a0a', '#1a1412'], feuer: ['#0a1020', '#24304a'], berg: ['#a8b8c8', '#e8eef0'], fluss: ['#8cb0c0', '#d8e0c8'], ruine: ['#8a94a0', '#c8c4b0'], hoehle: ['#0c0a0a', '#1a1412'], stadt: ['#9ab4c8', '#e8dcc0'], burg: ['#1c1814', '#2e2620'] };
 function grad(c, a, b) { const g = c.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, a); g.addColorStop(1, b); c.fillStyle = g; c.fillRect(0, 0, LW, LH); }
 function conifer(c, x, base, h, col) { c.fillStyle = col; for (let i = 0; i < h; i++) { const w = Math.max(1, Math.round((i / h) * h * 0.42)); c.fillRect(Math.round(x - w / 2), base - h + i, w, 1); } }
 function treeRow(c, off, seed, base, hMin, hMax, col, gap) {
@@ -28,6 +28,29 @@ function drawBackground(c, ort, t, travel) {
     const r = rng(9); c.fillStyle = '#2a2420'; for (let i = 0; i < 70; i++) { const x = r() * LW, y = r() * LH, s = 3 + r() * 9; c.fillRect(x, y, s, s * 0.7); }
     c.fillStyle = '#5a3c22'; for (const x of [30, 120, 210]) { c.fillRect(x, 20, 4, GROUND - 20); c.fillRect(x - 10, 18, 24, 4); }
     c.fillStyle = '#1e1814'; c.fillRect(0, GROUND, LW, LH - GROUND);
+    return;
+  }
+  if (ort === 'burg') {
+    // Thronsaal: Steinwände, Säulen, Banner mit dem goldenen Hirsch, Fackeln
+    const r = rng(5); for (let y = 0; y < GROUND; y += 6) for (let x = (y / 6) % 2 ? -6 : 0; x < LW; x += 12) { c.fillStyle = r() < 0.5 ? '#3a3228' : '#433a2e'; c.fillRect(x, y, 11, 5); }
+    for (const x of [20, 70, 170, 220]) { c.fillStyle = '#5a5044'; c.fillRect(x - 5, 8, 10, GROUND - 8); c.fillStyle = '#6e6456'; c.fillRect(x - 5, 8, 3, GROUND - 8); c.fillStyle = '#4a4034'; c.fillRect(x - 7, 6, 14, 4); }
+    for (const x of [45, 195]) { c.fillStyle = '#2e5a2a'; c.fillRect(x - 7, 10, 14, 34); c.fillStyle = '#d8a531'; c.fillRect(x - 2, 18, 4, 9); c.fillRect(x - 5, 16, 2, 4); c.fillRect(x + 3, 16, 2, 4); c.beginPath(); c.moveTo(x - 7, 44); c.lineTo(x, 50); c.lineTo(x + 7, 44); c.fill(); }
+    for (const x of [95, 145]) { const f = 0.6 + 0.4 * Math.sin(t * 0.012 + x); c.fillStyle = `rgba(255,170,70,${0.18 * f})`; c.beginPath(); c.arc(x, 30, 22, 0, 7); c.fill(); c.fillStyle = '#5a3a22'; c.fillRect(x - 1, 30, 2, 8); c.fillStyle = f > 0.7 ? '#ffd060' : '#ff8a30'; c.fillRect(x - 2, 25, 4, 5); }
+    c.fillStyle = '#6a1e1a'; c.fillRect(100, GROUND - 2, 40, LH - GROUND + 2); c.fillStyle = '#2a221a'; c.fillRect(0, GROUND, 100, LH - GROUND); c.fillRect(140, GROUND, LW - 140, LH - GROUND);
+    c.fillStyle = '#8a6a2a'; c.fillRect(112, 40, 16, 22); c.fillStyle = '#d8a531'; c.fillRect(110, 36, 20, 5); c.fillRect(112, 62, 16, 4);
+    return;
+  }
+  if (ort === 'stadt') {
+    // Stadtgasse: Fachwerkhäuser mit roten Dächern, Domturm, Markt
+    hills(c, off * 0.3, 50, 6, '#8aa0a8', 0.03);
+    c.fillStyle = '#9a9488'; c.fillRect(150, 6, 16, 50); for (let i = 0; i < 9; i++) c.fillRect(158 - i, -3 + i, i * 2 + 1, 1); c.fillStyle = '#d8a531'; c.fillRect(157, -4, 2, 3);
+    const r = rng(11); let x = -((off * 2) % 34);
+    while (x < LW + 30) { const w = 24 + Math.floor(r() * 10), h = 26 + Math.floor(r() * 16), top = GROUND - h;
+      c.fillStyle = r() < 0.5 ? '#dccdb2' : '#e6d8bc'; c.fillRect(x, top, w, h); c.fillStyle = '#4a3424'; c.fillRect(x, top, w, 2); c.fillRect(x, top + Math.floor(h / 2), w, 1); c.fillRect(x + Math.floor(w / 2), top, 1, h);
+      c.fillStyle = r() < 0.6 ? '#a8573c' : '#86412c'; for (let i = 0; i < 9; i++) c.fillRect(x - 2 + i, top - 9 + i, w + 4 - i * 2, 1);
+      c.fillStyle = '#3a2a1c'; c.fillRect(x + 4, top + 6, 4, 5); c.fillRect(x + w - 8, top + 6, 4, 5); c.fillRect(x + Math.floor(w / 2) - 3, GROUND - 9, 6, 9);
+      x += w + 4; }
+    c.fillStyle = '#8a8070'; c.fillRect(0, GROUND, LW, LH - GROUND); c.fillStyle = '#9a9080'; for (let i = 0; i < LW; i += 6) c.fillRect(i + ((off * 2) % 6), GROUND + 2 + (i % 12 ? 0 : 3), 4, 2);
     return;
   }
   if (ort === 'feuer') {

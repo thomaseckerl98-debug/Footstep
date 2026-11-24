@@ -572,3 +572,12 @@ img.q-kampficon { width: 28px; height: 28px; image-rendering: pixelated; flex: n
 .wk-ev-brand { background: #e8501e; } .wk-ev-fest { background: #e8c25a; } .wk-ev-fehde { background: #c82a1e; } .wk-ev-seuche { background: #8aa040; } .wk-ev-abkommen { background: #3a9a3a; }
 .wk-ev-mauer, .wk-ev-turm, .wk-ev-aufstieg { background: #6a7a9a; } .wk-ev-trauer { background: #1a1414; } .wk-ev-frieden { background: #f4f4f0; border: 1px solid #8a7a60; } .wk-ev-ueberfall { background: #8a1e1e; }
 @media (max-width: 700px) { .wk-titel span { display: none; } .wk-chip { font-size: .75rem; padding: 3px 7px; } .wk-karte, .wk-chronik { top: auto; bottom: 10px; max-height: 48vh; left: 10px; right: 10px; width: auto; } }
+
+/* ---------- Unterwegs ---------- */
+#unterwegs-banner { position: fixed; top: 64px; right: 12px; z-index: 30; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+  max-width: min(420px, 94vw); padding: 7px 14px; background: rgba(42,31,23,.92); border: 3px solid var(--wood-d); box-shadow: inset 0 0 0 2px #6b4a2e, 0 4px 10px rgba(0,0,0,.4); color: var(--text); }
+#unterwegs-banner .ub-label { font-family: var(--font-pixel); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-d); }
+#unterwegs-banner b { color: var(--gold); }
+#unterwegs-banner .px-btn { padding: 3px 10px; font-size: .85rem; }
+.weg-zeit { margin-top: 4px !important; color: #7a3a10 !important; }
+@media (max-width: 700px) { #unterwegs-banner { top: 58px; left: 8px; right: 8px; } #unterwegs-banner .small { display: none; } }

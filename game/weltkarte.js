@@ -134,11 +134,13 @@ function ortBild(o, reiche) {
 const lerp = (a, b, t) => a + (b - a) * t;
 export function spielerPos(sp, orte) {
   const home = orte.find((o) => o.id === sp.ort); if (!home) return null;
-  const u = sp.unterwegs; if (!u) return { x: home.x, y: home.y, home, unterwegs: false };
+  const u = sp.unterwegs; if (!u || u.daheim) return { x: home.x, y: home.y, home, unterwegs: false };
   const seed = u.seed || 0.5, a = seed * Math.PI * 2, dist = u.dist || 150;
   let tx = home.x + Math.cos(a) * dist, ty = home.y + Math.sin(a) * dist * 0.85;
-  const want = ORT_ZIEL[u.ziel_art] || 'wald';
-  if (want === 'ort') {
+  const want = ORT_ZIEL[u.ziel_art] || 'wald', fest = u.ziel_ort && orte.find((o) => o.id === u.ziel_ort);
+  if (fest) {
+    const d = Math.max(1, Math.hypot(fest.x - home.x, fest.y - home.y)), rr = ortRadius(fest) * 0.9; tx = fest.x - (fest.x - home.x) / d * rr; ty = fest.y - (fest.y - home.y) / d * rr;
+  } else if (want === 'ort') {
     const n = orte.filter((o) => o.id !== home.id && !o.spieler).sort((p, q) => Math.hypot(p.x - tx, p.y - ty) - Math.hypot(q.x - tx, q.y - ty))[0];
     if (n && dist > 60) { const d = Math.hypot(n.x - home.x, n.y - home.y), rr = ortRadius(n) * 1.1; tx = n.x - (n.x - home.x) / d * rr; ty = n.y - (n.y - home.y) / d * rr; }
   } else {

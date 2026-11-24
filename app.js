@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=13';
+import { Scene, realMood } from './game/scene.js?v=14';
 import { openCreator } from './game/creator.js?v=4';
 import { buildTalk } from './game/dialog.js?v=7';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
@@ -12,8 +12,8 @@ import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
 import { drawIcon } from './game/icons.js?v=2';
 import { SW, SH } from './game/chars.js?v=4';
-import { openQuest } from './game/questui.js?v=12';
-import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=1';
+import { openQuest } from './game/questui.js?v=13';
+import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=2';
 let weltkarte = null;
 import { playMinigame } from './game/minigames.js?v=2';
 import { playBattle } from './game/horde.js?v=6';
@@ -241,12 +241,14 @@ function toast(html, ms = 6000) {
   t.innerHTML = html; t.hidden = false; clearTimeout(t._tm); t._tm = setTimeout(() => { t.hidden = true; }, ms);
 }
 async function mithelfen() {
+  if (!imDorf()) return;
   const { data, error } = await db.rpc('dorf_mithelfen');
   if (error) return toast('Das hat nicht geklappt: ' + esc(error.message));
   if (!data.ok) return toast(data.grund === 'muede' ? `Du hast vorhin schon mit angepackt. Wieder ${esc(whenText(data.ab))}.` : 'Gerade gibt es keine Baustelle.');
   toast(esc(data.text)); await loadVillageState();
 }
 async function showVorschlaege(box) {
+  if (!imDorf()) return;
   box.innerHTML = '<p class="muted small">Der Dorfrat überlegt …</p>';
   const { data, error } = await db.rpc('dorf_vorschlaege');
   if (error) { box.innerHTML = `<p class="error">${esc(error.message)}</p>`; return; }
@@ -406,7 +408,7 @@ function showSelCard(obj) {
           const { data, error } = await db.rpc('amt_verbannen', { p_npc: +person.id });
           if (error || !data?.ok) return toast(esc(error?.message || data?.grund));
           toast(esc(data.text), 8000); scene.select(null);
-          const r = await db.rpc('get_my_residents'); if (!r.error) scene.setResidents(r.data);
+          const r = await db.rpc('get_my_residents'); if (!r.error) scene.setResidents(imDorfFilter(r.data));
           loadVillageState(); loadAmt(false);
         }), btn('Nein', true, () => showSelCard(obj))));
       });
@@ -422,6 +424,7 @@ function showSelCard(obj) {
     const D = villageState?.dorf;
     const up = bi.bau ? btn(D?.hilfe_ab ? 'Heute schon mitgeholfen' : 'Mit anpacken', false, mithelfen)
       : btn('Ausbau vorschlagen', false, async () => {
+        if (!imDorf()) return;
         const r = await db.rpc('dorf_vorschlagen', { p_gebaeude: s.type });
         if (r.error) return toast(esc(r.error.message));
         toast(r.data.ok ? esc(r.data.text) : r.data.grund === 'schon_heute' ? 'Du hast heute schon etwas im Dorfrat vorgeschlagen.' : 'Der Dorfrat sieht dafür gerade keinen Grund – oder das Lager ist zu klein dafür.');
@@ -435,7 +438,7 @@ function showSelCard(obj) {
 }
 const BUILDINGS_NAME = (t) => t;
 async function startTalk(p) {
-  if (questWin) return;
+  if (questWin || !imDorf(p)) return;
   const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = '<p class="muted small">…</p>'; $('selcard').hidden = true; clearInterval(selTimer);
   const online = p.id && p.id < 1000, conv = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
   // Was diese Figur weiß (nur Schlüssel, keine Geheimnisse) und ob die KI heute noch antworten kann
@@ -670,8 +673,9 @@ const companionCv = (id) => scene?.village.people.find((q) => q.id === id)?.cv |
 let questWin = null;
 function launchQuest(view) {
   closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
+  setTimeout(() => { loadAmt(false); db.rpc('get_my_residents').then(({ data, error }) => { if (!error) scene.setResidents(imDorfFilter(data)); }); }, 600);
   questWin = openQuest({ db, box: $('questbox'), view, heroPlan: heroPlan(), companionCv, CHECKS, ATTRS, reiseKarte: async () => reiseZeichner(await reiseDaten(db, true)),
-    onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } checkAmtPopups(); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
+    onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } checkAmtPopups(); db.rpc('get_my_residents').then(({ data, error }) => { if (!error) scene.setResidents(imDorfFilter(data)); }); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
 }
 async function resumeQuest(run) {
   const { data, error } = await db.rpc('quest_view', { p_run: run });
@@ -704,13 +708,31 @@ async function heuteHinweis() {
   try { localStorage.setItem(key, '1'); } catch { /* egal */ }
 }
 /* ───────────── Schwarzes Brett: Hauptquest, Aushänge, Bitten, Aufträge ───────────── */
-let amt = null;
-const ART_NAME = { rechtsfall: 'Rechtsfall', krise: 'Krise', koenig: 'Brief des Königs', bittsteller: 'Bittsteller' };
+let amt = null, unterwegs = null;
+function imDorf(p) {
+  if (!unterwegs) return true;
+  if (p && (unterwegs.begleiter || []).map(Number).includes(Number(p.id))) return true;
+  toast(`<b>Du bist unterwegs</b> („${esc(unterwegs.titel)}“). Im Dorf kannst du erst wieder etwas tun, wenn du zurück bist.`, 6000);
+  return false;
+}
+function setUnterwegs(u) {
+  unterwegs = u || null;
+  document.body.classList.toggle('unterwegs', !!unterwegs);
+  scene?.setAway?.(!!unterwegs);
+  let b = $('unterwegs-banner');
+  if (!unterwegs) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'unterwegs-banner'; b.className = 'ui'; document.body.append(b); }
+  b.innerHTML = `<span class="ub-label">Unterwegs</span><b>${esc(unterwegs.titel)}</b><span class="small">Dein Platz im Dorf ist leer, bis du zurückkehrst.</span>`;
+  const go = btn(unterwegs.reist ? 'Zur Reise' : 'Weiterspielen', true, () => resumeQuest(unterwegs.run)); b.append(go);
+}
+const imDorfFilter = (d) => d && Array.isArray(d.residents) ? { ...d, residents: d.residents.filter((r) => !r.unterwegs) } : d;
+const ART_NAME = { rechtsfall: 'Rechtsfall', krise: 'Krise', koenig: 'Brief des Königs', bittsteller: 'Bittsteller', handel: 'Handel', nachbarn: 'Nachbarn', dorfleben: 'Dorfleben', bau: 'Bauen & Schützen' };
 async function loadAmt(showChange = true) {
   const { data, error } = await db.rpc('amt_status');
   if (error || !data?.ansehen) { if (error) console.warn('Amt:', error.message); return amt; }
   const before = amt;
   amt = data;
+  setUnterwegs(data.unterwegs);
   if (showChange && before && data.ansehen.stufe > before.ansehen.stufe) toast(`<b>Im Dorf sagt man jetzt über dich:</b> „${esc(data.ansehen.wort)}“${data.ansehen.kandidat && !before.ansehen.kandidat ? '<br>Man nennt deinen Namen, wenn von der Versammlung die Rede ist.' : ''}`, 9000);
   return amt;
 }
@@ -718,7 +740,7 @@ async function checkAmtPopups() {
   await loadAmt();
   const w = amt?.wahl;
   if (w && !w.gesehen && (w.status === 'gewaehlt' || w.status === 'verloren')) showWahl(w);
-  else if (amt?.lagerfeuer?.neu && !document.querySelector('.amt-overlay')) showLagerfeuer(amt.lagerfeuer);
+  else if (amt?.lagerfeuer?.neu && !unterwegs && !document.querySelector('.amt-overlay')) showLagerfeuer(amt.lagerfeuer);
 }
 function showLagerfeuer(lf) {
   const { box, close } = amtOverlay(); box.classList.add('lagerfeuer');
@@ -734,7 +756,7 @@ function showLagerfeuer(lf) {
     p(`${lf.zweiter ? lf.zweiter + ' nickt sofort. ' : ''}${lf.volk?.ja ? 'Von den Bänken kommt zustimmendes Gemurmel.' : 'Ein paar Leute sehen sich unsicher an – aber niemand widerspricht.'} ${lf.vorsteher ? lf.vorsteher + ' schweigt und stochert im Feuer.' : ''}`, 'small'),
     p('Nimmst du an, kommt es zur Bürgerversammlung (Hauptquest, Kapitel 3). Lehnst du ab, bleibst du einer von allen – das Dorf wächst trotzdem weiter. Das Angebot steht.', 'small muted'));
   const msg = p('', 'small error');
-  box.append(row(btn('Ich stelle mich zur Wahl', true, async () => { const { data, error } = await db.rpc('amt_lagerfeuer', { p_ja: true }); if (error) { msg.textContent = error.message; return; } close(); toast(esc(data.text), 7000); await loadAmt(false); if (!$('panel').hidden && active === 'quests') renderPanel('quests'); }),
+  box.append(row(btn('Ich stelle mich zur Wahl', true, async () => { if (!imDorf()) return; const { data, error } = await db.rpc('amt_lagerfeuer', { p_ja: true }); if (error) { msg.textContent = error.message; return; } close(); toast(esc(data.text), 7000); await loadAmt(false); if (!$('panel').hidden && active === 'quests') renderPanel('quests'); }),
     btn('Noch nicht', false, async () => { await db.rpc('amt_lagerfeuer', { p_ja: false }); close(); await loadAmt(false); })), msg);
   // kleine Szene: Nacht, Feuer, Silhouetten
   const c = cv.getContext('2d'); let raf = 0; const t0 = performance.now();
@@ -771,6 +793,7 @@ function wegBox(w) {
     <div class="small"><u>Wer hinter dir steht:</u> ${fz.join(', ') || 'noch niemand'}</div>
     <div class="small"><u>Große Taten:</u> ${w.taten.length ? w.taten.map((t) => '✓ ' + esc(t)).join(', ') : 'noch keine <i>(eine schwere Reise oder eine große Geschichte bestehen)</i>'}</div>
     <div class="small"><u>Abgewendete Krisen:</u> ${w.krisen.length ? w.krisen.map((t) => '✓ ' + esc(t)).join(', ') : 'noch keine <i>(hilf, wenn am Brett „Hilfe gesucht“ hängt)</i>'}</div>
+    ${w.zeit_ok === false ? `<div class="small weg-zeit">Du lebst noch nicht lange hier: Frühestens ab <b>${esc(new Date(w.ab).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }))}</b> kann man dich vorschlagen.</div>` : ''}
     <div class="small weg-wege">Einer dieser Wege genügt: ${wege.map((t, i) => `<span class="${w.wege[i] ? 'ja' : ''}">${w.wege[i] ? '✓ ' : ''}${t}</span>`).join(' · ')}</div>`;
   return d;
 }
@@ -804,6 +827,10 @@ function renderHaupt(wrap, list) {
 function renderAushaenge(wrap) {
   const A = amt; if (!A) return;
   const kr = A.krisen || [], tr = A.trauer || [];
+  if (A.amt.ich && !A.offen.length && A.naechster) {
+    wrap.append(schild('Dein Tisch als Dorfmeister'));
+    const zz = zettel('aushang', -0.6); zz.innerHTML = `<span class="aus-art">Für heute erledigt</span><p class="small">Alles entschieden. Die nächste Sache liegt ${esc(whenText(A.naechster))} auf deinem Tisch – jeden Tag genau eine.</p>`; wrap.append(zz);
+  }
   if (!A.offen.length && !A.aushaenge.length && !kr.length && !tr.length) return;
   wrap.append(schild(A.offen.length ? 'Aushänge · Entscheidung nötig' : kr.length ? 'Aushänge · Hilfe gesucht' : 'Aushänge'));
   const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
@@ -812,6 +839,7 @@ function renderAushaenge(wrap) {
     z.innerHTML = `<span class="aus-art">Krise · Hilfe gesucht</span><b>${esc(e.titel)}</b><p class="small">${esc(e.text)}</p><p class="small muted">Wenn niemand hilft, entscheidet ${esc(A.amt.vorsteher || 'der Vorsteher')} ${esc(whenText(e.frist))} allein – mit allen Folgen.</p>`;
     if (e.geholfen) z.append(p('Du hast schon mit angepackt.', 'small'));
     else z.append(row(btn(e.hilfe.text, true, async () => {
+      if (!imDorf()) return;
       const ok = await playMinigame(e.hilfe.spiel, { schwer: 2, titel: e.titel, text: e.hilfe.text });
       const { data: r, error: er } = await db.rpc('krise_helfen', { p_ereignis: e.id, p_erfolg: ok });
       if (er || !r?.ok) { toast(esc(er?.message || r?.grund || 'Das hat nicht geklappt.')); return; }
@@ -824,7 +852,7 @@ function renderAushaenge(wrap) {
   tr.forEach((e, i) => { const z = zettel('aushang trauer', ROT[(i + 4) % ROT.length]); z.innerHTML = `<span class="aus-art">In Erinnerung</span><p class="small">${esc(e.text)}</p>`; g.append(z); });
   A.offen.forEach((e, i) => {
     const z = zettel('aushang offen', ROT[i % ROT.length]);
-    z.innerHTML = `<span class="aus-art">${esc(ART_NAME[e.art] || 'Aushang')}</span><b>${esc(e.titel)}</b><p class="small">${esc(e.text)}</p><p class="small muted">Entscheide bis ${esc(whenText(e.frist))}, sonst entscheidet ${esc(A.amt.vorsteher || 'der Vorsteher')}.</p>`;
+    z.innerHTML = `<span class="aus-art">${esc(ART_NAME[e.art] || 'Aushang')} · Heute auf deinem Tisch</span><b>${esc(e.titel)}</b><p class="small">${esc(e.text)}</p><p class="small muted">${e.frist ? `Entscheide bis ${esc(whenText(e.frist))}, sonst entscheidet ${esc(A.amt.vorsteher || 'der Vorsteher')}.` : 'Niemand entscheidet für dich – die Sache bleibt liegen, bis du dich festlegst. Erst danach kommt die nächste.'}</p>`;
     z.append(row(btn('Entscheiden', true, () => showEntscheidung(e))));
     g.append(z);
   });
@@ -844,6 +872,7 @@ function renderHeute(wrap, h) {
     z.innerHTML = `<b>${esc(t.titel)}</b><span class="small muted"> · ${esc(t.npc)}${t.namenlos ? '' : ` (${esc(t.beruf)})`}</span><p class="small">„${esc(t.bitte)}“</p>`;
     if (t.status === 'offen') {
       z.append(row(btn('Helfen', true, async () => {
+        if (!imDorf()) return;
         const ok = await playMinigame(t.art, { schwer: t.schwer, titel: t.titel, text: t.npc + ': „' + t.bitte + '“' });
         const { data: r, error: e } = await db.rpc('tagwerk_fertig', { p_id: t.id, p_erfolg: ok });
         if (e) { toast('Das hat nicht geklappt: ' + esc(e.message)); return; }
@@ -865,6 +894,7 @@ function renderUnterwegs(wrap, h) {
   else if (e.rest > 0) {
     const msg = p('', 'small error');
     ec.append(row(btn(`Losziehen (heute noch ${e.rest}×)`, true, async () => {
+      if (!imDorf()) return;
       const { data: r, error: er } = await db.rpc('erkunden_start');
       if (er) { msg.textContent = er.message; return; }
       if (!r.ok) { msg.textContent = r.grund === 'muede' ? 'Für heute bist du genug herumgestreift.' : 'Gerade gibt es nichts zu entdecken.'; return; }
@@ -1008,6 +1038,7 @@ function showWahl(w) {
   }
 }
 function showEntscheidung(e) {
+  if (!imDorf()) return;
   const { box, close } = amtOverlay();
   box.classList.add('aushang-rolle');
   box.innerHTML = `<span class="amt-label">${esc(ART_NAME[e.art] || 'Aushang')}</span><h2>${esc(e.titel)}</h2>`;
@@ -1161,7 +1192,7 @@ async function startGame() {
     });
     window.mossheart = scene; // für Tests in der Konsole
   }
-  db.rpc('get_my_residents').then(({ data, error }) => { if (error) console.warn('Bewohner:', error.message); scene.setResidents(error ? null : data); });
+  db.rpc('get_my_residents').then(({ data, error }) => { if (error) console.warn('Bewohner:', error.message); scene.setResidents(error ? null : imDorfFilter(data)); });
   db.rpc('get_my_character').then(({ data, error }) => {
     if (error) console.warn('Charakter:', error.message);
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };

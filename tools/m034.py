@@ -56,6 +56,7 @@ create or replace function public.spieler_unterwegs(p_uid uuid) returns json lan
     'rollen', q.rollen)
   from quest_runs q join quest_templates t on t.id = q.quest_id
   where q.player_id = p_uid and q.status = 'laeuft' and (t.art <> 'chronik' or coalesce((t.def->>'reise')::boolean, false))
+    and not (coalesce(t.def->'heim', '[]'::jsonb) ? q.szene)
   order by q_nebenbei(q.quest_id), q.id desc limit 1;
 $$;
 create or replace function public.pruefe_im_dorf(p_npc bigint default null) returns void language plpgsql stable security definer set search_path = public as $$
@@ -174,7 +175,8 @@ t = sub(t, "haeuser = (select count(*) from jsonb_array_elements(coalesce(o.layo
 out.append(t)
 t = fn('032_welt.sql', 'welt_spieler')
 t = sub(t, "tp.def->'szenen'->r.szene->>'ort' ort into q", "tp.def->'szenen'->r.szene->>'ort' ort, tp.def->>'ziel' ziel into q")
-t = sub(t, "'ziel_art', coalesce(q.ort, 'wald'),", "'ziel_art', coalesce(q.ort, 'wald'), 'ziel_ort', q.ziel,")
+t = sub(t, "'ziel_art', coalesce(q.ort, 'wald'),", "'ziel_art', coalesce(q.ort, 'wald'), 'ziel_ort', q.ziel, 'daheim', q.daheim,")
+t = sub(t, "tp.def->>'ziel' ziel into q", "tp.def->>'ziel' ziel, coalesce(tp.def->'heim', '[]'::jsonb) ? r.szene daheim into q")
 out.append(t)
 
 # --- Sperren: im Dorf handeln nur, wer auch dort ist ---
