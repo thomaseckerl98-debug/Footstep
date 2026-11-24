@@ -177,7 +177,7 @@ begin
     end if;
     drohung := hs > 18 or exists (select 1 from welt_ereignisse where (ort = o.id or ziel = o.id) and art in ('fehde', 'ueberfall') and von > now() - interval '30 days')
       or exists (select 1 from welt_beziehungen where art = 'rivalitaet' and (a = o.id or b = o.id));
-    if mz < case o.art when 'dorf' then 1 when 'kloster' then 1 else 3 end and wl > 58 and drohung and random() < 0.004 * dt then
+    if mz < (case o.art when 'dorf' then 1 when 'kloster' then 1 else 3 end) and wl > 58 and drohung and random() < 0.004 * dt then
       mz := mz + 1;
       perform welt_ereignis(o.id, 'mauer', o.name || ' errichtet ' || case mz when 1 then 'eine Palisade.' when 2 then 'eine Steinmauer.' else 'mächtige Wehrmauern.' end, interval '2 days');
     end if;
