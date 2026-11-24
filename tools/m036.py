@@ -442,7 +442,7 @@ TOWNS = {
   'furtenau': [
     ('Gerwin', 'Händler', 0, {'mut': 45, 'gier': 55, 'treue': 70, 'fleiss': 75, 'geselligkeit': 60},
      ('Fährmann in vierter Generation an der Furt, inzwischen mit eigenem Lagerhaus.', 'Eine Brücke bauen, damit seine Kinder nicht im Fluss ertrinken wie sein Bruder.', 'Hochwasser im Frühjahr.', 'Er weiß, wer nachts mit verhüllten Karren über die Furt nach Norden fährt – und schweigt dafür.', 'Kennt jeden Reisenden, kann rechnen, verlässlich.', 'Geizig, misstraut Fremden, hängt an alten Rechten.', 'Zählt beim Reden unbewusst Münzen in der Tasche.', 1)),
-    ('Hilde', 'Wirt', 1, {'mut': 70, 'gier': 40, 'treue': 65, 'fleiss': 80, 'geselligkeit': 90},
+    ('Hedda', 'Wirt', 1, {'mut': 70, 'gier': 40, 'treue': 65, 'fleiss': 80, 'geselligkeit': 90},
      ('Witwe, führt den Furtkrug seit zwanzig Jahren allein.', 'Dass ihr Sohn aus dem Dienst bei Graf Wulfhard zurückkommt.', 'Einen Brief mit schwarzem Siegel zu bekommen.', 'Sie versteckt im Keller einen Deserteur aus Rabenfels.', 'Herzlich, hört alles, hat Freunde überall.', 'Mischt sich ein, trägt Groll lange.', 'Nennt jeden Gast nach seinem Lieblingsgetränk statt nach seinem Namen.', 0)),
     ('Ilsabe', 'Kräuterfrau', 1, {'mut': 35, 'gier': 30, 'treue': 55, 'fleiss': 70, 'geselligkeit': 25},
      ('Ist vor Jahren aus dem Nebelmoor gekommen und verkauft auf dem Markt Kräuter und Salben.', 'Ein Mittel gegen das Sumpffieber finden.', 'Als Hexe verbrannt zu werden wie ihre Lehrmeisterin.', 'Ihr Fiebertrank wirkt – aber nur, weil eine Zutat aus einem Grab stammt.', 'Kennt jede Pflanze, geduldig, geschickte Hände.', 'Scheu, verschlossen, erträgt keine Menschenmengen.', 'Riecht an allem, bevor sie es anfasst.', 1)),
@@ -465,10 +465,10 @@ TOWNS = {
   ],
 }
 NAMELESS = {
-  'moosherz': [('Wendel', 'Händler', 0), ('Gertrud', 'Wäscherin', 1), ('Lambert', 'Wache', 0), ('Uta', 'Schankmaid', 1), ('Hagen', 'Schmied', 0), ('Richenza', 'Bäuerin', 1)],
-  'furtenau': [('Cuno', 'Bauer', 0), ('Imma', 'Wäscherin', 1), ('Otwin', 'Händler', 0), ('Agnes', 'Schankmaid', 1)],
-  'hollerbrueck': [('Poppo', 'Bauer', 0), ('Edda', 'Bäuerin', 1), ('Merten', 'Holzfäller', 0)],
-  'rabenfels': [('Arnulf', 'Wache', 0), ('Thankmar', 'Wache', 0), ('Hiltrud', 'Wäscherin', 1), ('Gerlach', 'Stallbursche', 0), ('Notburga', 'Magd', 1)],
+  'moosherz': [('Gunzelin', 'Händler', 0), ('Ermengard', 'Wäscherin', 1), ('Hademar', 'Wache', 0), ('Reinhild', 'Schankmaid', 1), ('Isenbart', 'Schmied', 0), ('Wolfhild', 'Bäuerin', 1)],
+  'furtenau': [('Bernward', 'Bauer', 0), ('Gerberga', 'Wäscherin', 1), ('Liudolf', 'Händler', 0), ('Adalind', 'Schankmaid', 1)],
+  'hollerbrueck': [('Ekkehard', 'Bauer', 0), ('Hildegund', 'Bäuerin', 1), ('Volkwin', 'Holzfäller', 0)],
+  'rabenfels': [('Ortwin', 'Wache', 0), ('Sigmar', 'Wache', 0), ('Mathild', 'Wäscherin', 1), ('Gunthram', 'Stallbursche', 0), ('Waltraud', 'Magd', 1)],
 }
 def q(s): return "'" + s.replace("'", "''") + "'"
 import json as _json

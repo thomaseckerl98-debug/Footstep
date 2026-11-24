@@ -411,24 +411,24 @@ do $n$ declare nid bigint; begin
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Bauernsohn aus Goldacker, im Grenzkrieg gegen die Ostmark zum Hauptmann der Stadtwache aufgestiegen.', 'Genug Geld für einen Hof mit Blick aufs Meer.', 'Wieder Männer in eine Schlacht führen zu müssen, die er nicht gewinnen kann.', 'Er lässt Schmuggler am Hafen passieren, wenn der Preis stimmt – das Geld schickt er an Kriegswitwen.', 'Mutig, praktisch, Leute folgen ihm.', 'Bestechlich, trinkt zu viel, verachtet Höflinge.', 'Erzählt jede Geschichte zweimal und jedes Mal wird der Feind größer.', 0, '{}') on conflict (npc_id) do nothing;
     nid := npc_neu_welt('moosherz', 'Mirela', 'Seherin', 1, false, '{"mut": 55, "gier": 60, "treue": 25, "fleiss": 40, "geselligkeit": 85}'::jsonb);
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Kam mit fahrendem Volk aus dem Süden, blieb in Moosherz und liest am Markt aus Händen.', 'Wissen, wer ihre Mutter verraten hat.', 'Erkannt zu werden – sie ist nicht die, für die man sie hält.', 'Sie verkauft Gerüchte an beide Seiten: an den Hof und an die Leute aus Rabenfels.', 'Liest Menschen wie offene Bücher, charmant.', 'Lügt aus Gewohnheit, bindet sich an niemanden.', 'Lacht, bevor sie eine schlechte Nachricht ausspricht.', -1, '{}') on conflict (npc_id) do nothing;
-    perform npc_neu_welt('moosherz', 'Wendel', 'Händler', 0, true);
-    perform npc_neu_welt('moosherz', 'Gertrud', 'Wäscherin', 1, true);
-    perform npc_neu_welt('moosherz', 'Lambert', 'Wache', 0, true);
-    perform npc_neu_welt('moosherz', 'Uta', 'Schankmaid', 1, true);
-    perform npc_neu_welt('moosherz', 'Hagen', 'Schmied', 0, true);
-    perform npc_neu_welt('moosherz', 'Richenza', 'Bäuerin', 1, true);
+    perform npc_neu_welt('moosherz', 'Gunzelin', 'Händler', 0, true);
+    perform npc_neu_welt('moosherz', 'Ermengard', 'Wäscherin', 1, true);
+    perform npc_neu_welt('moosherz', 'Hademar', 'Wache', 0, true);
+    perform npc_neu_welt('moosherz', 'Reinhild', 'Schankmaid', 1, true);
+    perform npc_neu_welt('moosherz', 'Isenbart', 'Schmied', 0, true);
+    perform npc_neu_welt('moosherz', 'Wolfhild', 'Bäuerin', 1, true);
   end if;
   if not exists (select 1 from npcs where welt_ort = 'furtenau') then
     nid := npc_neu_welt('furtenau', 'Gerwin', 'Händler', 0, false, '{"mut": 45, "gier": 55, "treue": 70, "fleiss": 75, "geselligkeit": 60}'::jsonb);
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Fährmann in vierter Generation an der Furt, inzwischen mit eigenem Lagerhaus.', 'Eine Brücke bauen, damit seine Kinder nicht im Fluss ertrinken wie sein Bruder.', 'Hochwasser im Frühjahr.', 'Er weiß, wer nachts mit verhüllten Karren über die Furt nach Norden fährt – und schweigt dafür.', 'Kennt jeden Reisenden, kann rechnen, verlässlich.', 'Geizig, misstraut Fremden, hängt an alten Rechten.', 'Zählt beim Reden unbewusst Münzen in der Tasche.', 1, '{}') on conflict (npc_id) do nothing;
-    nid := npc_neu_welt('furtenau', 'Hilde', 'Wirt', 1, false, '{"mut": 70, "gier": 40, "treue": 65, "fleiss": 80, "geselligkeit": 90}'::jsonb);
+    nid := npc_neu_welt('furtenau', 'Hedda', 'Wirt', 1, false, '{"mut": 70, "gier": 40, "treue": 65, "fleiss": 80, "geselligkeit": 90}'::jsonb);
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Witwe, führt den Furtkrug seit zwanzig Jahren allein.', 'Dass ihr Sohn aus dem Dienst bei Graf Wulfhard zurückkommt.', 'Einen Brief mit schwarzem Siegel zu bekommen.', 'Sie versteckt im Keller einen Deserteur aus Rabenfels.', 'Herzlich, hört alles, hat Freunde überall.', 'Mischt sich ein, trägt Groll lange.', 'Nennt jeden Gast nach seinem Lieblingsgetränk statt nach seinem Namen.', 0, '{}') on conflict (npc_id) do nothing;
     nid := npc_neu_welt('furtenau', 'Ilsabe', 'Kräuterfrau', 1, false, '{"mut": 35, "gier": 30, "treue": 55, "fleiss": 70, "geselligkeit": 25}'::jsonb);
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Ist vor Jahren aus dem Nebelmoor gekommen und verkauft auf dem Markt Kräuter und Salben.', 'Ein Mittel gegen das Sumpffieber finden.', 'Als Hexe verbrannt zu werden wie ihre Lehrmeisterin.', 'Ihr Fiebertrank wirkt – aber nur, weil eine Zutat aus einem Grab stammt.', 'Kennt jede Pflanze, geduldig, geschickte Hände.', 'Scheu, verschlossen, erträgt keine Menschenmengen.', 'Riecht an allem, bevor sie es anfasst.', 1, '{}') on conflict (npc_id) do nothing;
-    perform npc_neu_welt('furtenau', 'Cuno', 'Bauer', 0, true);
-    perform npc_neu_welt('furtenau', 'Imma', 'Wäscherin', 1, true);
-    perform npc_neu_welt('furtenau', 'Otwin', 'Händler', 0, true);
-    perform npc_neu_welt('furtenau', 'Agnes', 'Schankmaid', 1, true);
+    perform npc_neu_welt('furtenau', 'Bernward', 'Bauer', 0, true);
+    perform npc_neu_welt('furtenau', 'Gerberga', 'Wäscherin', 1, true);
+    perform npc_neu_welt('furtenau', 'Liudolf', 'Händler', 0, true);
+    perform npc_neu_welt('furtenau', 'Adalind', 'Schankmaid', 1, true);
   end if;
   if not exists (select 1 from npcs where welt_ort = 'hollerbrueck') then
     nid := npc_neu_welt('hollerbrueck', 'Anselm', 'Müller', 0, false, '{"mut": 30, "gier": 65, "treue": 50, "fleiss": 85, "geselligkeit": 45}'::jsonb);
@@ -437,9 +437,9 @@ do $n$ declare nid bigint; begin
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Ehemalige Söldnerin, bewacht seit dem Brückenzoll-Streit die Hollerbrücke.', 'Dass niemand mehr an dieser Brücke stirbt.', 'Ihre eigene Wut.', 'Sie hat vor Jahren den Mann getötet, dessen Witwe ihr jeden Morgen Brot bringt.', 'Furchtlos, gerecht, wachsam.', 'Hart, wortkarg, verzeiht sich selbst nichts.', 'Streicht vor jeder Antwort mit dem Daumen über die Narbe am Kinn.', 2, '{}') on conflict (npc_id) do nothing;
     nid := npc_neu_welt('hollerbrueck', 'Tönnies', 'Hirte', 0, false, '{"mut": 50, "gier": 15, "treue": 60, "fleiss": 45, "geselligkeit": 75}'::jsonb);
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Hütet die Schafe von halb Hollerbrück auf den Hängen über dem Fluss.', 'Einmal das Meer sehen.', 'Die Stille nach einem Wolfsangriff.', 'Er hat gesehen, wer die Grenzsteine zwischen Hollerbrück und Ginsterhof versetzt hat.', 'Ruhig, beobachtet genau, Tiere vertrauen ihm.', 'Träumer, verpasst Termine, glaubt an Zeichen.', 'Pfeift Melodien, die er sich selbst ausgedacht hat, und gibt ihnen Namen.', -1, '{}') on conflict (npc_id) do nothing;
-    perform npc_neu_welt('hollerbrueck', 'Poppo', 'Bauer', 0, true);
-    perform npc_neu_welt('hollerbrueck', 'Edda', 'Bäuerin', 1, true);
-    perform npc_neu_welt('hollerbrueck', 'Merten', 'Holzfäller', 0, true);
+    perform npc_neu_welt('hollerbrueck', 'Ekkehard', 'Bauer', 0, true);
+    perform npc_neu_welt('hollerbrueck', 'Hildegund', 'Bäuerin', 1, true);
+    perform npc_neu_welt('hollerbrueck', 'Volkwin', 'Holzfäller', 0, true);
   end if;
   if not exists (select 1 from npcs where welt_ort = 'rabenfels') then
     nid := npc_neu_welt('rabenfels', 'Ragnolf', 'Hauptmann', 0, false, '{"mut": 75, "gier": 70, "treue": 40, "fleiss": 80, "geselligkeit": 35}'::jsonb);
@@ -448,11 +448,11 @@ do $n$ declare nid bigint; begin
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Küchenmagd auf der Burg, aufgewachsen im Dorf unter dem Felsen.', 'Mit ihrem Liebsten, einem Stallknecht, fortgehen.', 'Dass jemand erfährt, was sie in der Küche gehört hat.', 'Sie hat den Vogt nachts mit einem Fremden mit Rabenring reden hören.', 'Unauffällig, flink, kennt jeden Gang der Burg.', 'Ängstlich gegenüber Mächtigen, plappert, wenn sie nervös ist.', 'Wischt sich die Hände an der Schürze ab, auch wenn sie sauber sind.', -1, '{}') on conflict (npc_id) do nothing;
     nid := npc_neu_welt('rabenfels', 'Severin', 'Priesterin', 0, false, '{"mut": 35, "gier": 20, "treue": 70, "fleiss": 60, "geselligkeit": 50}'::jsonb);
     insert into npc_profiles (npc_id, herkunft, ziel, angst, geheimnis, staerken, schwaechen, eigenart, sturheit, wissen) values (nid, 'Burgkaplan, kam aus dem Kloster Morgenstern auf den Felsen.', 'Den Grafen zu einem gerechten Herrscher machen.', 'Dass er selbst zu feige ist, das Richtige zu tun.', 'Er hat dem Vogt die Beichte abgenommen – und weiß von dem Plan.', 'Gebildet, sanft, findet die richtigen Worte.', 'Zaudernd, gibt Mächtigen zu oft nach.', 'Zitiert alte Sprüche und vergisst dann, wie sie enden.', 0, '{}') on conflict (npc_id) do nothing;
-    perform npc_neu_welt('rabenfels', 'Arnulf', 'Wache', 0, true);
-    perform npc_neu_welt('rabenfels', 'Thankmar', 'Wache', 0, true);
-    perform npc_neu_welt('rabenfels', 'Hiltrud', 'Wäscherin', 1, true);
-    perform npc_neu_welt('rabenfels', 'Gerlach', 'Stallbursche', 0, true);
-    perform npc_neu_welt('rabenfels', 'Notburga', 'Magd', 1, true);
+    perform npc_neu_welt('rabenfels', 'Ortwin', 'Wache', 0, true);
+    perform npc_neu_welt('rabenfels', 'Sigmar', 'Wache', 0, true);
+    perform npc_neu_welt('rabenfels', 'Mathild', 'Wäscherin', 1, true);
+    perform npc_neu_welt('rabenfels', 'Gunthram', 'Stallbursche', 0, true);
+    perform npc_neu_welt('rabenfels', 'Waltraud', 'Magd', 1, true);
   end if;
 end $n$;
 
