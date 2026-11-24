@@ -8,10 +8,10 @@ alter table public.dorf_ereignisse alter column frist drop not null;
 alter table public.dorf_vorlagen add column if not exists bedingung jsonb not null default '{}';
 
 /* ---------- Palisade und Steinmauer ---------- */
-insert into public.eco_plots (id, size) values (90, 'U'), (91, 'U') on conflict (id) do nothing;
+insert into public.eco_plots (id, size) values (90, 'L'), (91, 'L') on conflict (id) do nothing;
 insert into public.eco_buildings (id, name, dat, size, kosten, arbeit, max_stufe, wohnraum, stimmung, schutz, lager, benoetigt, laut, zuzug, rolle, mehrfach) values
-  ('palisade', 'Palisade', 'eine Palisade', 'U', '{"holz": 150}', 240, 1, 0, 2, 4, '{}', '{}', false, 0, 'schutz', false),
-  ('steinmauer', 'Steinmauer', 'eine Steinmauer', 'U', '{"stein": 180, "holz": 40}', 560, 1, 0, 3, 8, '{}', '{palisade}', false, 0, 'schutz', false)
+  ('palisade', 'Palisade', 'eine Palisade', 'L', '{"holz": 150}', 240, 1, 0, 2, 4, '{}', '{}', false, 0, 'schutz', false),
+  ('steinmauer', 'Steinmauer', 'eine Steinmauer', 'L', '{"stein": 180, "holz": 40}', 560, 1, 0, 3, 8, '{}', '{palisade}', false, 0, 'schutz', false)
 on conflict (id) do update set name = excluded.name, dat = excluded.dat, size = excluded.size, kosten = excluded.kosten, arbeit = excluded.arbeit, schutz = excluded.schutz, benoetigt = excluded.benoetigt, rolle = excluded.rolle, stimmung = excluded.stimmung;
 
 do $$
@@ -20,13 +20,13 @@ begin
   d := pg_get_functiondef('public.eco_candidates'::regproc);
   if position('palisade' in d) > 0 then return; end if;
   n := replace(d, '    select p.id into plot from eco_plots p
-      where not exists', '    if b.size = ''U'' then
+      where not exists', '    if b.id in (''palisade'', ''steinmauer'') then
       plot := case b.id when ''palisade'' then 90 else 91 end;
       continue when exists (select 1 from jsonb_array_elements(coalesce(v.layout, ''[]''::jsonb)) x where (x->>1)::int = plot)
         or exists (select 1 from village_projects q where q.village_id = p_v and q.status in (''geplant'',''im_bau'') and q.plot = plot);
     else
     select p.id into plot from eco_plots p
-      where p.size <> ''U'' and not exists');
+      where p.id < 90 and not exists');
   n := replace(n, 'order by eco_size(p.size), case when b.laut then -p.id else p.id end limit 1;', 'order by eco_size(p.size), case when b.laut then -p.id else p.id end limit 1;
     end if;');
   n := replace(n, '''Ein sicheres Gefühl schadet nie.''); end if;', '''Ein sicheres Gefühl schadet nie.''); end if;
