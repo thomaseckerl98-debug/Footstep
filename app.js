@@ -834,11 +834,19 @@ function showFeierabend(r) {
     <p>${esc(dauerText(r.stunden * 60))} gearbeitet${r.mit ? ` – zusammen mit ${esc(r.mit)}` : ''}.</p>${r.ertrag ? `<p>${esc(r.ertrag)}</p>` : ''}
     <h4>Geübt</h4><ul class="abs-ertrag">${(r.fertigkeiten || []).map((f) => `<li>${esc(FERT_NAME(f.id))}: ${esc(FERT_STUFE[f.nachher] || '')}${f.nachher > f.vorher ? ' <b class="ok">– du bist besser geworden!</b>' : ''}</li>`).join('')}</ul>`;
   box.append(row(btn('Gut', true, close)));
-  scene?.setBusy(null);
+  setBesch(null);
+}
+// Hinweis oben rechts, solange der Charakter beschäftigt ist
+function setBesch(a) {
+  let b = $('besch-banner');
+  if (!a) { b?.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'besch-banner'; b.className = 'ui'; document.body.append(b); }
+  b.innerHTML = `<span class="ub-label">Beschäftigt</span><b>${esc(a.name)}</b><span class="small">Du ${esc(a.taetigkeit)} – bis gegen ${clock(a.bis)} Uhr.</span>`;
+  b.append(btn('Ansehen', false, () => { openMenu('quests'); setTimeout(() => document.querySelector('.besch')?.scrollIntoView({ behavior: 'smooth' }), 1200); }));
 }
 async function beschCheck() {
   const { data, error } = await db.rpc('beschaeftigung_status'); if (error || !data) return;
-  scene?.setBusy(data.aktiv ? `${data.aktiv.name} · bis ${clock(data.aktiv.bis)} Uhr` : null);
+  setBesch(data.aktiv);
   if (data.fertig) showFeierabend(data.fertig);
   return data;
 }
@@ -848,7 +856,7 @@ function renderBeschaeftigung(wrap) {
   db.rpc('beschaeftigung_status').then(({ data: b, error }) => {
     box.innerHTML = ''; if (error || !b) { box.append(p('Konnte nicht geladen werden.', 'error')); return; }
     if (b.fertig) showFeierabend(b.fertig);
-    scene?.setBusy(b.aktiv ? `${b.aktiv.name} · bis ${clock(b.aktiv.bis)} Uhr` : null);
+    setBesch(b.aktiv);
     box.append(p('Keine Lust auf Geschichten? Dann pack im Dorf mit an oder übe etwas – 1 bis 12 Stunden lang. Dein Charakter ist in der Zeit beschäftigt und im Dorf zu sehen. Du kannst jederzeit aufhören und bekommst, was du bis dahin geschafft hast. Wer etwas oft tut, wird darin besser.', 'brett-hinweis small'));
     if (b.aktiv) {
       const z = zettel('besch-aktiv', -0.4), ab = new Date(b.aktiv.start).getTime(), bis = new Date(b.aktiv.bis).getTime();
@@ -859,12 +867,11 @@ function renderBeschaeftigung(wrap) {
         const ms = bis - Date.now(); z.querySelector('.besch-rest').textContent = ms > 0 ? `noch ${dauerText(ms / 60000)}` : 'Feierabend!';
         if (ms <= 0) { clearInterval(window.__beschTimer); beschCheck().then(() => { if (active === 'quests' && !$('panel').hidden) renderPanel('quests'); }); }
       };
-      upd(); clearInterval(window.__beschTimer); window.__beschTimer = setInterval(upd, 15000);
       z.append(row(btn('Aufhören (anteilig)', false, async () => {
         const { data, error: e } = await db.rpc('beschaeftigung_abbrechen'); if (e) { toast(esc(e.message)); return; }
-        if (data?.ergebnis) showFeierabend(data.ergebnis); scene?.setBusy(null); renderPanel('quests');
+        if (data?.ergebnis) showFeierabend(data.ergebnis); setBesch(null); renderPanel('quests');
       })));
-      box.append(z);
+      box.append(z); upd(); clearInterval(window.__beschTimer); window.__beschTimer = setInterval(upd, 15000);
     } else if (!b.frei) box.append(p('Gerade bist du nicht im Dorf. Beschäftigen kannst du dich, wenn du daheim bist.', 'muted small'));
     const g = document.createElement('div'); g.className = 'zettel-grid besch-grid'; box.append(g);
     b.arten.forEach((a, i) => {
@@ -912,8 +919,8 @@ function imDorf(p) {
     : `<b>Du bist unterwegs</b> („${esc(u.titel)}“). Im Dorf kannst du erst wieder etwas tun, wenn du zurück bist.`, 6000);
   return false;
 }
-function setUnterwegs(u) {
-  unterwegs = u || null;
+function setUnterwegs(neu) {
+  unterwegs = neu || null;
   document.body.classList.toggle('unterwegs', !!unterwegs);
   scene?.setAway?.(!!unterwegs);
   let b = $('unterwegs-banner');
