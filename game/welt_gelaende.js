@@ -1,7 +1,7 @@
 // Gelände der Weltkarte: reine Funktionen (laufen im Worker, im Browser und in Node).
 // Aus den Formen in welt_daten.js entstehen Felder (Küstenabstand, Gebirge, Flüsse, Wälder …),
 // daraus Höhe, Wasser und Farbe für jeden Punkt – immer gleich, für alle Spieler.
-import { WELT, KUESTE, INSELN, GEBIRGE, FLUESSE, SEEN, WAELDER, MOORE, HEIDEN } from './welt_daten.js';
+import { WELT, KUESTE, INSELN, GEBIRGE, FLUESSE, SEEN, WAELDER, MOORE, HEIDEN } from './welt_daten.js?v=1';
 
 /* ---------- Rauschen ---------- */
 const P = new Uint8Array(512);
@@ -186,7 +186,7 @@ export function zeichneAusschnitt(x0, y0, w, h, u, orte = []) {
     const p = Pt[j * w + i], x = x0 + (i + 0.5) * u, y = y0 + (j + 0.5) * u;
     let c = grund(p, x, y);
     // Felder rund um Siedlungen
-    if (!p.wasser && p.h < 0.42) for (const o of near) {
+    if (!p.wasser && p.h < 0.42 && p.moor < 0.12) for (const o of near) {
       const d = Math.hypot(x - o.x, y - o.y);
       if (d < o.r * 1.75 && d > o.r * 0.55) {
         const a = (o.x * 0.013) % 1.5, cx = (x - o.x) * Math.cos(a) - (y - o.y) * Math.sin(a), cy = (x - o.x) * Math.sin(a) + (y - o.y) * Math.cos(a);

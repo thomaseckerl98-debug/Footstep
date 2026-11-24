@@ -310,6 +310,7 @@ export class Village {
     c.font = '800 15px "Alegreya Sans", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom'; c.lineJoin = 'round';
     const placed = [];
     for (const p of list.slice().sort((a, b) => b.y - a.y)) {
+      if (p.namenlos) continue;
       const x = p.x * scale2, wdt = c.measureText(p.name).width + 4; let y = (p.y - 18) * scale2;
       for (let k = 0; k < 4; k++) { const hitR = placed.find((r) => Math.abs(r.x - x) < (r.w + wdt) / 2 && Math.abs(r.y - y) < 13); if (!hitR) break; y = hitR.y - 13; }
       placed.push({ x, y, w: wdt }); c.globalAlpha = p.alpha;

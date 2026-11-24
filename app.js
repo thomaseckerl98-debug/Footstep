@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=12';
+import { Scene, realMood } from './game/scene.js?v=13';
 import { openCreator } from './game/creator.js?v=4';
 import { buildTalk } from './game/dialog.js?v=7';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
@@ -12,7 +12,9 @@ import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
 import { drawIcon } from './game/icons.js?v=2';
 import { SW, SH } from './game/chars.js?v=4';
-import { openQuest } from './game/questui.js?v=11';
+import { openQuest } from './game/questui.js?v=12';
+import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=1';
+let weltkarte = null;
 import { playMinigame } from './game/minigames.js?v=2';
 import { playBattle } from './game/horde.js?v=6';
 import { iconURL } from './game/kampf_icons.js?v=3';
@@ -134,6 +136,7 @@ function showTip(html, anchorOrPoint) {
 function hideTip() { $('tooltip').hidden = true; }
 
 function openMenu(id) {
+  if (id === 'karte') { closePanel(); weltkarte ||= new Weltkarte({ db, onClose: () => document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === active)) }); weltkarte.oeffnen(); document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === 'karte')); return; }
   const same = id === active && !$('panel').hidden;
   active = id;
   document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === id));
@@ -147,6 +150,7 @@ $('panel-close').onclick = closePanel;
 const btn = (label, on, onclick) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'px-btn' + (on ? ' on' : ''); b.textContent = label; b.onclick = onclick; return b; };
 const h3 = (t) => { const e = document.createElement('h3'); e.textContent = t; return e; };
 const p = (t, cls) => { const e = document.createElement('p'); e.textContent = t; if (cls) e.className = cls; return e; };
+const p_ = p;
 const row = (...items) => { const e = document.createElement('div'); e.className = 'row'; e.append(...items); return e; };
 
 function renderPanel(id) {
@@ -200,9 +204,14 @@ function renderPanel(id) {
     show([...journalLocal.values()].reverse());
     db.rpc('get_journal').then(({ data, error }) => { if (!error && Array.isArray(data) && active === 'quest') show(data); });
   } else if (id === 'bewohner') {
-    const info = scene ? scene.village.info() : [];
-    body.append(p(info.length ? `${info.length} Bewohner leben in deinem Dorf. Was sie von dir halten, zeigt sich an ihrem Verhalten.` : 'Noch wohnt niemand hier.', 'muted small'));
+    const all = scene ? scene.village.info() : [], info = all.filter((r) => !r.person?.namenlos), viele = all.filter((r) => r.person?.namenlos);
+    body.append(p(all.length ? `${all.length} Leute leben in deinem Dorf. ${info.length === 1 ? 'Eine Person kennst' : info.length + ' kennst'} du mit Namen – mit ihnen kannst du reden, Freundschaft schließen und auf Reisen gehen.` : 'Noch wohnt niemand hier.', 'muted small'));
     const ul = document.createElement('ul'); ul.className = 'residents'; body.append(ul);
+    if (viele.length) {
+      const jobs = {}; for (const r of viele) jobs[r.job] = (jobs[r.job] || 0) + 1;
+      const krank = viele.filter((r) => r.person?.zustand && r.person.zustand !== 'gesund').length;
+      body.append(h3('Die Leute im Dorf'), p(Object.entries(jobs).map(([j, n]) => n > 1 ? `${n}× ${j}` : j).join(', ') + '.' + (krank ? ` ${krank === 1 ? 'Eine Person ist' : krank + ' sind'} gerade krank oder verletzt.` : ''), 'small'));
+    }
     for (const r of info) {
       const li = document.createElement('li');
       const cv = document.createElement('canvas'); cv.width = SW; cv.height = SH; if (r.cv) cv.getContext('2d').drawImage(r.cv, 4 * SW, 0, SW, SH, 0, 0, SW, SH);
@@ -381,7 +390,12 @@ function showSelCard(obj) {
   if (obj.kind === 'villager') {
     const p = obj.person, head = document.createElement('div'); head.className = 'sc-head';
     const info = document.createElement('div'); head.append(portraitCanvas(p.plan), info); card.append(head);
-    const upd = () => { info.innerHTML = `<b>${esc(p.name)}</b><br>${esc(p.wanderer ? 'Wanderer · ' + p.job : p.job)}<br><span class="small">${p.stimmung ? 'wirkt ' + esc(p.stimmung) : ''}${p.wesen ? ' · ' + esc(p.wesen) : ''}</span><br><span class="small muted">${esc(p.activity || '')}</span>${p.erinnerung ? `<br><span class="small muted">Erinnert sich: ${esc(p.erinnerung)}</span>` : ''}`; };
+    if (p.namenlos) {
+      info.innerHTML = `<b>${esc(p.job)}</b><br><span class="small">Eine der vielen Leute im Dorf${p.zustand !== 'gesund' && p.zustand ? (p.zustand === 'krank' ? ' – liegt krank im Bett' : ' – ist verletzt') : ''}.</span><br><span class="small muted">${esc(p.activity || '')}</span>`;
+      card.append(row(btn('Kamera folgen', false, () => scene.select(obj))), p_(`Ihren Namen kennst du nicht. Was du für das Dorf tust, spricht sich aber auch bei ihnen herum.`, 'small muted'));
+      return;
+    }
+    const upd = () => { info.innerHTML = `<b>${esc(p.name)}</b>${p.zustand === 'krank' ? ' <span class="small">· krank</span>' : p.zustand === 'verletzt' ? ' <span class="small">· verletzt</span>' : ''}<br>${esc(p.wanderer ? 'Wanderer · ' + p.job : p.job)}<br><span class="small">${p.stimmung ? 'wirkt ' + esc(p.stimmung) : ''}${p.wesen ? ' · ' + esc(p.wesen) : ''}</span><br><span class="small muted">${esc(p.activity || '')}</span>${p.erinnerung ? `<br><span class="small muted">Erinnert sich: ${esc(p.erinnerung)}</span>` : ''}`; };
     upd(); selTimer = setInterval(upd, 1000);
     const quest = btn('Auf Quest mitnehmen', false, () => {}); quest.disabled = true; quest.title = 'Quests werden nach dem Tutorial freigeschaltet';
     card.append(row(btn('Ansprechen', false, () => startTalk(p)), quest, btn('Kamera folgen', false, () => scene.select(obj))));
@@ -656,7 +670,7 @@ const companionCv = (id) => scene?.village.people.find((q) => q.id === id)?.cv |
 let questWin = null;
 function launchQuest(view) {
   closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
-  questWin = openQuest({ db, box: $('questbox'), view, heroPlan: heroPlan(), companionCv, CHECKS, ATTRS,
+  questWin = openQuest({ db, box: $('questbox'), view, heroPlan: heroPlan(), companionCv, CHECKS, ATTRS, reiseKarte: async () => reiseZeichner(await reiseDaten(db, true)),
     onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } checkAmtPopups(); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
 }
 async function resumeQuest(run) {
@@ -704,6 +718,38 @@ async function checkAmtPopups() {
   await loadAmt();
   const w = amt?.wahl;
   if (w && !w.gesehen && (w.status === 'gewaehlt' || w.status === 'verloren')) showWahl(w);
+  else if (amt?.lagerfeuer?.neu && !document.querySelector('.amt-overlay')) showLagerfeuer(amt.lagerfeuer);
+}
+function showLagerfeuer(lf) {
+  const { box, close } = amtOverlay(); box.classList.add('lagerfeuer');
+  const me = village?.character_name || 'du', r = lf.redner || { name: 'Jemand', beruf: '' };
+  const grund = lf.krisen?.length ? `uns durch „${lf.krisen[0]}“ gebracht` : lf.taten?.length ? `„${lf.taten[0]}“ bestanden` : 'sich um jeden von uns gekümmert';
+  const cv = document.createElement('canvas'); cv.width = 240; cv.height = 90; cv.className = 'lf-szene';
+  box.append(cv);
+  const h = document.createElement('div');
+  h.innerHTML = `<span class="amt-label">Am Lagerfeuer</span><h2>„Wie wäre es mit ${esc(me)}?“</h2>`;
+  box.append(h);
+  const port = r.look ? portraitCanvas({ ...r.look, name: r.name, beruf: r.beruf }) : null; if (port) { port.className = 'lf-port'; box.append(port); }
+  box.append(p(`Der Abend ist kalt, das Feuer knistert. ${r.name}${r.beruf ? ', ' + (r.beruf) : ''}, steht auf und räuspert sich: „Ich sag’s, wie es ist. ${me} hat ${grund}. Ich finde, ${me} wäre ein guter Anführer – jemand, der bei uns die wichtigen Entscheidungen trifft.“`, ''),
+    p(`${lf.zweiter ? lf.zweiter + ' nickt sofort. ' : ''}${lf.volk?.ja ? 'Von den Bänken kommt zustimmendes Gemurmel.' : 'Ein paar Leute sehen sich unsicher an – aber niemand widerspricht.'} ${lf.vorsteher ? lf.vorsteher + ' schweigt und stochert im Feuer.' : ''}`, 'small'),
+    p('Nimmst du an, kommt es zur Bürgerversammlung (Hauptquest, Kapitel 3). Lehnst du ab, bleibst du einer von allen – das Dorf wächst trotzdem weiter. Das Angebot steht.', 'small muted'));
+  const msg = p('', 'small error');
+  box.append(row(btn('Ich stelle mich zur Wahl', true, async () => { const { data, error } = await db.rpc('amt_lagerfeuer', { p_ja: true }); if (error) { msg.textContent = error.message; return; } close(); toast(esc(data.text), 7000); await loadAmt(false); if (!$('panel').hidden && active === 'quests') renderPanel('quests'); }),
+    btn('Noch nicht', false, async () => { await db.rpc('amt_lagerfeuer', { p_ja: false }); close(); await loadAmt(false); })), msg);
+  // kleine Szene: Nacht, Feuer, Silhouetten
+  const c = cv.getContext('2d'); let raf = 0; const t0 = performance.now();
+  const draw = (t) => {
+    if (!cv.isConnected) return cancelAnimationFrame(raf);
+    const k = (t - t0) / 1000; const g = c.createLinearGradient(0, 0, 0, 90); g.addColorStop(0, '#0b1020'); g.addColorStop(1, '#1e2436'); c.fillStyle = g; c.fillRect(0, 0, 240, 90);
+    for (let i = 0; i < 30; i++) { c.fillStyle = `rgba(255,255,230,${0.3 + 0.3 * Math.sin(k * 2 + i)})`; c.fillRect((i * 53) % 240, (i * 29) % 40, 1, 1); }
+    c.fillStyle = '#141a14'; c.fillRect(0, 70, 240, 20);
+    const fl = 0.7 + 0.3 * Math.sin(k * 9) * Math.sin(k * 5.3); const rg = c.createRadialGradient(120, 70, 2, 120, 70, 70); rg.addColorStop(0, `rgba(255,170,70,${0.45 * fl})`); rg.addColorStop(1, 'rgba(255,170,70,0)'); c.fillStyle = rg; c.fillRect(0, 0, 240, 90);
+    for (let i = 0; i < 5; i++) { c.fillStyle = i % 2 ? '#ffb040' : '#e85a20'; const hh = 8 + 6 * Math.abs(Math.sin(k * 7 + i)); c.beginPath(); c.moveTo(114 + i * 3, 72); c.lineTo(116 + i * 3, 72 - hh); c.lineTo(118 + i * 3, 72); c.fill(); }
+    c.fillStyle = '#4a3020'; c.fillRect(110, 72, 20, 3);
+    const sil = [[60, 0], [82, 1], [158, 1], [180, 0], [140, 2]]; for (const [x, st] of sil) { const up = st === 2 ? 6 : 0; c.fillStyle = '#05070a'; c.fillRect(x - 4, 56 - up, 8, 16 + up); c.beginPath(); c.arc(x, 52 - up, 4, 0, 7); c.fill(); }
+    raf = requestAnimationFrame(draw);
+  };
+  raf = requestAnimationFrame(draw);
 }
 function zettel(cls = '', rot = 0) { const z = document.createElement('div'); z.className = 'zettel ' + cls; z.style.setProperty('--rot', rot + 'deg'); return z; }
 function schild(text) { const s = document.createElement('div'); s.className = 'brett-schild'; s.textContent = text; return s; }
@@ -712,8 +758,20 @@ function ansehenBar(a, meister = false) {
   const d = document.createElement('div'); d.className = 'ans';
   const steps = ['Neu im Dorf', 'Man kennt dich', 'Man schätzt dich', 'Man hört auf dich', 'Man vertraut dir'];
   d.innerHTML = `<div class="ans-head"><span>Ansehen im Dorf</span><b>${esc(a.wort)}</b></div><div class="ans-bar">${steps.map((s, i) => `<span class="${i <= a.stufe ? 'on' : ''}${i === 3 ? ' wahl' : ''}" title="${esc(s)}"></span>`).join('')}</div>
-    <div class="ans-legend small">${meister ? 'Hältst du dein Ansehen hoch, folgt dir das Dorf auch in schweren Zeiten.' : a.kandidat ? 'Du kannst bei der Versammlung als Dorfmeister antreten.' : 'Ab „Man hört auf dich“ wirst du zur Versammlung aufgestellt.'}</div>`;
+    <div class="ans-legend small">${meister ? 'Hältst du dein Ansehen hoch, folgt dir das Dorf auch in schweren Zeiten.' : 'Ansehen öffnet dir die Türen im Dorfrat. Zur Wahl schlagen dich aber die Leute selbst vor – wenn du dir ihr Vertrauen verdient hast.'}</div>`;
   if (a.zuletzt?.length) { const z = document.createElement('div'); z.className = 'ans-last small'; z.innerHTML = a.zuletzt.slice(0, 3).map((x) => `<span>${x.delta > 0 ? '+' : '−'} ${esc(x.grund)}</span>`).join(''); d.append(z); }
+  return d;
+}
+function wegBox(w) {
+  const d = document.createElement('div'); d.className = 'weg';
+  const fz = w.fuersprecher.map((f) => `<span class="${f.ja ? 'ja' : ''}">${f.ja ? '✓ ' : ''}${esc(f.name)} <i>(${esc(f.wort)})</i></span>`);
+  if (w.volk) fz.push(`<span class="${w.volk.ja ? 'ja' : ''}">${w.volk.ja ? '✓ ' : ''}die Leute im Dorf <i>(${esc(w.volk.wort)})</i></span>`);
+  const wege = ['drei Fürsprecher und eine große Tat', 'zwei Fürsprecher und eine abgewendete Krise', 'fast alle mögen dich sehr'];
+  d.innerHTML = `<b>Weg zur Versammlung</b>
+    <div class="small"><u>Wer hinter dir steht:</u> ${fz.join(', ') || 'noch niemand'}</div>
+    <div class="small"><u>Große Taten:</u> ${w.taten.length ? w.taten.map((t) => '✓ ' + esc(t)).join(', ') : 'noch keine <i>(eine schwere Reise oder eine große Geschichte bestehen)</i>'}</div>
+    <div class="small"><u>Abgewendete Krisen:</u> ${w.krisen.length ? w.krisen.map((t) => '✓ ' + esc(t)).join(', ') : 'noch keine <i>(hilf, wenn am Brett „Hilfe gesucht“ hängt)</i>'}</div>
+    <div class="small weg-wege">Einer dieser Wege genügt: ${wege.map((t, i) => `<span class="${w.wege[i] ? 'ja' : ''}">${w.wege[i] ? '✓ ' : ''}${t}</span>`).join(' · ')}</div>`;
   return d;
 }
 function renderHaupt(wrap, list) {
@@ -725,6 +783,8 @@ function renderHaupt(wrap, list) {
     <p class="small">${c ? esc(c.kurz) : A.amt.ich ? 'Als Dorfmeister wartet bald der König auf dich. Die nächsten Kapitel der Chronik sind in Arbeit.' : 'Die Chronik geht bald weiter.'}</p>
     <p class="small haupt-amt">${amtTxt}</p>`;
   z.append(ansehenBar(A.ansehen, A.amt.ich));
+  if (!A.amt.ich && A.weg && A.kapitel <= 3) z.append(wegBox(A.weg));
+  if (A.lagerfeuer && !A.amt.ich) z.append(row(btn('Zum Lagerfeuer', true, () => showLagerfeuer(A.lagerfeuer))));
   if (c) {
     if (c.run) z.append(row(btn('Weiterspielen', true, () => resumeQuest(c.run))));
     else if (c.frei) {
@@ -743,9 +803,25 @@ function renderHaupt(wrap, list) {
 }
 function renderAushaenge(wrap) {
   const A = amt; if (!A) return;
-  if (!A.offen.length && !A.aushaenge.length) return;
-  wrap.append(schild(A.offen.length ? 'Aushänge · Entscheidung nötig' : 'Aushänge'));
+  const kr = A.krisen || [], tr = A.trauer || [];
+  if (!A.offen.length && !A.aushaenge.length && !kr.length && !tr.length) return;
+  wrap.append(schild(A.offen.length ? 'Aushänge · Entscheidung nötig' : kr.length ? 'Aushänge · Hilfe gesucht' : 'Aushänge'));
   const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
+  kr.forEach((e, i) => {
+    const z = zettel('aushang offen krise', ROT[(i + 1) % ROT.length]);
+    z.innerHTML = `<span class="aus-art">Krise · Hilfe gesucht</span><b>${esc(e.titel)}</b><p class="small">${esc(e.text)}</p><p class="small muted">Wenn niemand hilft, entscheidet ${esc(A.amt.vorsteher || 'der Vorsteher')} ${esc(whenText(e.frist))} allein – mit allen Folgen.</p>`;
+    if (e.geholfen) z.append(p('Du hast schon mit angepackt.', 'small'));
+    else z.append(row(btn(e.hilfe.text, true, async () => {
+      const ok = await playMinigame(e.hilfe.spiel, { schwer: 2, titel: e.titel, text: e.hilfe.text });
+      const { data: r, error: er } = await db.rpc('krise_helfen', { p_ereignis: e.id, p_erfolg: ok });
+      if (er || !r?.ok) { toast(esc(er?.message || r?.grund || 'Das hat nicht geklappt.')); return; }
+      const { box, close } = amtOverlay(); box.classList.add('aushang-rolle');
+      box.innerHTML = `<span class="amt-label">${r.erfolg ? 'Krise abgewendet' : 'Krise'}</span><h2>${esc(e.titel)}</h2>`;
+      box.append(p(r.text, 'ent-ergebnis'), p(r.erfolg ? 'Das wird man dir im Dorf nicht vergessen.' : 'Trotzdem: Man hat gesehen, dass du da warst.', 'small muted'), row(btn('Schließen', true, async () => { close(); await loadAmt(); loadVillageState(); if (!$('panel').hidden && active === 'quests') renderPanel('quests'); })));
+    })));
+    g.append(z);
+  });
+  tr.forEach((e, i) => { const z = zettel('aushang trauer', ROT[(i + 4) % ROT.length]); z.innerHTML = `<span class="aus-art">In Erinnerung</span><p class="small">${esc(e.text)}</p>`; g.append(z); });
   A.offen.forEach((e, i) => {
     const z = zettel('aushang offen', ROT[i % ROT.length]);
     z.innerHTML = `<span class="aus-art">${esc(ART_NAME[e.art] || 'Aushang')}</span><b>${esc(e.titel)}</b><p class="small">${esc(e.text)}</p><p class="small muted">Entscheide bis ${esc(whenText(e.frist))}, sonst entscheidet ${esc(A.amt.vorsteher || 'der Vorsteher')}.</p>`;
@@ -765,7 +841,7 @@ function renderHeute(wrap, h) {
   if (!tw.length) { const z = zettel('klein', 0.7); z.append(p('Heute bittet dich niemand um etwas. Genieß den Tag.', 'small')); g.append(z); }
   tw.forEach((t, i) => {
     const z = zettel('klein' + (t.status !== 'offen' ? ' erledigt' : ''), ROT[i % ROT.length]);
-    z.innerHTML = `<b>${esc(t.titel)}</b><span class="small muted"> · ${esc(t.npc)} (${esc(t.beruf)})</span><p class="small">„${esc(t.bitte)}“</p>`;
+    z.innerHTML = `<b>${esc(t.titel)}</b><span class="small muted"> · ${esc(t.npc)}${t.namenlos ? '' : ` (${esc(t.beruf)})`}</span><p class="small">„${esc(t.bitte)}“</p>`;
     if (t.status === 'offen') {
       z.append(row(btn('Helfen', true, async () => {
         const ok = await playMinigame(t.art, { schwer: t.schwer, titel: t.titel, text: t.npc + ': „' + t.bitte + '“' });
@@ -1072,7 +1148,7 @@ async function startGame() {
       onWeather: (w) => { weatherNow = w; updateChip(); },
       onHover: (h) => {
         if (!h) return hideTip();
-        if (h.kind === 'villager') { const p = h.person; return showTip(p.wanderer ? `<b>${esc(p.name)}</b><br>Wanderer · ${esc(p.job)}<div class="tt-actions">${esc(p.activity)}</div>` : `<b>${esc(p.name)}</b><br>${esc(p.job)} · wirkt ${esc(p.stimmung)}<div class="tt-actions">${esc(p.activity || '')}${p.erinnerung ? '<br>Erinnert sich: ' + esc(p.erinnerung) : ''}</div>`, { x: h.x, y: h.y }); }
+        if (h.kind === 'villager') { const p = h.person; if (p.namenlos) return showTip(`<b>${esc(p.job)}</b><br><span class="small">${p.zustand === 'krank' ? 'liegt krank' : p.zustand === 'verletzt' ? 'ist verletzt' : 'wohnt im Dorf'}</span><div class="tt-actions">${esc(p.activity || '')}</div>`, { x: h.x, y: h.y }); return showTip(p.wanderer ? `<b>${esc(p.name)}</b><br>Wanderer · ${esc(p.job)}<div class="tt-actions">${esc(p.activity)}</div>` : `<b>${esc(p.name)}</b><br>${esc(p.job)} · wirkt ${esc(p.stimmung)}<div class="tt-actions">${esc(p.activity || '')}${p.erinnerung ? '<br>Erinnert sich: ' + esc(p.erinnerung) : ''}</div>`, { x: h.x, y: h.y }); }
         if (h.kind === 'building') { const bi = buildingInfo(h.sprite); return showTip(`<b>${esc(bi.name)}</b> <span class="muted">· ${esc(bi.stufe)}</span><br>${bi.workers.length ? 'Hier arbeiten: ' + esc(bi.workers.join(', ')) + '<br>' : ''}<span class="small">${esc(bi.folge)}</span>${bi.bau ? '<div class="tt-actions">Wird gerade ausgebaut</div>' : ''}`, { x: h.x, y: h.y }); }
         if (h.kind === 'baustelle') return showTip(`<b>Baustelle</b><br>Hier entsteht ${esc(CATALOG[h.baustelle.gebaeude]?.name || '')}.<div class="tt-actions">${esc(villageState?.dorf?.bau?.baumeister || 'Die Bewohner')} bauen daran.</div>`, { x: h.x, y: h.y });
         else showTip(`<b>Bauplatz ${h.plot.id}</b><br>Platz bis Größe ${h.plot.size}${h.plot.shadow ? ' · im Bergschatten' : ''}<div class="tt-actions">frei</div>`, { x: h.x, y: h.y });

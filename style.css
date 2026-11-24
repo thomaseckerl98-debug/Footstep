@@ -526,3 +526,49 @@ img.q-kampficon { width: 28px; height: 28px; image-rendering: pixelated; flex: n
 .ent-opts .px-btn { text-align: left; white-space: normal; line-height: 1.3; }
 .ent-ergebnis { font-weight: 600; color: #3a1d08; border-left: 3px solid #a8842e; padding-left: 10px; }
 @media (max-width: 560px) { .amt-wahl { grid-template-columns: 1fr; } .amt-rolle { padding: 22px 16px 14px; } }
+
+/* ---------- Weg zur Versammlung, Lagerfeuer, Krisen, Trauer ---------- */
+.weg { margin: 8px 0 6px; padding: 6px 8px; background: rgba(120,80,30,.1); border: 1px dashed rgba(90,60,25,.45); }
+.weg > b { display: block; color: #5a2f0a; margin-bottom: 2px; }
+.weg .small { margin: 2px 0; line-height: 1.35; } .weg u { text-decoration: none; font-weight: 700; color: #5a3d1c; }
+.weg i { color: #7a6448; font-style: normal; } .weg .ja { color: #2e6a1e; font-weight: 700; }
+.weg-wege { margin-top: 4px !important; color: #5a4a36; }
+.zettel.aushang.krise { background: linear-gradient(180deg, #f6dcc0, #e8b88a); box-shadow: 0 0 0 2px #c8601e, 0 3px 0 rgba(0,0,0,.35), 2px 6px 12px rgba(0,0,0,.35); }
+.zettel.aushang.trauer { background: linear-gradient(180deg, #e2ddd2, #c8c2b6); box-shadow: 0 0 0 2px #2a2420, 0 3px 0 rgba(0,0,0,.35); }
+.zettel.aushang.trauer .aus-art { color: #2a2420; }
+.amt-rolle.lagerfeuer { background: radial-gradient(ellipse at 50% 0%, rgba(255,210,150,.35), rgba(255,255,255,0) 60%), linear-gradient(180deg, #f2dfb8, #d9bb86); }
+.lf-szene { display: block; width: 100%; height: auto; image-rendering: pixelated; border: 2px solid #3a2716; margin-bottom: 8px; }
+.lf-port { float: right; margin: 0 0 6px 10px; border: 2px solid #6b4a2e; background: #1e2436; image-rendering: pixelated; }
+
+/* ---------- Weltkarte ---------- */
+.wk { position: fixed; inset: 0; z-index: 55; background: #d9c79c; }
+.wk-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.wk-cv:active { cursor: grabbing; }
+.wk-top { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; pointer-events: none; }
+.wk-top > * { pointer-events: auto; }
+.wk-titel { background: rgba(42,31,23,.88); border: 3px solid var(--wood-d); box-shadow: inset 0 0 0 2px #6b4a2e; padding: 6px 12px; display: flex; flex-direction: column; color: var(--text); }
+.wk-titel b { font-family: var(--font-pixel); color: var(--gold); font-size: 1.15rem; letter-spacing: .04em; }
+.wk-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.wk-chip { font: inherit; font-size: .82rem; color: var(--text); background: rgba(42,31,23,.85); border: 2px solid var(--wood-d); box-shadow: inset 0 0 0 1px #6b4a2e; padding: 4px 9px; cursor: pointer; }
+.wk-chip.on { background: var(--gold-d); color: #1c140a; box-shadow: inset 0 0 0 1px var(--gold); }
+.wk-zoom { display: flex; gap: 4px; margin-left: auto; }
+.wk-laden { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(42,31,23,.85); color: var(--text); padding: 8px 14px; border: 2px solid var(--wood-d); }
+.wk-tip { position: absolute; pointer-events: none; background: rgba(28,20,12,.92); color: var(--text); padding: 4px 8px; border: 1px solid #6b4a2e; font-size: .9rem; max-width: 280px; }
+.wk-karte, .wk-chronik { position: absolute; right: 10px; top: 76px; width: min(360px, 92vw); max-height: calc(100vh - 100px); overflow: auto; color: #2b1d10; padding: 14px 16px 12px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.4), rgba(255,255,255,0) 60%), linear-gradient(180deg, #f4e4bd, #dcc290);
+  border-top: 10px solid #6b4a2e; border-bottom: 10px solid #6b4a2e; box-shadow: inset 0 0 26px rgba(120,80,30,.35), 0 8px 24px rgba(0,0,0,.5); }
+.wk-chronik { left: 10px; right: auto; width: min(380px, 92vw); }
+.wk-karte h3 { margin: 2px 0 4px; color: #3a1d08; font-size: 1.25rem; } .wk-karte h4, .wk-chronik h4 { margin: 10px 0 4px; color: #5a2f0a; }
+.wk-karte p { margin: 5px 0; line-height: 1.4; } .wk-karte .muted, .wk-chronik .muted { color: #6f5a3e !important; }
+.wk-art { font-family: var(--font-pixel); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: #8a5a1c; }
+.wk-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.4); }
+.wk-ex { background: rgba(120,80,30,.12); padding: 5px 7px; border-left: 3px solid #a8842e; }
+.wk-x { position: absolute; right: 8px; top: 6px; padding: 2px 8px !important; font-size: .9rem !important; }
+.wk-karte ul, .wk-chronik ul { margin: 4px 0; padding-left: 18px; } .wk-karte li, .wk-chronik li { margin: 3px 0; line-height: 1.35; cursor: default; }
+.wk-bez li[data-ort], .wk-chronik li[data-ort] { cursor: pointer; } .wk-bez li[data-ort]:hover, .wk-chronik li[data-ort]:hover { color: #7a2a0a; }
+.wk-bez .bz-handel::marker { color: #3a9a3a; } .wk-bez .bz-buendnis::marker { color: #3a6ac8; } .wk-bez .bz-rivalitaet::marker { color: #d06a1e; } .wk-bez .bz-furcht::marker { color: #6a4a8a; }
+.wk-chronik ul { list-style: none; padding-left: 0; } .wk-chronik li { padding-left: 16px; position: relative; }
+.wk-ev { position: absolute; left: 2px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #8a7a60; }
+.wk-ev-brand { background: #e8501e; } .wk-ev-fest { background: #e8c25a; } .wk-ev-fehde { background: #c82a1e; } .wk-ev-seuche { background: #8aa040; } .wk-ev-abkommen { background: #3a9a3a; }
+.wk-ev-mauer, .wk-ev-turm, .wk-ev-aufstieg { background: #6a7a9a; } .wk-ev-trauer { background: #1a1414; } .wk-ev-frieden { background: #f4f4f0; border: 1px solid #8a7a60; } .wk-ev-ueberfall { background: #8a1e1e; }
+@media (max-width: 700px) { .wk-titel span { display: none; } .wk-chip { font-size: .75rem; padding: 3px 7px; } .wk-karte, .wk-chronik { top: auto; bottom: 10px; max-height: 48vh; left: 10px; right: 10px; width: auto; } }

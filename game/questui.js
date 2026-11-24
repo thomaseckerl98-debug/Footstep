@@ -1,4 +1,4 @@
-// Quest-Fenster: Szenenbild (Held + Begleiter), Wanderanimation bei Reisen, Wahlmöglichkeiten, Würfelzeilen.
+// Quest-Fenster: Szenenbild (Held + Begleiter), bei Reisen ein Ausschnitt der Weltkarte mit deiner Position, Wahlmöglichkeiten, Würfelzeilen.
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=4';
 import { playMinigame } from './minigames.js?v=2';
@@ -83,7 +83,8 @@ function drawFire(c, x, y, t) {
 }
 
 /* ───────── Fenster ───────── */
-export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS, onClose }) {
+export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS, onClose, reiseKarte }) {
+  let mapDraw = null, mapReq = false;
   let v = view, busy = false, raf = 0, closed = false, autoTimer = 0, tickTimer = 0;
   const hero = sheetCanvas(heroPlan);
   box.innerHTML = ''; box.hidden = false;
@@ -116,6 +117,8 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
   function frame(t) {
     if (closed) return;
     const travel = !!v.reise && !v.reise.bereit, ort = v.ort || 'wald';
+    if (travel && reiseKarte && !mapReq) { mapReq = true; reiseKarte().then((f) => { mapDraw = f; }).catch(() => {}); }
+    if (travel && mapDraw && mapDraw(c, LW, LH, t)) { if (v.gefahr && !v.ende) { c.fillStyle = `rgba(160,30,20,${0.1 + 0.06 * Math.sin(t * 0.006)})`; c.fillRect(0, 0, LW, LH); } raf = requestAnimationFrame(frame); return; }
     drawBackground(c, ort, t, travel);
     const ps = party(), fire = ort === 'feuer';
     if (fire) drawFire(c, 150, GROUND, t);
