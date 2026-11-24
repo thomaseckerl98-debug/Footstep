@@ -331,7 +331,7 @@ begin
   verh := p_gegner / staerke;
   for x in select n.id, n.namenlos from npcs n where n.village_id = p_v and n.tot_at is null and n.zustand = 'gesund'
       order by (n.job in ('Wache','Hauptmann','Söldnerin','Jäger','Jägerin','Holzfäller')) desc, n.namenlos desc, random() limit greatest(1, p_kaempfer) loop
-    if random() < least(0.45, 0.05 * power(verh, 1.5)) * case when x.namenlos then 1 else 0.35 end then
+    if random() < least(0.45, 0.05 * power(verh, 1.5)) * (case when x.namenlos then 1 else 0.35 end) then
       tote := tote || npc_tot(x.id, p_grund);
     elsif random() < least(0.8, 0.25 * verh) then
       perform npc_erkrankt(x.id, 'verletzt', 1.5 + random() * 2); verl := verl + 1;
@@ -369,7 +369,7 @@ begin
     select id into x from npcs where village_id = e.village_id and tot_at is null and zustand = 'gesund' order by namenlos desc, random() limit 1;
     if x.id is not null then perform npc_erkrankt(x.id, 'verletzt', 1.5 + random() * 2); teile := teile || (npc_label(x.id, true) || ' wurde verletzt.'); end if;
   end if;
-  if r ? 'tot' and random() < (r->>'tot')::numeric * p_faktor * case when heiler then 0.5 else 1 end then
+  if r ? 'tot' and random() < (r->>'tot')::numeric * p_faktor * (case when heiler then 0.5 else 1 end) then
     select id into x from npcs where village_id = e.village_id and tot_at is null
       order by (case when namenlos then 1 else 0.18 end) * (case when zustand <> 'gesund' then 2 else 1 end) * random() desc limit 1;
     if x.id is not null then lab := npc_tot(x.id, grund); teile := teile || (lab || ' hat es nicht überlebt.'); end if;
