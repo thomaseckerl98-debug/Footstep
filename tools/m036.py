@@ -626,6 +626,10 @@ patch('quest_list()', [
   ("from quest_templates t where t.art = 'haupt'),",
    "from quest_templates t where t.art = 'haupt' and t.fundort is null and (t.owner_id is null or t.owner_id = auth.uid())),\n    'nachschub', quest_nachschub_bedarf(auth.uid()),"),
 ])
+# Brett: Vorlage mitschicken (für die Reisedauer vor dem Aufbruch)
+patch('quest_board()', [
+  ("'titel', coalesce(tp.titel, 'Eigenes Abenteuer'),", "'titel', coalesce(tp.titel, 'Eigenes Abenteuer'), 'template', o.template_id,"),
+])
 # Kampf: Waffenübung macht zäher
 patch('kampf_werte()', [
   ("'bauten', bauten,", "'bauten', bauten, 'uebung', fert_stufe(coalesce((select xp from fertigkeiten where player_id = uid and id = 'kampf'), 0)),"),

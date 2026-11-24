@@ -2,7 +2,7 @@
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=4';
 import { playMinigame } from './minigames.js?v=2';
-import { playBattle } from './horde.js?v=6';
+import { playBattle } from './horde.js?v=7';
 import { iconURL } from './kampf_icons.js?v=3';
 
 const LW = 240, LH = 100, GROUND = 88;
@@ -98,6 +98,9 @@ function drawBackground(c, ort, t, travel) {
   if (travel) treeRow(c, off * 1.4, 47, LH + 6, 26, 40, '#1e3220', 60);
 }
 
+// Ortsbild für Ortsbesuche (Stadt, Burg, Dorf)
+export function ortBildCanvas(art) { const cv = document.createElement('canvas'); cv.width = LW; cv.height = LH; cv.className = 'q-scene ort-bild'; drawBackground(cv.getContext('2d'), art || 'dorf', 0, false); return cv; }
+export function dauerText(min) { min = Math.round(Number(min) || 0); if (min < 60) return `${Math.max(1, min)} Min.`; const h = Math.floor(min / 60), m = Math.round((min % 60) / 5) * 5; return m === 60 ? `${h + 1} Std.` : `${h} Std.${m ? ' ' + m + ' Min.' : ''}`; }
 function drawFire(c, x, y, t) {
   c.fillStyle = '#4a3020'; c.fillRect(x - 6, y - 1, 12, 2);
   const f = (t * 0.012) | 0, r = rng(f);
@@ -107,6 +110,7 @@ function drawFire(c, x, y, t) {
 
 /* ───────── Fenster ───────── */
 export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS, onClose, reiseKarte }) {
+  document.body.classList.add('im-dialog');
   let mapDraw = null, mapReq = false;
   let v = view, busy = false, raf = 0, closed = false, autoTimer = 0, tickTimer = 0;
   const hero = sheetCanvas(heroPlan);
@@ -120,7 +124,28 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
   const foot = document.createElement('div'); foot.className = 'q-foot';
   box.append(head, cv, log, opts, foot);
 
-  const add = (cls, html) => { const el = document.createElement('p'); el.className = cls; el.innerHTML = html; log.append(el); log.scrollTop = log.scrollHeight; };
+  const add = (cls, html) => { const el = document.createElement('p'); el.className = cls + ' neu'; el.innerHTML = html; log.append(el); log.scrollTop = log.scrollHeight; return el; };
+  // Neuer Text erscheint Zeichen für Zeichen (in ein paar Sekunden), erst danach kommen die Antworten
+  let tipp = null;
+  const addTyped = (cls, text) => { const el = add(cls, ''); (tipp ||= { teile: [] }).teile.push({ el, text: String(text || '') }); return el; };
+  function tippen(fertig) {
+    if (!tipp || !tipp.teile.length) { tipp = null; fertig(); return; }
+    const t = tipp; t.fertig = fertig; const total = t.teile.reduce((n, x) => n + x.text.length, 0);
+    const cps = Math.max(42, total / 4.2); let i = 0, pos = 0, last = performance.now();
+    opts.classList.add('q-wartet'); foot.classList.add('q-wartet');
+    const schritt = (now) => {
+      if (closed || tipp !== t) return;
+      let n = Math.max(1, Math.round(((now - last) / 1000) * cps)); last = now;
+      while (n > 0 && i < t.teile.length) { const tl = t.teile[i], k = Math.min(n, tl.text.length - pos); pos += k; n -= k; tl.el.textContent = tl.text.slice(0, pos); if (pos >= tl.text.length) { i++; pos = 0; } }
+      log.scrollTop = log.scrollHeight;
+      if (i >= t.teile.length) return ende();
+      t.raf = requestAnimationFrame(schritt);
+    };
+    const ende = () => { cancelAnimationFrame(t.raf); t.teile.forEach((x) => { x.el.textContent = x.text; }); tipp = null; opts.classList.remove('q-wartet'); foot.classList.remove('q-wartet'); log.scrollTop = log.scrollHeight; t.fertig(); };
+    t.ende = ende; t.raf = requestAnimationFrame(schritt);
+  }
+  const sofort = () => { if (tipp && tipp.ende) { tipp.ende(); return true; } return false; };
+  log.addEventListener('click', sofort);
   const probeLine = (pr) => {
     const name = CHECKS[pr.id]?.name || pr.id, parts = [`${ATTRS[pr.eigenschaft] || pr.eigenschaft} ${pr.mod >= 0 ? '+' : '−'}${Math.abs(pr.mod)}`];
     if (pr.herkunft) parts.push(`Herkunft +${pr.herkunft}`); if (pr.items) parts.push(`Ausrüstung ${pr.items > 0 ? '+' : '−'}${Math.abs(pr.items)}`);
@@ -163,19 +188,23 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
   };
   function render(first) {
     title.textContent = v.quest; if (v.kampf_quest) { const kb = document.createElement('span'); kb.className = 'q-kampfbadge'; kb.innerHTML = `<img class="q-kicon" src="${iconURL('kampf')}" alt="">Kampf · ca. ${v.kampf_quest} Min.`; kb.title = 'In diesem Abenteuer kommt es zu einem Kampf.'; title.append(' ', kb); }
+    if (tipp && tipp.ende) tipp.ende();
+    log.querySelectorAll('p.neu').forEach((e) => { e.classList.remove('neu'); e.classList.add('alt'); });
     if (!first && v.letztes) {
       const l = v.letztes;
       if (l.wahl) add('me', esc(l.wahl));
       if (l.minispiel) add('note', l.minispiel.erfolg ? '<b class="ok">Geschafft!</b>' : '<b class="bad">Nicht geschafft.</b>');
       if (l.probe) add('note', probeLine(l.probe));
-      if (l.text) add('npc', esc(l.text));
+      if (l.text) addTyped('npc', l.text);
       if (l.extra) add('note', esc(l.extra.replace(/ ?Gefunden: [^.]*\([^)]*\)\./g, '')));
       if (l.beute) add('note', lootCard(l.beute));
     }
-    add('scene', esc(v.text));
+    addTyped('scene', v.text);
     opts.innerHTML = ''; foot.innerHTML = ''; clearInterval(tickTimer); clearTimeout(autoTimer);
+    tippen(() => {});
     if (v.ende) {
-      const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'px-btn'; b.textContent = 'Abenteuer abschließen'; b.onclick = () => close(true); li.append(b); opts.append(li); return;
+      if (v.heimweg) { heimweg(v.heimweg); return; }
+      const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'px-btn'; b.textContent = 'Abenteuer abschließen'; b.onclick = () => close(true, { abschluss: v.abschluss }); li.append(b); opts.append(li); return;
     }
     if (v.reise) {
       const st = document.createElement('p'); st.className = 'small q-travel'; foot.append(st);
@@ -227,12 +256,38 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     }
     v.optionen.forEach((o, i) => {
       const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt' + (o.probe ? ' check' : '');
-      b.innerHTML = `<span class="num">${i + 1}.</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}`;
-      b.onclick = () => choose(o.nr); li.append(b); opts.append(li);
+      b.innerHTML = `<span class="num">${i + 1}.</span> ${o.tag ? `<span class="tag">${esc(o.tag)}</span> ` : ''}<span class="txt">${esc(o.text)}</span>${o.hint ? ` <span class="hint">(${esc(o.hint)})</span>` : ''}${o.reise_min ? ` <span class="hint weg">· Weg ca. ${esc(dauerText(o.reise_min))}</span>` : ''}`;
+      b.onclick = () => {
+        if (o.reise_min && !b.dataset.sure) { b.dataset.sure = '1'; b.insertAdjacentHTML('beforeend', ` <span class="hint warn">Damit brichst du auf und bist ca. ${esc(dauerText(o.reise_min))} unterwegs. Nochmal klicken.</span>`); return; }
+        choose(o.nr);
+      };
+      li.append(b); opts.append(li);
     });
     const ab = document.createElement('button'); ab.type = 'button'; ab.className = 'px-btn small q-abort'; ab.textContent = 'Abenteuer abbrechen';
     ab.onclick = async () => { if (!confirmAbort(ab)) return; await db.rpc('quest_abort', { p_run: v.run }); close(true); };
     foot.append(ab);
+  }
+  // Am Ende einer Reise: heimkehren, bleiben oder weiterziehen
+  function heimweg(h) {
+    const kopf = document.createElement('p'); kopf.className = 'q-weg-kopf'; kopf.innerHTML = `<b>Wie geht es weiter?</b> <span class="small muted">${h.von_name ? 'Du bist in ' + esc(h.von_name) + '.' : 'Du bist irgendwo draußen im Land.'} Deine Begleiter gehen schon heim.</span>`;
+    opts.append(kopf);
+    const wahl = (txt, sub, ziel, lang) => {
+      const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-opt q-weg';
+      b.innerHTML = `<span class="txt">${esc(txt)}</span>${sub ? ` <span class="hint">(${esc(sub)})</span>` : ''}`;
+      b.onclick = async () => {
+        if (busy) return;
+        if (lang && !b.dataset.sure) { b.dataset.sure = '1'; b.querySelector('.hint')?.remove(); b.insertAdjacentHTML('beforeend', ` <span class="hint warn">Du bist dann ca. ${esc(sub)} unterwegs. Nochmal klicken zum Aufbrechen.</span>`); return; }
+        busy = true; opts.querySelectorAll('button').forEach((x) => (x.disabled = true));
+        const { data, error } = await db.rpc('quest_heimweg', { p_run: v.run, p_ziel: ziel });
+        busy = false;
+        if (error) { add('note', `<b class="bad">Fehler:</b> ${esc(error.message)}`); opts.querySelectorAll('button').forEach((x) => (x.disabled = false)); return; }
+        close(true, { abschluss: v.abschluss, weg: data });
+      };
+      li.append(b); opts.append(li);
+    };
+    wahl(`Heimkehren nach ${h.heim.name}`, h.heim.minuten ? 'ca. ' + dauerText(h.heim.minuten) : '', 'heim', h.heim.minuten >= 60);
+    if (h.hier) wahl(`In ${h.hier.name} bleiben und sich umsehen`, '', 'hier', false);
+    (h.weiter || []).slice(0, 6).forEach((o) => wahl(`Weiterziehen nach ${o.name}`, 'ca. ' + dauerText(o.minuten), o.id, o.minuten >= 60));
   }
   // zweistufig statt Browser-Dialog: erster Klick fragt, zweiter bestätigt
   function confirmAbort(b) { if (b.dataset.sure) return true; b.dataset.sure = '1'; b.textContent = 'Wirklich abbrechen? Nochmal klicken.'; setTimeout(() => { if (!closed) { delete b.dataset.sure; b.textContent = 'Abenteuer abbrechen'; } }, 4000); return false; }
@@ -255,8 +310,8 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     }
     v = data; render(false);
   }
-  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-opt')[n - 1]?.click(); if (e.key === 'Escape') close(false); };
-  function close(changed) { if (closed) return; closed = true; cancelAnimationFrame(raf); clearInterval(tickTimer); clearTimeout(autoTimer); document.removeEventListener('keydown', onKey); box.hidden = true; box.innerHTML = ''; onClose?.(changed); }
+  const onKey = (e) => { if (busy || e.target.tagName === 'INPUT') return; if (tipp && (e.key === ' ' || e.key === 'Enter' || /^[1-9]$/.test(e.key))) { e.preventDefault(); sofort(); return; } const n = Number(e.key); if (n >= 1 && n <= 9) opts.querySelectorAll('button.dl-opt')[n - 1]?.click(); if (e.key === 'Escape') close(false); };
+  function close(changed, extra) { if (closed) return; closed = true; if (tipp?.raf) cancelAnimationFrame(tipp.raf); cancelAnimationFrame(raf); clearInterval(tickTimer); clearTimeout(autoTimer); document.removeEventListener('keydown', onKey); document.body.classList.remove('im-dialog'); box.hidden = true; box.innerHTML = ''; onClose?.(changed, extra); }
   pause.onclick = () => close(false);
   document.addEventListener('keydown', onKey);
   if (v.letztes && v.letztes.text) render(false); else render(true);

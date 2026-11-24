@@ -581,3 +581,51 @@ img.q-kampficon { width: 28px; height: 28px; image-rendering: pixelated; flex: n
 #unterwegs-banner .px-btn { padding: 3px 10px; font-size: .85rem; }
 .weg-zeit { margin-top: 4px !important; color: #7a3a10 !important; }
 @media (max-width: 700px) { #unterwegs-banner { top: 58px; left: 8px; right: 8px; } #unterwegs-banner .small { display: none; } }
+
+/* ---------- Dialoge: Fokus, Schreibmaschine, alter Text ---------- */
+#stage, .topbar, #dock, #panel, #unterwegs-banner { transition: filter .35s; }
+body.im-dialog #stage { filter: blur(3px) brightness(.72) saturate(.8); }
+body.im-dialog #dock, body.im-dialog #panel, body.im-dialog #unterwegs-banner, body.im-dialog .topbar { filter: blur(2px) brightness(.7); pointer-events: none; }
+.dl-opts, .q-foot { transition: opacity .35s; }
+.dl-opts.q-wartet, .q-foot.q-wartet { opacity: 0; pointer-events: none; }
+.q-log p.alt { opacity: .42; filter: grayscale(.7); }
+.q-log p.alt.me { opacity: .55; }
+.q-log p.neu.me { border-left: 3px solid var(--gold-d); padding-left: 8px; }
+.q-log { cursor: default; }
+.dl-opt .hint.warn { color: #f0b050; display: block; margin-top: 3px; }
+.dl-opt .hint.weg { color: #c9b98a; }
+.q-weg-kopf { margin: 4px 0 6px; list-style: none; }
+.dl-opt.q-weg { border-color: var(--gold-d); }
+
+/* ---------- Popups: Abschluss, Fragen, Ortsbesuch ---------- */
+.amt-rolle.frage { width: min(480px, 94vw); }
+.amt-rolle.abschluss h4 { margin: 12px 0 4px; color: #6a3d12; font-size: .95rem; text-transform: uppercase; letter-spacing: .05em; }
+.abs-wege, .abs-ertrag { margin: 0 0 4px 18px; padding: 0; line-height: 1.45; }
+.abs-wege li { color: #3b2a18; font-style: italic; }
+.abs-weg { margin-top: 12px !important; padding: 8px 10px; background: rgba(120,80,30,.12); border-left: 3px solid #8a5a1c; }
+.amt-rolle.ort-box { width: min(680px, 96vw); }
+.ort-box .ort-bild { width: 100%; height: auto; image-rendering: pixelated; border: 3px solid #6b4a2e; margin: -6px 0 8px; display: block; }
+.ort-box h3 { margin: 14px 0 6px; color: #5a3410; font-size: 1.05rem; }
+.ort-leute { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.ort-person { display: flex; gap: 8px; align-items: center; padding: 6px; background: rgba(255,255,255,.35); border: 2px solid rgba(107,74,46,.35); }
+.ort-person canvas { image-rendering: pixelated; flex: none; }
+.ort-person .px-btn { margin-top: 4px; padding: 2px 8px; font-size: .85rem; }
+.ort-person.grau { opacity: .5; filter: grayscale(.9); }
+.ort-person.spieler { border-color: #b8862a; background: rgba(255,230,160,.4); }
+.tag-spieler { font-size: .7rem; padding: 0 5px; background: #b8862a; color: #fff6e0; text-transform: uppercase; letter-spacing: .05em; }
+.ort-quest { padding: 8px 10px; margin: 6px 0; background: rgba(255,255,255,.4); border: 2px solid rgba(107,74,46,.35); }
+.ort-weiter { display: flex; flex-wrap: wrap; gap: 6px; }
+.wk-reise { margin-top: 8px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 6px; }
+
+/* ---------- Beschäftigung, Fertigkeiten ---------- */
+.besch-grid .zettel select.besch-std { font: inherit; padding: 2px 4px; background: #f7ecd2; border: 2px solid #8a6a44; }
+.besch-bar { height: 8px; background: rgba(107,74,46,.25); border: 1px solid rgba(107,74,46,.5); margin: 6px 0 2px; }
+.besch-bar span { display: block; height: 100%; background: linear-gradient(90deg, #c9902c, #e8c060); transition: width 1s; }
+.fert-liste { margin-top: 10px; }
+.fert-liste h4 { margin: 6px 0 2px; }
+.fert-liste ul { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 3px; }
+.fert-liste li { display: grid; grid-template-columns: 1fr 96px 80px; gap: 8px; align-items: center; font-size: .9rem; }
+.fert-stufe { color: var(--gold-d); font-size: .85rem; }
+.fert-bar { height: 6px; background: rgba(0,0,0,.25); }
+.fert-bar i { display: block; height: 100%; background: var(--gold-d); }
+.hero-busy { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); white-space: nowrap; background: rgba(42,31,23,.9); color: var(--gold); font-size: .8rem; padding: 2px 8px; border: 2px solid var(--wood-d); font-family: var(--font-pixel); }

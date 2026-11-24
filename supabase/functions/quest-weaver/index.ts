@@ -185,6 +185,49 @@ async function gemini(key: string, user: string) {
   return { error: last };
 }
 
+// Nachschub: Wenn ein Spieler nur noch wenige ungespielte Geschichten hat, entsteht eine neue nach festem Bauplan.
+const ART_TEXT: Record<string, string> = {
+  kampf: "Schwerpunkt KAMPF: mindestens eine Konfrontation, bei der Gewalt eine echte Option ist, aber nicht die einzige. Gegner sind Menschen oder Tiere mit eigenen Gründen. Proben vor allem anpacken, flink, einschuechtern, spuren.",
+  denken: "Schwerpunkt NACHDENKEN: Ein Rätsel oder Rätselfall mit Hinweisen, die man finden und kombinieren muss. Falsche Fährten, ein Verdacht, der sich als falsch erweisen kann. Proben vor allem altes_wissen, spuren, menschenkenntnis, heilkunde.",
+  ueberzeugen: "Schwerpunkt ÜBERZEUGEN: Gespräche, in denen Haltungen aufeinanderprallen (Recht gegen Gnade, Gemeinschaft gegen Einzelnen, Wahrheit gegen Frieden). Psychologisch glaubwürdige Figuren, die man nur mit klugen Argumenten oder Einfühlung erreicht. Proben vor allem ueberreden, beruhigen, menschenkenntnis.",
+};
+async function nachschub(db: any, token: string) {
+  const key = Deno.env.get("GEMINI_API_KEY"); if (!key) return json({ ok: false, grund: "kein_schluessel" });
+  const c = await db.rpc("quest_nachschub_context", { p_token: token });
+  if (c.error) return json({ ok: false, grund: c.error.message });
+  const ctx = c.data, tid = ctx.tid;
+  const fail = async (grund: string) => { await db.rpc("quest_nachschub_fail", { p_token: token, p_tid: tid }); return json({ ok: false, grund }); };
+  const q = await db.rpc("ai_take_quota", { p_art: "quest" });
+  if (q.error || !q.data?.ok) return fail(q.data?.grund || "limit");
+  const ziel = [
+    `Eine neue Geschichte im Dorf des Helden (kein eigenes Ziel des Helden – ein Ereignis, das ihn betrifft). Thema: ${ctx.thema}`,
+    ART_TEXT[ctx.art] || "",
+    "Stil wie in großen erzählerischen Rollenspielen: Figuren mit eigenen Gründen und Geheimnissen, keine reinen Bösewichte, Entscheidungen mit spürbarem Preis, kein Ende ist rundum gut. Kurze, dichte Szenentexte mit sinnlichen Details. Wörtliche Rede in „…“.",
+    `Diese Titel gab es schon (nicht wiederholen): ${JSON.stringify(ctx.bisher || [])}.`,
+  ].join(" ");
+  const user = [
+    `Held: ${JSON.stringify(ctx.held)}. Begleiter: [].`,
+    `Dorf des Helden: ${ctx.dorf}. Bewohner (für Rollen A/B/C, npc_id verwenden): ${JSON.stringify(ctx.bewohner)}.`,
+    `Bisher erlebt (Chronik): ${JSON.stringify(ctx.chronik)}. Tagebuch: ${JSON.stringify(ctx.tagebuch)}.`,
+    `<ziel>${clip(ziel, 1400)}</ziel>`,
+  ].join("\n");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const g: any = await gemini(key, user);
+    if (g.error) return fail(g.error);
+    const out = g.data;
+    const villageIds = new Set((ctx.bewohner || []).map((b: any) => b.id));
+    const rollen: any = {}, namen: any = {};
+    for (const r of Array.isArray(out.rollen) ? out.rollen : []) if (ROLES.includes(r.key) && villageIds.has(r.npc_id) && !Object.values(rollen).includes(r.npc_id)) { rollen[r.key] = r.npc_id; namen[r.key] = clip(r.rolle, 40) || "Beteiligt"; }
+    const def = build(out, Object.keys(rollen), false);
+    if (!def) { console.error("Nachschub verworfen (Struktur)", g.model); continue; }
+    def.szenen["anreise"] = { ort: "dorf", text: clip(ctx.thema, 400), optionen: [{ text: "Der Sache nachgehen", weiter: "__ki_start" }] };
+    const ins = await db.rpc("quest_nachschub_install", { p_token: token, p_tid: tid, p_titel: clip(out.titel, 80), p_beschreibung: clip(ctx.thema, 400), p_def: { start: "anreise", szenen: def.szenen }, p_rollen: rollen, p_rollen_namen: namen });
+    if (ins.error) return fail(ins.error.message);
+    return json({ ok: true, titel: out.titel, szenen: Object.keys(def.szenen).length, modell: g.model });
+  }
+  return fail("geschichte_unbrauchbar");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Nur POST" }, 405);
@@ -193,6 +236,7 @@ Deno.serve(async (req) => {
   const token = Deno.env.get("MOSSHEART_FN_TOKEN") || "__FN_TOKEN__"; // beim Deploy eingesetzt, nicht im Repo
   const db = createClient(url, anon, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
   let body: any; try { body = await req.json(); } catch { return json({ error: "Ungültige Anfrage" }, 400); }
+  if (body && body.nachschub === true) return nachschub(db, token);
   const run = Number(body.run); if (!Number.isInteger(run) || run <= 0) return json({ error: "Ungültige Anfrage" }, 400);
   const fail = async (grund: string) => { await db.rpc("quest_custom_fail", { p_token: token, p_run: run }); return json({ ok: false, grund }); };
 

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=14';
+import { Scene, realMood } from './game/scene.js?v=15';
 import { openCreator } from './game/creator.js?v=4';
 import { buildTalk } from './game/dialog.js?v=7';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
@@ -12,11 +12,11 @@ import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
 import { drawIcon } from './game/icons.js?v=2';
 import { SW, SH } from './game/chars.js?v=4';
-import { openQuest } from './game/questui.js?v=13';
-import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=2';
+import { openQuest, ortBildCanvas, dauerText } from './game/questui.js?v=14';
+import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=3';
 let weltkarte = null;
 import { playMinigame } from './game/minigames.js?v=2';
-import { playBattle } from './game/horde.js?v=6';
+import { playBattle } from './game/horde.js?v=7';
 import { iconURL } from './game/kampf_icons.js?v=3';
 const KAMPF = () => `<img class="q-kicon" src="${iconURL('kampf')}" alt="">`;
 
@@ -136,7 +136,7 @@ function showTip(html, anchorOrPoint) {
 function hideTip() { $('tooltip').hidden = true; }
 
 function openMenu(id) {
-  if (id === 'karte') { closePanel(); weltkarte ||= new Weltkarte({ db, onClose: () => document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === active)) }); weltkarte.oeffnen(); document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === 'karte')); return; }
+  if (id === 'karte') { closePanel(); weltkarte ||= new Weltkarte({ db, aktion: karteAktion, onClose: () => document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === active)) }); weltkarte.oeffnen(); document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === 'karte')); return; }
   const same = id === active && !$('panel').hidden;
   active = id;
   document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === id));
@@ -182,6 +182,8 @@ function renderPanel(id) {
       t.innerHTML = `<b>${esc(me.name)}</b><br>${esc(r.name)} · ${esc(hk.name)}<br><span class="small">${esc(hk.desc)}</span><br><span class="attrs small">${Object.entries(ATTRS).map(([k, n]) => `<span>${n} ${'●'.repeat(at[k])}${'○'.repeat(6 - at[k])}</span>`).join('')}</span>`;
       wrap.append(cv, t); body.append(wrap);
       body.append(p('Eigenschaften entscheiden über Antwortmöglichkeiten und Würfe in Gesprächen. Ausrüstung, Wunden und Narben folgen.', 'muted small'));
+      const fb = document.createElement('div'); body.append(fb);
+      db.rpc('beschaeftigung_status').then(({ data }) => { if (data) fb.append(fertigkeitenListe(data.fertigkeiten || {})); });
     }
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
   } else if (id === 'quests') {
@@ -439,7 +441,7 @@ function showSelCard(obj) {
 const BUILDINGS_NAME = (t) => t;
 async function startTalk(p) {
   if (questWin || !imDorf(p)) return;
-  const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = '<p class="muted small">…</p>'; $('selcard').hidden = true; clearInterval(selTimer);
+  const box = $('dialog'); p.talking = true; box.hidden = false; box.innerHTML = '<p class="muted small">…</p>'; $('selcard').hidden = true; clearInterval(selTimer); document.body.classList.add('im-dialog');
   const online = p.id && p.id < 1000, conv = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).slice(0, 36);
   // Was diese Figur weiß (nur Schlüssel, keine Geheimnisse) und ob die KI heute noch antworten kann
   let brief = null;
@@ -448,9 +450,9 @@ async function startTalk(p) {
     if (!b1.error) brief = b1.data; if (!b2.error && b2.data) aiState = b2.data;
   }
   box.innerHTML = '';
-  const fr = scene.village.people.find((q) => q.id === p.freund);
+  const fr = p.fremd ? null : scene.village.people.find((q) => q.id === p.freund);
   const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
-  const gebaeude = [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map((g) => ({ nom: withArticle(g), akk: withArticleAkk(g) }));
+  const gebaeude = p.fremd ? [] : [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map((g) => ({ nom: withArticle(g), akk: withArticleAkk(g) }));
   const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
     race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, rivale: brief?.rivale || null, dorf: brief?.dorf || null, whenText });
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
@@ -464,7 +466,7 @@ async function startTalk(p) {
   const note = (html) => { const el = document.createElement('p'); el.className = 'note'; el.innerHTML = html; log.append(el); log.scrollTop = log.scrollHeight; };
   const end = () => {
     if (closed) return; closed = true;
-    document.removeEventListener('keydown', onKey); p.talking = false; box.hidden = true; box.innerHTML = '';
+    document.removeEventListener('keydown', onKey); p.talking = false; box.hidden = true; box.innerHTML = ''; document.body.classList.remove('im-dialog'); if (p.fremd) p.onEnde?.();
     if (scene.selection?.person === p) showSelCard(scene.selection);
     if (online && spoken >= 2) writeEncounterNote(p, history, highlights, spoken, aiUsed);
   };
@@ -675,7 +677,7 @@ function launchQuest(view) {
   closePanel(); $('dialog').hidden = true; $('selcard').hidden = true;
   setTimeout(() => { loadAmt(false); db.rpc('get_my_residents').then(({ data, error }) => { if (!error) scene.setResidents(imDorfFilter(data)); }); }, 600);
   questWin = openQuest({ db, box: $('questbox'), view, heroPlan: heroPlan(), companionCv, CHECKS, ATTRS, reiseKarte: async () => reiseZeichner(await reiseDaten(db, true)),
-    onClose: (changed) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } checkAmtPopups(); db.rpc('get_my_residents').then(({ data, error }) => { if (!error) scene.setResidents(imDorfFilter(data)); }); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
+    onClose: (changed, extra) => { questWin = null; if (changed) { loadVillageState(); refreshHero(true); } checkAmtPopups(); if (extra?.abschluss) showAbschluss(extra); db.rpc('get_my_residents').then(({ data, error }) => { if (!error) scene.setResidents(imDorfFilter(data)); }); if (['quest', 'quests', 'inventar'].includes(active) && !$('panel').hidden) renderPanel(active); } });
 }
 async function resumeQuest(run) {
   const { data, error } = await db.rpc('quest_view', { p_run: run });
@@ -707,12 +709,207 @@ async function heuteHinweis() {
   toast(`<b>Heute im Dorf:</b> ${liste} ${offen.length > 1 ? 'könnten' : 'könnte'} deine Hilfe gebrauchen. Schau unter <b>Quests</b> vorbei.`, 9000);
   try { localStorage.setItem(key, '1'); } catch { /* egal */ }
 }
+/* ───────────── Reisen, fremde Orte, Beschäftigung, Abschluss ───────────── */
+const ORT_ART = { grossstadt: 'Großstadt', stadt: 'Stadt', dorf: 'Dorf', burg: 'Burg' };
+const FERT_IDS = ['anpacken', 'flink', 'spuren', 'heilkunde', 'ueberreden', 'einschuechtern', 'beruhigen', 'feilschen', 'menschenkenntnis', 'altes_wissen', 'kampf'];
+const FERT_STUFE = ['Ungeübt', 'Anfänger', 'Geübt', 'Erfahren', 'Gewandt', 'Meister', 'Großmeister'];
+const FERT_NAME = (id) => (id === 'kampf' ? 'Waffenübung' : CHECKS[id]?.name || id);
+function bestaetige({ titel, text, ja = 'Ja', nein = 'Abbrechen' }) {
+  return new Promise((res) => {
+    const { box, close } = amtOverlay(); box.classList.add('frage');
+    box.innerHTML = `<h2>${esc(titel)}</h2><p>${esc(text)}</p>`;
+    box.append(row(btn(ja, true, () => { close(); res(true); }), btn(nein, false, () => { close(); res(false); })));
+  });
+}
+// Vor langen Entscheidungen: wie lange bin ich weg?
+async function aufbruchOk(id, titel) {
+  const { data: d, error } = await db.rpc('quest_dauer', { p_quest: id });
+  if (error || !d || (d.max || 0) < 20) return true;
+  const weg = d.min === d.max ? `ca. ${dauerText(d.max)}` : `je nach Weg ${dauerText(d.min)} bis ${dauerText(d.max)}`;
+  return bestaetige({ titel: `Aufbrechen: ${titel}`, text: `Die Wege dauern ${weg}${d.heimweg ? `, dazu kommt der Rückweg (ca. ${dauerText(d.heimweg)})` : ''}.${d.kampf ? ` Unterwegs wartet ein Kampf (ca. ${d.kampf} Min.).` : ''} Solange du fort bist, kannst du im Dorf nichts tun und dein Platz dort bleibt leer.`, ja: 'Aufbrechen' });
+}
+let zieleCache = null, zieleAt = 0;
+async function reiseZiele(neu = false) {
+  if (!neu && zieleCache && Date.now() - zieleAt < 20000) return zieleCache;
+  const { data, error } = await db.rpc('reise_ziele'); if (error) { console.warn('Reiseziele:', error.message); return null; }
+  zieleCache = data; zieleAt = Date.now(); return data;
+}
+async function reisen(ziel, z) {
+  const an = new Date(Date.now() + ziel.minuten * 60000).toISOString();
+  const ok = await bestaetige({ titel: ziel.heim ? `Heim nach ${ziel.name}` : `Reise nach ${ziel.name}`,
+    text: `Von ${z.von_name || 'hier'} aus bist du ca. ${dauerText(ziel.minuten)} zu Fuß unterwegs – Ankunft gegen ${clock(an)} Uhr.${ziel.heim ? '' : ' Solange du fort bist, kannst du daheim nichts tun und dein Platz im Dorf bleibt leer.'}`, ja: 'Aufbrechen' });
+  if (!ok) return;
+  const { data, error } = await db.rpc('reise_start', { p_ziel: ziel.heim ? 'heim' : ziel.id });
+  if (error) { toast(esc(error.message)); return; }
+  zieleCache = null; document.querySelector('.ort-overlay')?.remove();
+  toast(`<b>Du brichst auf nach ${esc(data.ziel_name)}.</b> Ankunft gegen ${clock(data.ankunft)} Uhr.`, 8000);
+  loadAmt(false);
+}
+// Info-Karte der Weltkarte: Reise-Knopf für die Orte, die man besuchen kann
+function karteAktion(o, box) {
+  const slot = document.createElement('div'); slot.className = 'wk-reise'; box.append(slot);
+  reiseZiele().then((z) => {
+    if (!z || !slot.isConnected) return; const ziel = (z.ziele || []).find((x) => x.id === o.id); if (!ziel) return;
+    if (ziel.hier) {
+      slot.append(p(z.zustand === 'ort' ? 'Hier bist du gerade.' : 'Hier ist dein Zuhause.', 'small muted'));
+      if (z.zustand === 'ort') slot.append(row(btn('Ort ansehen', true, () => { weltkarte?.schliessen?.(); openOrt(); })));
+      return;
+    }
+    if (!['daheim', 'ort'].includes(z.zustand)) { slot.append(p('Reisen kannst du, sobald du nicht mehr unterwegs bist.', 'small muted')); return; }
+    slot.append(row(btn(`${ziel.heim ? 'Heimreisen' : 'Hinreisen'} · ca. ${dauerText(ziel.minuten)}`, true, () => reisen(ziel, z))));
+  });
+}
+// Ein fremder Ort: Leute, Spieler, Aufgaben, Weiterreise
+async function openOrt() {
+  const { data: o, error } = await db.rpc('ort_besuch');
+  if (error || !o) { toast(error ? esc(error.message) : 'Du bist gerade nicht in einem fremden Ort.'); return; }
+  document.querySelector('.ort-overlay')?.remove();
+  const { ov, box, close } = amtOverlay(); ov.classList.add('ort-overlay'); box.classList.add('ort-box');
+  box.append(ortBildCanvas(o.bild));
+  const kopf = document.createElement('div');
+  kopf.innerHTML = `<span class="amt-label">${esc(ORT_ART[o.art] || 'Ort')}${o.reich?.name ? ' · ' + esc(o.reich.name) : ''}</span><h2>${esc(o.name)}</h2><p>${esc(o.text || '')}</p>${o.existenz ? `<p class="small muted">${esc(o.existenz)}</p>` : ''}`;
+  box.append(kopf, h3('Leute hier'));
+  const grid = document.createElement('div'); grid.className = 'ort-leute'; box.append(grid);
+  const karte = (look, name, html, cls) => { const d = document.createElement('div'); d.className = 'ort-person ' + (cls || ''); d.append(portraitCanvas(planFromLook(look, name), 56)); const t = document.createElement('div'); t.innerHTML = html; d.append(t); grid.append(d); return t; };
+  for (const sp of o.spieler || []) karte(sp.look, sp.name, `<b>${esc(sp.name)}</b> <span class="tag-spieler">Spieler</span><br><span class="small">${sp.hausherr ? 'wohnt hier' : 'zu Gast aus ' + esc(sp.heimat || 'der Fremde')}</span>`, 'spieler');
+  for (const n of o.bewohner || []) {
+    if (n.namenlos) { karte(n.look, n.name, `<span>${esc(n.beruf)}</span><br><span class="small">kennt dich nicht</span>`, 'grau'); continue; }
+    const t = karte(n.look, n.name, `<b>${esc(n.name)}</b> · <span class="small">${esc(n.beruf)}</span><br><span class="small muted">${esc(n.kennt ? n.stimmung : 'fremd')}${n.zustand !== 'gesund' ? ' · ' + esc(n.zustand) : ''}</span>`);
+    t.append(btn('Ansprechen', false, () => {
+      close();
+      startTalk({ id: n.id, name: n.name, job: n.beruf, plan: planFromLook(n.look, n.name), wesen: n.wesen, stimmung: n.kennt ? n.stimmung : 'fremd', fremd: true, onEnde: () => setTimeout(openOrt, 250) });
+    }));
+  }
+  if (!(o.spieler || []).length && !(o.bewohner || []).length) grid.append(p('Niemand zu sehen.', 'muted small'));
+  if ((o.quests || []).length) {
+    box.append(h3('Was es hier zu tun gibt'));
+    for (const q of o.quests) {
+      const z = document.createElement('div'); z.className = 'ort-quest';
+      z.innerHTML = `<b>${esc(q.titel)}</b>${q.erledigt ? ' <span class="muted small">· schon erlebt</span>' : ''}<p class="small">${esc(q.kurz || q.beschreibung || '')}</p>${q.dauer?.kampf ? `<p class="small q-kampfhint">${KAMPF()}Mit Kampf (ca. ${q.dauer.kampf} Min.)</p>` : ''}`;
+      const msg = p('', 'small error');
+      z.append(row(btn(q.erledigt ? 'Nochmal erleben (Testphase)' : 'Darauf einlassen', true, async () => {
+        if (!(await aufbruchOk(q.id, q.titel))) return;
+        const { data: r, error: e } = await db.rpc('quest_start', { p_quest: q.id, p_begleiter: [] });
+        if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
+        close(); launchQuest(r.view);
+      })), msg);
+      box.append(z);
+    }
+  }
+  box.append(h3('Weiterreisen'));
+  const wl = document.createElement('div'); wl.className = 'ort-weiter'; box.append(wl);
+  reiseZiele(true).then((z) => {
+    for (const ziel of (z?.ziele || []).filter((x) => !x.hier)) wl.append(btn(`${ziel.heim ? 'Heim nach ' : ''}${ziel.name} · ca. ${dauerText(ziel.minuten)}`, !!ziel.heim, () => { close(); reisen(ziel, z); }));
+  });
+  box.append(row(btn('Schließen', false, close)));
+}
+// Zusammenfassung nach einem Abenteuer
+function showAbschluss({ abschluss: a, weg }) {
+  if (!a) return;
+  const { box, close } = amtOverlay(); box.classList.add('abschluss');
+  const ert = (a.ertrag || []).filter(Boolean);
+  const wege = (a.wege || []).slice().reverse();
+  const wegTxt = !weg ? '' : weg.daheim ? (weg.minuten ? `Du machst dich auf den Heimweg. <b>Zurück im Dorf gegen ${clock(weg.ankunft)} Uhr</b> (ca. ${dauerText(weg.minuten)}). Bis dahin ist dein Platz im Dorf leer.` : 'Du bist wieder daheim.')
+    : weg.minuten ? `Du ziehst weiter nach <b>${esc(weg.ziel_name)}</b> – Ankunft gegen ${clock(weg.ankunft)} Uhr (ca. ${dauerText(weg.minuten)}).` : `Du bleibst in <b>${esc(weg.ziel_name)}</b> und siehst dich um.`;
+  box.innerHTML = `<span class="amt-label">Abenteuer abgeschlossen</span><h2>${esc(a.titel)}</h2>
+    <p class="small muted">${[a.minuten >= 2 ? `${dauerText(a.minuten)} seit dem Aufbruch` : '', a.gelaufen >= 1 ? `${dauerText(a.gelaufen)} auf Wegen` : '', a.begleiter?.length ? `mit ${esc(liste(a.begleiter))}` : ''].filter(Boolean).join(' · ')}</p>
+    ${wege.length ? `<h4>Deine Entscheidungen</h4><ol class="abs-wege">${wege.map((w) => `<li>${esc(w)}</li>`).join('')}</ol>` : ''}
+    ${ert.length ? `<h4>Was es dir eingebracht hat</h4><ul class="abs-ertrag">${ert.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="small muted">Diesmal bleibt dir vor allem die Erinnerung.</p>'}
+    ${wegTxt ? `<p class="abs-weg">${wegTxt}</p>` : ''}`;
+  box.append(row(btn('Weiter', true, () => { close(); if (weg && !weg.daheim && !weg.minuten) openOrt(); })));
+  loadAmt(false);
+}
+// Beschäftigung (1–12 Stunden) und Fertigkeiten
+function fertigkeitenListe(f) {
+  const d = document.createElement('div'); d.className = 'fert-liste';
+  d.innerHTML = `<h4>Deine Fertigkeiten</h4><p class="small muted">Steigen durch Übung und ein wenig durch Proben in Abenteuern. Ab „Anfänger“ +1 auf Proben, ab „Erfahren“ +2, ab „Meister“ +3. Waffenübung macht dich im Kampf stärker.</p>
+    <ul>${FERT_IDS.map((id) => { const x = f[id] || { xp: 0, stufe: 0 }; const prev = 3 * x.stufe * (x.stufe + 1), nxt = 3 * (x.stufe + 1) * (x.stufe + 2); const t = x.stufe >= 6 ? 1 : (x.xp - prev) / (nxt - prev);
+      return `<li><span>${esc(FERT_NAME(id))}</span><span class="fert-stufe">${esc(FERT_STUFE[x.stufe] || '')}</span><span class="fert-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, t)) * 100)}%"></i></span></li>`; }).join('')}</ul>`;
+  return d;
+}
+function showFeierabend(r) {
+  if (!r) return;
+  const { box, close } = amtOverlay(); box.classList.add('abschluss');
+  box.innerHTML = `<span class="amt-label">${r.abbruch ? 'Früher aufgehört' : 'Feierabend'}</span><h2>${esc(r.name)}</h2>
+    <p>${esc(dauerText(r.stunden * 60))} gearbeitet${r.mit ? ` – zusammen mit ${esc(r.mit)}` : ''}.</p>${r.ertrag ? `<p>${esc(r.ertrag)}</p>` : ''}
+    <h4>Geübt</h4><ul class="abs-ertrag">${(r.fertigkeiten || []).map((f) => `<li>${esc(FERT_NAME(f.id))}: ${esc(FERT_STUFE[f.nachher] || '')}${f.nachher > f.vorher ? ' <b class="ok">– du bist besser geworden!</b>' : ''}</li>`).join('')}</ul>`;
+  box.append(row(btn('Gut', true, close)));
+  scene?.setBusy(null);
+}
+async function beschCheck() {
+  const { data, error } = await db.rpc('beschaeftigung_status'); if (error || !data) return;
+  scene?.setBusy(data.aktiv ? `${data.aktiv.name} · bis ${clock(data.aktiv.bis)} Uhr` : null);
+  if (data.fertig) showFeierabend(data.fertig);
+  return data;
+}
+function renderBeschaeftigung(wrap) {
+  wrap.append(schild('Den Tag verbringen'));
+  const box = document.createElement('div'); box.className = 'besch'; box.append(p('…', 'small muted')); wrap.append(box);
+  db.rpc('beschaeftigung_status').then(({ data: b, error }) => {
+    box.innerHTML = ''; if (error || !b) { box.append(p('Konnte nicht geladen werden.', 'error')); return; }
+    if (b.fertig) showFeierabend(b.fertig);
+    scene?.setBusy(b.aktiv ? `${b.aktiv.name} · bis ${clock(b.aktiv.bis)} Uhr` : null);
+    box.append(p('Keine Lust auf Geschichten? Dann pack im Dorf mit an oder übe etwas – 1 bis 12 Stunden lang. Dein Charakter ist in der Zeit beschäftigt und im Dorf zu sehen. Du kannst jederzeit aufhören und bekommst, was du bis dahin geschafft hast. Wer etwas oft tut, wird darin besser.', 'brett-hinweis small'));
+    if (b.aktiv) {
+      const z = zettel('besch-aktiv', -0.4), ab = new Date(b.aktiv.start).getTime(), bis = new Date(b.aktiv.bis).getTime();
+      z.innerHTML = `<b>${esc(b.aktiv.name)}</b><p class="small">Du ${esc(b.aktiv.taetigkeit)} – bis gegen ${clock(b.aktiv.bis)} Uhr.</p><div class="besch-bar"><span></span></div><p class="small muted besch-rest"></p>`;
+      const upd = () => {
+        const bar = z.querySelector('.besch-bar span'); if (!bar || !bar.isConnected) return clearInterval(window.__beschTimer);
+        bar.style.width = (Math.min(1, (Date.now() - ab) / (bis - ab)) * 100).toFixed(1) + '%';
+        const ms = bis - Date.now(); z.querySelector('.besch-rest').textContent = ms > 0 ? `noch ${dauerText(ms / 60000)}` : 'Feierabend!';
+        if (ms <= 0) { clearInterval(window.__beschTimer); beschCheck().then(() => { if (active === 'quests' && !$('panel').hidden) renderPanel('quests'); }); }
+      };
+      upd(); clearInterval(window.__beschTimer); window.__beschTimer = setInterval(upd, 15000);
+      z.append(row(btn('Aufhören (anteilig)', false, async () => {
+        const { data, error: e } = await db.rpc('beschaeftigung_abbrechen'); if (e) { toast(esc(e.message)); return; }
+        if (data?.ergebnis) showFeierabend(data.ergebnis); scene?.setBusy(null); renderPanel('quests');
+      })));
+      box.append(z);
+    } else if (!b.frei) box.append(p('Gerade bist du nicht im Dorf. Beschäftigen kannst du dich, wenn du daheim bist.', 'muted small'));
+    const g = document.createElement('div'); g.className = 'zettel-grid besch-grid'; box.append(g);
+    b.arten.forEach((a, i) => {
+      const z = zettel('besch-art', ROT[(i + 1) % ROT.length]);
+      z.innerHTML = `<b>${esc(a.name)}</b><p class="small">${esc(a.text)}</p><p class="small muted">Übt: ${a.fert.map((f) => `${esc(FERT_NAME(f))} (${esc(FERT_STUFE[b.fertigkeiten[f]?.stufe || 0])})`).join(', ')}</p>`;
+      if (!b.aktiv && b.frei) {
+        const sel = document.createElement('select'); sel.className = 'besch-std';
+        for (const h of [1, 2, 3, 4, 6, 8, 10, 12]) { const op = document.createElement('option'); op.value = h; op.textContent = h + (h === 1 ? ' Stunde' : ' Stunden'); if (h === 3) op.selected = true; sel.append(op); }
+        const msg = p('', 'small error');
+        z.append(row(sel, btn('Loslegen', true, async () => {
+          if (!imDorf()) return;
+          const { error: e } = await db.rpc('beschaeftigung_start', { p_art: a.id, p_stunden: +sel.value });
+          if (e) { msg.textContent = e.message; return; }
+          toast(`<b>${esc(a.name)}</b> – bis gegen ${clock(new Date(Date.now() + sel.value * 3600e3).toISOString())} Uhr.`); beschCheck(); renderPanel('quests');
+        })), msg);
+      }
+      g.append(z);
+    });
+    box.append(fertigkeitenListe(b.fertigkeiten || {}));
+  });
+}
+// Neue Geschichten, wenn nur noch wenige ungespielt sind (die KI schreibt nach festem Bauplan)
+let nachschubLaeuft = false, nachschubVersucht = false;
+function nachschub(n) {
+  if (!n?.noetig || n.schreibt || nachschubLaeuft || nachschubVersucht) return;
+  nachschubVersucht = true; nachschubLaeuft = true;
+  db.functions.invoke('quest-weaver', { body: { nachschub: true } }).then(({ data, error }) => {
+    nachschubLaeuft = false;
+    if (error || !data?.ok) { console.warn('Nachschub:', error?.message || data?.grund); return; }
+    toast(`<b>Eine neue Geschichte ist da:</b> „${esc(data.titel)}“. Du findest sie unter Quests bei den Geschichten.`, 9000);
+    if (active === 'quests' && !$('panel').hidden) renderPanel('quests');
+  });
+}
+
 /* ───────────── Schwarzes Brett: Hauptquest, Aushänge, Bitten, Aufträge ───────────── */
 let amt = null, unterwegs = null;
 function imDorf(p) {
+  if (p?.fremd) return true;
   if (!unterwegs) return true;
   if (p && (unterwegs.begleiter || []).map(Number).includes(Number(p.id))) return true;
-  toast(`<b>Du bist unterwegs</b> („${esc(unterwegs.titel)}“). Im Dorf kannst du erst wieder etwas tun, wenn du zurück bist.`, 6000);
+  const u = unterwegs;
+  toast(u.zustand === 'ort' ? `<b>Du bist in ${esc(u.ort_name)}.</b> Daheim kannst du erst wieder etwas tun, wenn du zurückgereist bist.`
+    : u.zustand === 'weg' ? `<b>Du bist auf dem Weg nach ${esc(u.nach_name)}</b> (Ankunft gegen ${clock(u.bis)} Uhr).`
+    : u.zustand === 'wahl' ? '<b>Dein Abenteuer ist vorbei.</b> Wähle erst deinen Weg: heimkehren, bleiben oder weiterziehen.'
+    : `<b>Du bist unterwegs</b> („${esc(u.titel)}“). Im Dorf kannst du erst wieder etwas tun, wenn du zurück bist.`, 6000);
   return false;
 }
 function setUnterwegs(u) {
@@ -722,8 +919,22 @@ function setUnterwegs(u) {
   let b = $('unterwegs-banner');
   if (!unterwegs) { if (b) b.remove(); return; }
   if (!b) { b = document.createElement('div'); b.id = 'unterwegs-banner'; b.className = 'ui'; document.body.append(b); }
-  b.innerHTML = `<span class="ub-label">Unterwegs</span><b>${esc(unterwegs.titel)}</b><span class="small">Dein Platz im Dorf ist leer, bis du zurückkehrst.</span>`;
-  const go = btn(unterwegs.reist ? 'Zur Reise' : 'Weiterspielen', true, () => resumeQuest(unterwegs.run)); b.append(go);
+  const u = unterwegs;
+  if (u.zustand === 'weg') {
+    b.innerHTML = `<span class="ub-label">Unterwegs</span><b>Nach ${esc(u.nach_name)}</b><span class="small">Ankunft gegen ${clock(u.bis)} Uhr · noch <span class="ub-rest"></span></span>`;
+    const tick = () => { const el = b.querySelector('.ub-rest'); if (!el || !el.isConnected) return clearInterval(window.__ubTimer); const ms = new Date(u.bis) - Date.now(); if (ms <= 0) { clearInterval(window.__ubTimer); el.textContent = 'gleich da'; setTimeout(() => loadAmt(false), 1500); return; } el.textContent = dauerText(ms / 60000); };
+    clearInterval(window.__ubTimer); tick(); window.__ubTimer = setInterval(tick, 20000);
+    b.append(btn('Karte', false, () => openMenu('karte')));
+  } else if (u.zustand === 'ort') {
+    b.innerHTML = `<span class="ub-label">In der Fremde</span><b>${esc(u.ort_name)}</b><span class="small">Dein Platz im Dorf ist leer, bis du zurückkehrst.</span>`;
+    b.append(btn('Ort ansehen', true, () => openOrt()));
+  } else if (u.zustand === 'wahl') {
+    b.innerHTML = `<span class="ub-label">Reise zu Ende</span><b>${esc(u.titel)}</b><span class="small">Wohin jetzt? Heim, bleiben oder weiterziehen.</span>`;
+    b.append(btn('Weg wählen', true, () => resumeQuest(u.run)));
+  } else {
+    b.innerHTML = `<span class="ub-label">Unterwegs</span><b>${esc(u.titel)}</b><span class="small">Dein Platz im Dorf ist leer, bis du zurückkehrst.</span>`;
+    b.append(btn(u.reist ? 'Zur Reise' : 'Weiterspielen', true, () => resumeQuest(u.run)));
+  }
 }
 const imDorfFilter = (d) => d && Array.isArray(d.residents) ? { ...d, residents: d.residents.filter((r) => !r.unterwegs) } : d;
 const ART_NAME = { rechtsfall: 'Rechtsfall', krise: 'Krise', koenig: 'Brief des Königs', bittsteller: 'Bittsteller', handel: 'Handel', nachbarn: 'Nachbarn', dorfleben: 'Dorfleben', bau: 'Bauen & Schützen' };
@@ -814,6 +1025,7 @@ function renderHaupt(wrap, list) {
       const open = btn(c.erledigt ? 'Erneut antreten' : 'Aufbrechen', true, () => {
         open.remove(); const pk = companionPicker(list.begleiter); const msg = p('', 'small error');
         z.append(pk.el, row(btn('Los geht’s', true, async () => {
+          if (!(await aufbruchOk('chronik_' + c.kapitel, c.titel))) return;
           const { data: r, error: e } = await db.rpc('chronik_start', { p_begleiter: [...pk.chosen] });
           if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
           launchQuest(r.view);
@@ -889,7 +1101,7 @@ function renderUnterwegs(wrap, h) {
   const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
   const e = h.erkunden || {};
   const ec = zettel('', -0.9);
-  ec.innerHTML = `<b>Umgebung erkunden</b><p class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Geht auch, während du auf einer größeren Reise bist.</p><p class="small q-kampfhint">${KAMPF()}Manche enden in einem Kampf (ca. 10 Min.).</p>`;
+  ec.innerHTML = `<b>Umgebung erkunden</b><p class="small">Kurze Streifzüge rund ums Dorf: Bachläufe, Ruinen, Fremde am Weg. Du bist gleich wieder zurück.</p><p class="small q-kampfhint">${KAMPF()}Manche enden in einem Kampf (ca. 10 Min.).</p>`;
   if (e.lauf) ec.append(row(btn('Weiter erkunden', true, () => resumeQuest(e.lauf))));
   else if (e.rest > 0) {
     const msg = p('', 'small error');
@@ -902,18 +1114,6 @@ function renderUnterwegs(wrap, h) {
     })), msg);
   } else ec.append(p('Für heute bist du genug herumgestreift. Morgen gibt es Neues.', 'muted small'));
   g.append(ec);
-  const uc = zettel('', 1.1);
-  let rek = 0; try { rek = +localStorage.getItem('mh_uebung_rekord') || 0; } catch { /* egal */ }
-  uc.innerHTML = `<span class="q-kampfbadge">${KAMPF()}Kampf</span> <b>Übungsplatz</b><p class="small">Kämpfe, so lange du durchhältst. Keine Folgen, keine Beute.${rek ? ` Dein Rekord: ${Math.floor(rek / 60)}:${String(rek % 60).padStart(2, '0')}.` : ''}</p>`;
-  const gegnerWahl = [['wald', 'Moderwald', 'wald'], ['banditen', 'Söldner', 'wald'], ['gruft', 'Gruft', 'hoehle'], ['berg', 'Bergwinter', 'berg'], ['wildnis', 'Wildnis', 'wald']];
-  const r2 = document.createElement('div'); r2.className = 'row';
-  for (const [gid, gname, gort] of gegnerWahl) r2.append(btn(gname, false, async () => {
-    const { data: kw } = await db.rpc('kampf_werte');
-    const res = await playBattle({ titel: `Übungsplatz: ${gname}`, text: 'Alle 5 Minuten taucht ein Anführer auf.', dauer: 0, schwer: 2, gegner: gid, ort: gort, heroPlan: heroPlan(), helfer: kw?.helfer || [], meta: kw || {}, rekord: rek });
-    try { if (res.zeit > rek) localStorage.setItem('mh_uebung_rekord', String(res.zeit)); } catch { /* egal */ }
-    if (!$('panel').hidden && active === 'quests') renderPanel('quests');
-  }));
-  uc.append(r2); g.append(uc);
 }
 const SLOT = { einfach: ['Leicht', 'q-leicht'], mittel: ['Mittel', 'q-mittel'], schwer: ['Schwer', 'q-schwer'], individuell: ['Individuell', 'q-indiv'] };
 function renderQuests(body) {
@@ -933,6 +1133,7 @@ function renderQuests(body) {
     }
     renderAushaenge(wrap);
     if (hh.data) renderHeute(wrap, hh.data); else if (hh.error) console.warn('Heute:', hh.error.message);
+    renderBeschaeftigung(wrap);
     wrap.append(schild('Aufträge am Brett'));
     wrap.append(p('Jeden Tag neu (ab Mitternacht). Die Geschichten spielen mit echten Bewohnern deines Dorfes – was du tust, merken sie sich.', 'brett-hinweis small'));
     const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
@@ -940,11 +1141,13 @@ function renderQuests(body) {
       const [lab, cls] = SLOT[o.slot];
       const z = zettel('auftrag ' + cls + (o.status === 'erledigt' ? ' erledigt' : ''), ROT[(i + 2) % ROT.length]);
       z.innerHTML = `<span class="q-slot">${lab}</span>${o.kampf ? ` <span class="q-kampfbadge" title="In diesem Abenteuer kommt es zu einem Kampf.">${KAMPF()}ca. ${o.kampf} Min.</span>` : ''}<b class="auf-titel">${esc(o.titel)}</b>${o.status === 'erledigt' ? ' <span class="muted small">· erledigt</span>' : o.status === 'angenommen' ? ' <span class="muted small">· läuft</span>' : ''}<p class="small">${esc(o.kurz)}</p><p class="muted small">Beteiligt: ${o.rollen.map((r) => `${esc(r.name)} (${esc(r.beruf)})`).join(', ')}</p>`;
+      if (o.status === 'offen' && list.laufend) z.append(p('Erst die laufende Reise beenden – du kannst nur auf einer gleichzeitig sein.', 'muted small'));
       if (o.status === 'offen' && !list.laufend) {
         const open = btn('Ansehen', false, () => {
           open.remove();
           const pk = companionPicker(list.begleiter, new Set(o.rollen.map((r) => r.id))); const msg = p('', 'small error');
           z.append(pk.el, row(btn('Aufbrechen', true, async () => {
+            if (o.template && !(await aufbruchOk(o.template, o.titel))) return;
             const { data: r, error: e } = await db.rpc('quest_take', { p_angebot: o.id, p_begleiter: [...pk.chosen] });
             if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
             launchQuest(r.view);
@@ -980,17 +1183,21 @@ function renderQuests(body) {
     }
     wrap.append(ic);
     // Größere Geschichten (Nebenquests, freigeschaltet durch Wissen)
+    if (list.nachschub) nachschub(list.nachschub);
     if (list.quests.length) {
       wrap.append(schild('Geschichten'));
+      if (list.nachschub?.schreibt || nachschubLaeuft) wrap.append(p('Eine neue Geschichte wird gerade für dich geschrieben … sie erscheint hier in ein paar Minuten.', 'brett-hinweis small'));
       const g2 = document.createElement('div'); g2.className = 'zettel-grid'; wrap.append(g2);
       list.quests.forEach((q, i) => {
         const z = zettel('geschichte' + (q.offen ? '' : ' gesperrt'), ROT[(i + 5) % ROT.length]);
         z.innerHTML = `<b>${esc(q.titel)}</b>${q.erledigt ? ' <span class="muted small">· schon erlebt</span>' : ''}<p class="small">${esc(q.beschreibung)}</p>`;
         if (!q.offen) { z.append(p(q.hinweis ? `Du weißt noch zu wenig darüber. Vielleicht erzählen dir ${q.hinweis} mehr.` : 'Du weißt noch zu wenig darüber.', 'muted small')); g2.append(z); return; }
+        if (list.laufend) z.append(p('Erst die laufende Reise beenden.', 'muted small'));
         if (!list.laufend) {
           const open = btn('Ansehen', false, () => {
             open.remove(); const pk = companionPicker(list.begleiter); const msg = p('', 'small error');
             z.append(pk.el, row(btn(q.erledigt ? 'Nochmal erleben (Testphase)' : 'Aufbrechen', true, async () => {
+              if (!(await aufbruchOk(q.id, q.titel))) return;
               const { data: r, error: e } = await db.rpc('quest_start', { p_quest: q.id, p_begleiter: [...pk.chosen] });
               if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
               launchQuest(r.view);
@@ -1198,7 +1405,7 @@ async function startGame() {
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
     if (me.look) { refreshHero(true); if (!me.startpaket) setTimeout(() => showCreator(false, true), 800); } else showCreator(true);
   });
-  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); }, 120000);
+  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); beschCheck(); }, 120000); beschCheck();
   setTimeout(async () => { await checkAmtPopups(); if (amt?.offen?.length && !document.querySelector('.amt-overlay')) toast(`<b>Am Brett:</b> ${amt.offen.length === 1 ? 'Ein Aushang wartet' : amt.offen.length + ' Aushänge warten'} auf deine Entscheidung als Dorfmeister.`, 9000); }, 3000);
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;

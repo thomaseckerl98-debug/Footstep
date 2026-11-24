@@ -709,6 +709,15 @@ do $p$ declare d text; begin
 end $p$;
 
 do $p$ declare d text; begin
+  d := pg_get_functiondef('public.quest_board()'::regprocedure);
+  if position($n0$'titel', coalesce(tp.titel, 'Eigenes Abenteuer'), 'template', o.template_id,$n0$ in d) = 0 then
+    if position($o0$'titel', coalesce(tp.titel, 'Eigenes Abenteuer'),$o0$ in d) = 0 then raise exception 'Patch quest_board(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$'titel', coalesce(tp.titel, 'Eigenes Abenteuer'),$o0$, $n0$'titel', coalesce(tp.titel, 'Eigenes Abenteuer'), 'template', o.template_id,$n0$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
   d := pg_get_functiondef('public.kampf_werte()'::regprocedure);
   if position($n0$'bauten', bauten, 'uebung', fert_stufe(coalesce((select xp from fertigkeiten where player_id = uid and id = 'kampf'), 0)),$n0$ in d) = 0 then
     if position($o0$'bauten', bauten,$o0$ in d) = 0 then raise exception 'Patch kampf_werte(): Ziel 0 fehlt'; end if;

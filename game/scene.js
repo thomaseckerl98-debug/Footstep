@@ -351,6 +351,7 @@ export class Scene {
 
   /* ---------- Held ---------- */
   setAway(on) { this.away = !!on; if (this.heroWrap) this.heroWrap.style.display = on ? 'none' : ''; }
+  setBusy(text) { if (!this.heroWrap) return; let t = this.heroWrap.querySelector('.hero-busy'); if (!text) { t?.remove(); return; } if (!t) { t = document.createElement('div'); t.className = 'hero-busy'; this.heroWrap.append(t); } t.textContent = text; }
   setHeroPlan(plan) { this.heroPlan = plan; if (!this.pal) return; setMood(this.mood.time, this.mood.season); this.makeHeroFrames(); this.drawHero(this.heroFrame || 0, true); }
   // Pose des Tages (wechselt um Mitternacht); im Testmodus fest einstellbar
   heroPose() { const p = this.heroPlan || HERO_PLAN; if (this.forcedPose) return this.forcedPose; let h = 0; for (const ch of String(p.name || '')) h = (h * 31 + ch.charCodeAt(0)) | 0; return poseOfDay(h); }

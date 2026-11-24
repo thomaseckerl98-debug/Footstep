@@ -121,6 +121,8 @@ export function metaBoni(meta = {}) {
     if (it === 'dietrich') { b.rerolls += 1; }
     if (it === 'alte_chronik') { b.xp += 0.1; b.quellen.push('Alte Chronik: +10 % Erfahrung'); }
   }
+  const ub = Number(meta.uebung) || 0;
+  if (ub > 0) { b.dmg += 0.04 * ub; b.hp += 5 * ub; b.cd += 0.015 * ub; b.quellen.push(`Waffenübung (Stufe ${ub}): +${4 * ub} % Schaden, mehr Leben`); }
   const GEAR = { gewoehnlich: 0.005, gut: 0.01, selten: 0.02, meister: 0.035, legendaer: 0.06 };
   const gd = Math.min(0.3, (meta.gear || []).reduce((s2, g) => s2 + (GEAR[g] || 0), 0));
   if (gd > 0) { b.dmg += gd; b.quellen.push(`Deine Ausrüstung: +${Math.round(gd * 100)} % Schaden`); }

@@ -135,6 +135,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 export function spielerPos(sp, orte) {
   const home = orte.find((o) => o.id === sp.ort); if (!home) return null;
   const u = sp.unterwegs; if (!u || u.daheim) return { x: home.x, y: home.y, home, unterwegs: false };
+  if (u.pos) { const x = u.pos.x, y = u.pos.y; return { x, y, home, ziel: [x, y], t: 1, pfad: [[x, y]], unterwegs: true, gegend: gegend(x, y, orte) }; }
   const seed = u.seed || 0.5, a = seed * Math.PI * 2, dist = u.dist || 150;
   let tx = home.x + Math.cos(a) * dist, ty = home.y + Math.sin(a) * dist * 0.85;
   const want = ORT_ZIEL[u.ziel_art] || 'wald', fest = u.ziel_ort && orte.find((o) => o.id === u.ziel_ort);
@@ -179,8 +180,8 @@ function figur(c, x, y, t, farbe) {
 
 /* ───────── Die Karte ───────── */
 export class Weltkarte {
-  constructor({ db, onClose }) {
-    this.db = db; this.onClose = onClose; this.daten = null; this.bilder = new Map(); this.kacheln = new Map(); this.queue = []; this.busy = 0;
+  constructor({ db, onClose, aktion }) {
+    this.db = db; this.onClose = onClose; this.aktion = aktion; this.daten = null; this.bilder = new Map(); this.kacheln = new Map(); this.queue = []; this.busy = 0;
     this.zeige = { reiche: false, handel: false, spannung: true, ereignisse: true, spieler: true, wege: true };
     try { Object.assign(this.zeige, JSON.parse(localStorage.getItem('mh_karte_zeige') || '{}')); } catch { /* egal */ }
     this.cx = WELT.w / 2; this.cy = WELT.h / 2; this.s = 0.3; this.sel = null; this.offen = false; this.pointers = new Map();
@@ -501,6 +502,7 @@ export class Weltkarte {
       <p>${ESC(o.text || '')}</p>${o.existenz ? `<p class="small wk-ex"><b>Warum es besteht:</b> ${ESC(o.existenz)}</p>` : ''}
       ${bez ? `<h4>Beziehungen</h4><ul class="small wk-bez">${bez}</ul>` : ''}${ev ? `<h4>Gerade jetzt</h4><ul class="small">${ev}</ul>` : ''}`;
     box.hidden = false; box.querySelector('.wk-x').onclick = () => { box.hidden = true; this.sel = null; };
+    if (this.aktion) { try { this.aktion(o, box); } catch (e) { console.warn('Karte:', e); } }
     box.querySelectorAll('[data-ort]').forEach((li) => { li.onclick = () => { const z = this.byId.get(li.dataset.ort); if (z) { this.sel = z.id; this.flieg(z.x, z.y, Math.max(this.s, 0.9)); this.karte(z); } }; });
   }
   karteSpieler(p, pos) {
