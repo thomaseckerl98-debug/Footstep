@@ -35,9 +35,9 @@ export const ICONS = {
     '.oppmo.omxmo.oo.', '.omupo.oxxxo.oo.', '.ouupo.opxpo.oo.', '.ouumo.oppmo.oo.', '.opmmo.omMmo.oo.', '.oppmo.oppmo.oo.',
     '.ooooo.ooooo.oo.', '................', '................', '................'],
   training: [
-    '................', '..oo........oo..', '.okKo......oKko.', '.oKkKo....oKkKo.', '..oKkKo..oKkKo..', '...oKkKooKkKo...',
-    '....oKkKKkKo....', '.....oKkkKo.....', '.....oKkkKo.....', '....oKkKKkKo....', '...oboKooKobo...', '..obBo.oo.oBbo..',
-    '.obBo......oBbo.', '.oBo........oBo.', '..o..........o..', '................'],
+    '................', '.........ooo....', '........okkKo...', '.......okkkKKo..', '......okkKKKKo..', '......okKKKKo...',
+    '.......oKKoBo...', '..........obBo..', '.........obBo...', '........obBo....', '.......obBo.....', '......obBo......',
+    '.....obBo.......', '....oBBo........', '....ooo.........', '................'],
   diplomatie: [
     'oo............oo', 'okko........okko', '.okKo......oKko.', '..okKo....oKko..', '...okKo..oKko...', '....okKooKko....',
     '.....okKKko.....', '......oKKo......', '.....okKKko.....', '....okKooKko....', '..oookKo.oKkooo.', '.ogGooo...oooGgo',
