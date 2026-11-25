@@ -397,7 +397,8 @@ export function buildTalk(ctx) {
   };
 
   // Themen-Übersicht („Hub“): von hier aus wird jedes Gespräch eröffnet
-  const rumorLeft = () => RUMORS.some((x) => known(x.key) && !usedRumors.has(x.key)) && usedRumors.size < 3;
+  const news = () => (ctx.neuigkeiten || []).filter((n) => !usedRumors.has('w' + n.id));
+  const rumorLeft = () => (news().length > 0 || RUMORS.some((x) => known(x.key) && !usedRumors.has(x.key))) && usedRumors.size < 3;
   const hubTopics = () => topics.filter((tp) => tp !== 'persoenlich' || askedPersonal.size < 4).map((tp) => ({
     topic: tp, label: fill(HUB[tp].label, c), text: fill(HUB[tp].q, c),
     visited: visited.has(tp) && !(tp === 'geruechte' && rumorLeft()),
@@ -406,6 +407,14 @@ export function buildTalk(ctx) {
   const enterTopic = (tp) => {
     visited.add(tp);
     if (tp === 'geruechte') {
+      // Neuigkeiten aus der Welt zuerst – was im Land geschehen ist und hier schon angekommen ist
+      const nw = news()[0];
+      if (nw && usedRumors.size < 3) {
+        usedRumors.add('w' + nw.id);
+        const nodes = [N('wn' + nw.id, 'Woher weißt du das?', [nw.quelle], []), N('wn' + nw.id + 'b', 'Was heißt das für uns?', [nw.folge], [])];
+        for (const n of nodes) unlocked.add(n.id);
+        return { topic: tp, text: (nw.frisch ? 'Hast du schon gehört? ' : 'Man erzählt sich: ') + nw.text, nodes };
+      }
       const r = pick(RUMORS.filter((x) => known(x.key) && !usedRumors.has(x.key)));
       if (!r || usedRumors.size >= 3) { usedRumors.add('_'); return { topic: 'geruechte', text: pick(NO_RUMOR), nodes: [] }; }
       usedRumors.add(r.key);

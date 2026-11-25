@@ -637,3 +637,8 @@ body.im-dialog .toast, body.im-dialog #toast { z-index: 1; }
 #besch-banner .px-btn { padding: 3px 10px; font-size: .85rem; }
 body.unterwegs #besch-banner, body.im-dialog #besch-banner { display: none; }
 @media (max-width: 700px) { #besch-banner { top: 58px; left: 8px; right: 8px; } }
+.zettel.weltquest { background: linear-gradient(180deg, #efe0bc, #dcc28c); box-shadow: inset 0 0 0 2px #8a5a1c, 2px 3px 0 rgba(0,0,0,.35); }
+.zettel.weltquest .q-slot { background: #6a3d12; color: #f6e2b0; }
+.welt-geschehen { color: #5a3410; font-style: italic; }
+.ort-news { margin: 0 0 4px 18px; padding: 0; line-height: 1.45; }
+.wk-ev-tat { background: #e8b84a !important; }

@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
 import { Scene, realMood } from './game/scene.js?v=15';
 import { openCreator } from './game/creator.js?v=4';
-import { buildTalk } from './game/dialog.js?v=7';
+import { buildTalk } from './game/dialog.js?v=8';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
 import { planFromLook, portraitSprite, RACES, PW, PH } from './game/chars.js?v=4';
 import { gearFromInventory } from './game/hero.js?v=1';
@@ -454,7 +454,7 @@ async function startTalk(p) {
   const race = me?.race || me?.look?.race || 'mensch', herk = me?.herkunft || me?.look?.herkunft || 'waldlaeufer', attrs = me?.attrs || charAttrs(race, herk);
   const gebaeude = p.fremd ? [] : [...new Set(scene.sprites.map((s) => s.type).filter((x) => x !== 'feld'))].map((g) => ({ nom: withArticle(g), akk: withArticleAkk(g) }));
   const t = buildTalk({ name: p.name, job: p.job, wesen: p.wesen || 'bodenständig', stimmung: p.stimmung || 'fremd', time: scene.mood.time, weather: weatherNow, season: scene.mood.season, freund: fr?.name, gebaeude, du: me?.name || 'du',
-    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], abmachung: brief?.abmachung || null, holz: brief?.holz, rivale: brief?.rivale || null, dorf: brief?.dorf || null, whenText });
+    race, herkunft: herk, attrs, CHECKS, ATTRS, HERKUNFT, odds: (id) => oddsWord(checkOdds(id, attrs, herk)), wissen: brief?.wissen || null, gefragt: brief?.gefragt || [], deals: brief?.auftrag_optionen || [], neuigkeiten: brief?.neuigkeiten || [], abmachung: brief?.abmachung || null, holz: brief?.holz, rivale: brief?.rivale || null, dorf: brief?.dorf || null, whenText });
   const head = document.createElement('div'); head.className = 'dl-head'; const log = document.createElement('div'); log.className = 'dl-log';
   const nameEl = document.createElement('div'); nameEl.innerHTML = `<b>${esc(p.name)}</b> <span class="muted small">· ${esc(p.job)}</span>`;
   const right = document.createElement('div'); right.className = 'dl-right'; right.append(nameEl, log);
@@ -606,7 +606,9 @@ async function startTalk(p) {
   say('npc', t.opener());
   // Hat die Figur etwas über dich gehört? Dann spricht sie es vielleicht an.
   const heard = brief?.gehoert?.[0];
+  const frisch = (brief?.neuigkeiten || []).find((n) => n.frisch);
   if (heard && Math.random() < 0.6) setTimeout(() => say('npc', `Ich hab da was gehört … ${heard} Stimmt das?`), 300);
+  else if (frisch && Math.random() < 0.7) setTimeout(() => say('npc', `Hast du schon gehört? ${frisch.text}`), 300);
   cur = null; busy = true; setTimeout(() => { busy = false; offer(); }, heard ? 900 : 400);
 }
 if (location.hostname === 'localhost') window.__dev = { startTalk: (i = 0) => startTalk(scene.village.people.filter((q) => q.id)[i]), scene: () => scene };
@@ -709,6 +711,44 @@ async function heuteHinweis() {
   toast(`<b>Heute im Dorf:</b> ${liste} ${offen.length > 1 ? 'könnten' : 'könnte'} deine Hilfe gebrauchen. Schau unter <b>Quests</b> vorbei.`, 9000);
   try { localStorage.setItem(key, '1'); } catch { /* egal */ }
 }
+/* ───────────── Weltgeschichte: gemeinsame Ereignisse und Nachrichten ───────────── */
+let newsOffen = false;
+function showNachrichten(liste) {
+  if (newsOffen || questWin) return; newsOffen = true;
+  const { box, close } = amtOverlay(); box.classList.add('abschluss', 'nachrichten');
+  box.innerHTML = `<span class="amt-label">Neuigkeiten erreichen dich</span><h2>Was man sich erzählt</h2>
+    <ul class="abs-ertrag">${liste.map((n) => `<li><b>${esc(n.titel)}</b>${n.von ? ` <span class="small muted">· aus ${esc(n.von)}</span>` : ''}<br>${esc(n.text)}${n.ich ? '<br><span class="small ok">Das warst du.</span>' : ''}</li>`).join('')}</ul>
+    <p class="small muted">Nachrichten reisen mit Boten und Händlern – ferne Orte erfahren es später, und manchmal verzerrt.</p>`;
+  box.append(row(btn('Verstanden', true, () => { close(); newsOffen = false; db.rpc('nachrichten_gesehen'); })));
+}
+function renderWelt(wrap, list) {
+  wrap.append(schild('Was im Land geschieht'));
+  wrap.append(p('Weltereignisse gibt es nur einmal. Wer sie zuerst zu Ende bringt, schreibt Geschichte – für alle Spieler. Die anderen erfahren davon, sobald die Nachricht bei ihnen ankommt.', 'brett-hinweis small'));
+  const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
+  list.welt.forEach((w, i) => {
+    const z = zettel('weltquest' + (w.geschehen ? ' erledigt' : ''), ROT[(i + 3) % ROT.length]);
+    z.innerHTML = `<span class="q-slot">Weltereignis</span>${w.dauer?.kampf ? ` <span class="q-kampfbadge">${KAMPF()}Kampf</span>` : ''}<b class="auf-titel">${esc(w.titel)}</b><p class="small">${esc(w.kurz)}</p>`;
+    if (w.geschehen) z.append(p(`Geschehen: ${w.geschehen.titel} – ${w.geschehen.ich ? 'durch dich' : 'durch ' + (w.geschehen.wer || 'jemanden')}, ${new Date(w.geschehen.seit).toLocaleDateString('de-DE')}.`, 'small welt-geschehen'));
+    else if (w.laeuft) z.append(row(btn('Weiterspielen', true, () => { const r = list.laufend?.run; if (r) resumeQuest(r); })));
+    else if (!w.hier) z.append(p(`Beginnt in ${w.fundort_name}. Reise dorthin (Karte → ${w.fundort_name} → Hinreisen).`, 'muted small'));
+    else if (list.laufend) z.append(p('Erst die laufende Reise beenden.', 'muted small'));
+    else {
+      const msg = p('', 'small error');
+      const go = async (beg) => {
+        if (!(await aufbruchOk(w.id, w.titel))) return;
+        const { data: r, error: e } = await db.rpc('quest_start', { p_quest: w.id, p_begleiter: beg });
+        if (e) { msg.textContent = e.message; return; } if (!r.ok) { msg.textContent = r.grund; return; }
+        launchQuest(r.view);
+      };
+      if (w.fundort) z.append(row(btn('Darauf einlassen', true, () => go([]))), msg);
+      else {
+        const open = btn('Ansehen', false, () => { open.remove(); const pk = companionPicker(list.begleiter); z.append(pk.el, row(btn('Aufbrechen', true, () => go([...pk.chosen]))), msg); });
+        z.append(row(open));
+      }
+    }
+    g.append(z);
+  });
+}
 /* ───────────── Reisen, fremde Orte, Beschäftigung, Abschluss ───────────── */
 const ORT_ART = { grossstadt: 'Großstadt', stadt: 'Stadt', dorf: 'Dorf', burg: 'Burg' };
 const FERT_IDS = ['anpacken', 'flink', 'spuren', 'heilkunde', 'ueberreden', 'einschuechtern', 'beruhigen', 'feilschen', 'menschenkenntnis', 'altes_wissen', 'kampf'];
@@ -781,6 +821,12 @@ async function openOrt() {
     }));
   }
   if (!(o.spieler || []).length && !(o.bewohner || []).length) grid.append(p('Niemand zu sehen.', 'muted small'));
+  if ((o.neuigkeiten || []).length) {
+    box.append(h3('Was man sich hier erzählt'));
+    const ul = document.createElement('ul'); ul.className = 'ort-news';
+    ul.innerHTML = o.neuigkeiten.map((n) => `<li>${esc(n.text)} <span class="small muted">· ${esc(n.quelle)}</span></li>`).join('');
+    box.append(ul);
+  }
   if ((o.quests || []).length) {
     box.append(h3('Was es hier zu tun gibt'));
     for (const q of o.quests) {
@@ -951,6 +997,7 @@ async function loadAmt(showChange = true) {
   const before = amt;
   amt = data;
   setUnterwegs(data.unterwegs);
+  if (data.nachrichten?.length) showNachrichten(data.nachrichten);
   if (showChange && before && data.ansehen.stufe > before.ansehen.stufe) toast(`<b>Im Dorf sagt man jetzt über dich:</b> „${esc(data.ansehen.wort)}“${data.ansehen.kandidat && !before.ansehen.kandidat ? '<br>Man nennt deinen Namen, wenn von der Versammlung die Rede ist.' : ''}`, 9000);
   return amt;
 }
@@ -1130,6 +1177,7 @@ function renderQuests(body) {
     if (b.error || l.error) { wrap.append(p('Konnte die Quests nicht laden.', 'error')); return; }
     const board = b.data, list = l.data;
     renderHaupt(wrap, list);
+    if (list.welt?.length) renderWelt(wrap, list);
     if (list.laufend) {
       const run = (board.angebote || []).find((o) => o.run === list.laufend.run);
       const q = list.quests.find((x) => x.id === list.laufend.quest);
