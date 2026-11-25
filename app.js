@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=15';
+import { Scene, realMood } from './game/scene.js?v=16';
 import { openCreator } from './game/creator.js?v=4';
 import { buildTalk } from './game/dialog.js?v=8';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
@@ -10,7 +10,7 @@ import { landFor, LAND_IDS, LAND_NAMES } from './game/lands.js?v=1';
 import { POSES, POSE_NAMES } from './game/hero.js?v=1';
 import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
-import { drawIcon } from './game/icons.js?v=2';
+import { drawIcon } from './game/icons.js?v=3';
 import { SW, SH } from './game/chars.js?v=4';
 import { openQuest, ortBildCanvas, dauerText } from './game/questui.js?v=14';
 import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=3';
@@ -102,6 +102,7 @@ const MENUS = [
   { id: 'bewohner', name: 'Bewohner', tip: 'Deine Dorfbewohner, ihre Berufe und Beziehungen.' },
   { id: 'charakter', name: 'Charakter', tip: 'Dein Held: Aussehen, Fähigkeiten, Erfahrungen.' },
   { id: 'inventar', name: 'Inventar', tip: 'Ausrüstung und Gegenstände.' },
+  { id: 'training', name: 'Üben', tip: 'Keine Lust auf Geschichten? Dein Charakter packt im Dorf mit an oder übt – 1 bis 12 Stunden. So steigen deine Fertigkeiten.' },
   { id: 'quests', name: 'Quests', tip: 'Abenteuer: täglich Leicht, Mittel, Schwer – und dein eigenes, von der KI erzähltes Abenteuer.' },
   { id: 'quest', name: 'Tagebuch', tip: 'Gerüchte, Hinweise und Aufträge aus deinen Gesprächen.' },
   { id: 'karte', name: 'Karte', tip: 'Die Weltkarte mit allen Dörfern.' },
@@ -186,6 +187,8 @@ function renderPanel(id) {
       db.rpc('beschaeftigung_status').then(({ data }) => { if (data) fb.append(fertigkeitenListe(data.fertigkeiten || {})); });
     }
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
+  } else if (id === 'training') {
+    renderBeschaeftigung(body);
   } else if (id === 'quests') {
     renderQuests(body);
   } else if (id === 'quest') {
@@ -636,8 +639,7 @@ async function loadVillageState() {
   if (!newsShown) setTimeout(heuteHinweis, data.dorf?.neu?.length ? 15000 : 2500);
   if (!newsShown && data.dorf?.neu?.length) {
     newsShown = true;
-    toast(`<b>Seit deinem letzten Besuch:</b><br>${data.dorf.neu.map((e) => '• ' + esc(e.text)).join('<br>')}`, 14000);
-    db.rpc('dorf_gesehen');
+    showDorfLog(false);
   } else if (!newsShown) { newsShown = true; db.rpc('dorf_gesehen'); }
   const bau = data.auftraege.filter((a) => a.status === 'in_arbeit').map((a) => ({ plot: a.plot, gebaeude: a.gebaeude, zusatz: a.zusatz, status: 'bau' }));
   scene.setExtras([...data.extras, ...bau]);
@@ -711,6 +713,24 @@ async function heuteHinweis() {
   toast(`<b>Heute im Dorf:</b> ${liste} ${offen.length > 1 ? 'könnten' : 'könnte'} deine Hilfe gebrauchen. Schau unter <b>Quests</b> vorbei.`, 9000);
   try { localStorage.setItem(key, '1'); } catch { /* egal */ }
 }
+/* ───────────── Dorf-Log und Schwarzes Brett ───────────── */
+async function showDorfLog(immer) {
+  const { data, error } = await db.rpc('dorf_log'); if (error || !Array.isArray(data)) return;
+  if (!immer && !data.some((e) => e.neu)) { db.rpc('dorf_gesehen'); return; }
+  const { box, close } = amtOverlay(); box.classList.add('abschluss', 'dorflog');
+  const zeit = (t) => new Date(t).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const alt = data.filter((e) => !e.neu).reverse(), neu = data.filter((e) => e.neu).reverse();
+  box.innerHTML = `<span class="amt-label">Dorfchronik</span><h2>${neu.length ? 'Seit deinem letzten Besuch' : 'Was zuletzt im Dorf geschah'}</h2>
+    <ul class="dorflog-liste">${alt.map((e) => `<li class="alt"><span class="zeit">${esc(zeit(e.at))}</span> ${esc(e.text)}</li>`).join('')}${neu.map((e) => `<li class="neu"><span class="zeit">${esc(zeit(e.at))}</span> ${esc(e.text)}</li>`).join('')}</ul>`;
+  box.append(row(btn('Gelesen', true, () => { close(); db.rpc('dorf_gesehen'); })));
+  const ul = box.querySelector('.dorflog-liste'); requestAnimationFrame(() => { ul.scrollTop = ul.scrollHeight; });
+}
+function brettWahl() {
+  const { box, close } = amtOverlay(); box.classList.add('frage');
+  box.innerHTML = '<span class="amt-label">Schwarzes Brett</span><h2>Was willst du lesen?</h2><p class="small">Am Brett hängt, was im Dorf geschehen ist – und was es zu tun gibt.</p>';
+  box.append(row(btn('Neuigkeiten', true, () => { close(); showDorfLog(true); }), btn('Quests', true, () => { close(); openMenu('quests'); }), btn('Schließen', false, close)));
+}
+
 /* ───────────── Weltgeschichte: gemeinsame Ereignisse und Nachrichten ───────────── */
 let newsOffen = false; const newsGezeigt = new Set();
 function showNachrichten(alle) {
@@ -788,6 +808,18 @@ async function reisen(ziel, z) {
 }
 // Info-Karte der Weltkarte: Reise-Knopf für die Orte, die man besuchen kann
 function karteAktion(o, box) {
+  const kampf = document.createElement('div'); kampf.className = 'wk-kampf'; box.append(kampf);
+  db.rpc('welt_kampf_info', { p_ort: o.id }).then(({ data }) => {
+    if (!kampf.isConnected || !Array.isArray(data)) return;
+    for (const k of data) {
+      const d = document.createElement('div'); d.className = 'wk-kampf-item';
+      d.innerHTML = `<b>⚔ ${esc(k.text)}</b>`;
+      if (k.geholfen) d.append(p('Du hast hier schon gekämpft.', 'small muted'));
+      else if (!k.hier) d.append(p(`Um mitzukämpfen, musst du in ${esc(k.ort_name || o.name)} sein.`, 'small muted'));
+      else d.append(row(btn('Mitkämpfen', true, () => kartenKampf(k))));
+      kampf.append(d);
+    }
+  });
   const slot = document.createElement('div'); slot.className = 'wk-reise'; box.append(slot);
   reiseZiele().then((z) => {
     if (!z || !slot.isConnected) return; const ziel = (z.ziele || []).find((x) => x.id === o.id); if (!ziel) return;
@@ -796,9 +828,19 @@ function karteAktion(o, box) {
       if (z.zustand === 'ort') slot.append(row(btn('Ort ansehen', true, () => { weltkarte?.schliessen?.(); openOrt(); })));
       return;
     }
-    if (!['daheim', 'ort'].includes(z.zustand)) { slot.append(p('Reisen kannst du, sobald du nicht mehr unterwegs bist.', 'small muted')); return; }
+    if (!['daheim', 'ort'].includes(z.zustand)) { slot.append(p(z.zustand === 'quest' ? 'Du bist gerade auf einer Reise. Wenn sie zu Ende ist, kannst du von hier aus losziehen.' : z.zustand === 'weg' ? 'Du bist schon zu Fuß unterwegs.' : 'Wähle erst deinen Weg nach dem Abenteuer.', 'small muted')); return; }
     slot.append(row(btn(`${ziel.heim ? 'Heimreisen' : 'Hinreisen'} · ca. ${dauerText(ziel.minuten)}`, true, () => reisen(ziel, z))));
   });
+}
+async function kartenKampf(k) {
+  if (questWin) return;
+  const { data: kw } = await db.rpc('kampf_werte');
+  weltkarte?.schliessen?.();
+  const res = await playBattle({ titel: k.text, text: 'Die Leute verlassen sich auf dich.', dauer: 180, schwer: 2, gegner: k.gegner, ort: 'wald', heroPlan: heroPlan(), meta: kw || {} });
+  const ok = !!(res && (res.sieg || res.erfolg || res === true));
+  const { data, error } = await db.rpc('welt_kampf_ende', { p_ereignis: k.id, p_erfolg: ok });
+  toast(error ? esc(error.message) : `<b>${ok ? 'Gesiegt!' : 'Zurückgeschlagen.'}</b> ${esc(data?.text || '')}`, 8000);
+  loadAmt(false); refreshHero(true);
 }
 // Ein fremder Ort: Leute, Spieler, Aufgaben, Weiterreise
 async function openOrt() {
@@ -889,7 +931,7 @@ function setBesch(a) {
   if (!a) { b?.remove(); return; }
   if (!b) { b = document.createElement('div'); b.id = 'besch-banner'; b.className = 'ui'; document.body.append(b); }
   b.innerHTML = `<span class="ub-label">Beschäftigt</span><b>${esc(a.name)}</b><span class="small">Du ${esc(a.taetigkeit)} – bis gegen ${clock(a.bis)} Uhr.</span>`;
-  b.append(btn('Ansehen', false, () => { openMenu('quests'); setTimeout(() => document.querySelector('.besch')?.scrollIntoView({ behavior: 'smooth' }), 1200); }));
+  b.append(btn('Ansehen', false, () => openMenu('training')));
 }
 async function beschCheck() {
   const { data, error } = await db.rpc('beschaeftigung_status'); if (error || !data) return;
@@ -912,11 +954,11 @@ function renderBeschaeftigung(wrap) {
         const bar = z.querySelector('.besch-bar span'); if (!bar || !bar.isConnected) return clearInterval(window.__beschTimer);
         bar.style.width = (Math.min(1, (Date.now() - ab) / (bis - ab)) * 100).toFixed(1) + '%';
         const ms = bis - Date.now(); z.querySelector('.besch-rest').textContent = ms > 0 ? `noch ${dauerText(ms / 60000)}` : 'Feierabend!';
-        if (ms <= 0) { clearInterval(window.__beschTimer); beschCheck().then(() => { if (active === 'quests' && !$('panel').hidden) renderPanel('quests'); }); }
+        if (ms <= 0) { clearInterval(window.__beschTimer); beschCheck().then(() => { if (active === 'training' && !$('panel').hidden) renderPanel('training'); }); }
       };
       z.append(row(btn('Aufhören (anteilig)', false, async () => {
         const { data, error: e } = await db.rpc('beschaeftigung_abbrechen'); if (e) { toast(esc(e.message)); return; }
-        if (data?.ergebnis) showFeierabend(data.ergebnis); setBesch(null); renderPanel('quests');
+        if (data?.ergebnis) showFeierabend(data.ergebnis); setBesch(null); renderPanel('training');
       })));
       box.append(z); upd(); clearInterval(window.__beschTimer); window.__beschTimer = setInterval(upd, 15000);
     } else if (!b.frei) box.append(p('Gerade bist du nicht im Dorf. Beschäftigen kannst du dich, wenn du daheim bist.', 'muted small'));
@@ -932,7 +974,7 @@ function renderBeschaeftigung(wrap) {
           if (!imDorf()) return;
           const { error: e } = await db.rpc('beschaeftigung_start', { p_art: a.id, p_stunden: +sel.value });
           if (e) { msg.textContent = e.message; return; }
-          toast(`<b>${esc(a.name)}</b> – bis gegen ${clock(new Date(Date.now() + sel.value * 3600e3).toISOString())} Uhr.`); beschCheck(); renderPanel('quests');
+          toast(`<b>${esc(a.name)}</b> – bis gegen ${clock(new Date(Date.now() + sel.value * 3600e3).toISOString())} Uhr.`); beschCheck(); renderPanel('training');
         })), msg);
       }
       g.append(z);
@@ -1050,6 +1092,11 @@ function ansehenBar(a, meister = false) {
   if (a.zuletzt?.length) { const z = document.createElement('div'); z.className = 'ans-last small'; z.innerHTML = a.zuletzt.slice(0, 3).map((x) => `<span>${x.delta > 0 ? '+' : '−'} ${esc(x.grund)}</span>`).join(''); d.append(z); }
   return d;
 }
+function wahlHinweis(t) {
+  const ms = new Date(t) - Date.now(), tage = Math.ceil(ms / 86400000);
+  const wann = ms <= 0 ? 'heute' : tage <= 1 ? 'morgen' : `in ${tage} Tagen`;
+  return p(`Die nächste Wahl des Dorfmeisters ist ${wann} (${new Date(t).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}).`, 'small wahl-hinweis');
+}
 function wegBox(w) {
   const d = document.createElement('div'); d.className = 'weg';
   const fz = w.fuersprecher.map((f) => `<span class="${f.ja ? 'ja' : ''}">${f.ja ? '✓ ' : ''}${esc(f.name)} <i>(${esc(f.wort)})</i></span>`);
@@ -1072,7 +1119,7 @@ function renderHaupt(wrap, list) {
     <p class="small">${c ? esc(c.kurz) : A.amt.ich ? 'Als Dorfmeister wartet bald der König auf dich. Die nächsten Kapitel der Chronik sind in Arbeit.' : 'Die Chronik geht bald weiter.'}</p>
     <p class="small haupt-amt">${amtTxt}</p>`;
   z.append(ansehenBar(A.ansehen, A.amt.ich));
-  if (!A.amt.ich && A.weg && A.kapitel <= 3) z.append(wegBox(A.weg));
+  if (!A.amt.ich && A.naechste_wahl && !A.lagerfeuer) z.append(wahlHinweis(A.naechste_wahl));
   if (A.lagerfeuer && !A.amt.ich) z.append(row(btn('Zum Lagerfeuer', true, () => showLagerfeuer(A.lagerfeuer))));
   if (c) {
     if (c.run) z.append(row(btn('Weiterspielen', true, () => resumeQuest(c.run))));
@@ -1087,7 +1134,7 @@ function renderHaupt(wrap, list) {
         })), msg);
       });
       z.append(row(open));
-    } else z.append(p(c.grund || '', 'small haupt-grund'));
+    } else if (c.kapitel !== 3) z.append(p(c.grund || '', 'small haupt-grund'));
   }
   wrap.append(z);
 }
@@ -1189,7 +1236,6 @@ function renderQuests(body) {
     }
     renderAushaenge(wrap);
     if (hh.data) renderHeute(wrap, hh.data); else if (hh.error) console.warn('Heute:', hh.error.message);
-    renderBeschaeftigung(wrap);
     wrap.append(schild('Aufträge am Brett'));
     wrap.append(p('Jeden Tag neu (ab Mitternacht). Die Geschichten spielen mit echten Bewohnern deines Dorfes – was du tust, merken sie sich.', 'brett-hinweis small'));
     const g = document.createElement('div'); g.className = 'zettel-grid'; wrap.append(g);
@@ -1296,7 +1342,7 @@ function showWahl(w) {
     ja.append(row(btn('Den Eid leisten', true, () => antworten(true)))); nein.append(row(btn('Ablehnen', false, () => antworten(false))));
     wahl.append(ja, nein); box.append(wahl, msg);
   } else {
-    box.append(p(`Die Versammlung stimmte ${w.nein} zu ${w.ja}. Knapp oder nicht – ${w.gegner || 'der Vorsteher'} führt das Dorf weiter. Sammle weiter Ansehen; in vier Tagen kannst du erneut antreten.`, ''));
+    box.append(p(`Die Versammlung stimmte ${w.nein} zu ${w.ja}. Die meisten Stimmen gingen an ${w.gegner || 'den Vorsteher'} – die Leute vertrauen dir noch nicht genug. In sieben Tagen wird wieder gewählt.`, ''));
     box.append(row(btn('Verstanden', true, async () => { await db.rpc('amt_gesehen', { p_wahl: w.id }); close(); loadAmt(false); })));
   }
 }
@@ -1451,6 +1497,7 @@ async function startGame() {
       onSelectObject: (obj) => showSelCard(obj),
       onPlots: (on) => $('game').classList.toggle('placing', on),
       onSelect: () => { if (!$('panel').hidden && active === 'dorf') renderPanel('dorf'); },
+      onBrett: () => brettWahl(),
       onLayout: () => {},
     });
     window.mossheart = scene; // für Tests in der Konsole

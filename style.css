@@ -642,3 +642,12 @@ body.unterwegs #besch-banner, body.im-dialog #besch-banner { display: none; }
 .welt-geschehen { color: #5a3410; font-style: italic; }
 .ort-news { margin: 0 0 4px 18px; padding: 0; line-height: 1.45; }
 .wk-ev-tat { background: #e8b84a !important; }
+.dorflog-liste { list-style: none; margin: 6px 0 4px; padding: 0; max-height: 52vh; overflow-y: auto; line-height: 1.45; }
+.dorflog-liste li { padding: 3px 0; border-bottom: 1px dashed rgba(107,74,46,.25); }
+.dorflog-liste li.alt { opacity: .45; filter: grayscale(.7); }
+.dorflog-liste li.neu { color: #2a1a0c; font-weight: 600; }
+.dorflog-liste li.neu .zeit { color: #8a5a1c; }
+.dorflog-liste .zeit { font-size: .78rem; color: #7a6a52; margin-right: 6px; font-weight: 400; }
+.wahl-hinweis { margin-top: 6px !important; padding: 6px 8px; background: rgba(120,80,30,.12); border-left: 3px solid #8a5a1c; }
+.wk-kampf-item { margin-top: 8px; padding: 6px 8px; border: 1px solid rgba(208,120,80,.5); background: rgba(120,40,20,.25); }
+@media (max-width: 640px) { .dock-btn span { font-size: .66rem; } .dock-btn canvas { width: 28px; height: 28px; } }

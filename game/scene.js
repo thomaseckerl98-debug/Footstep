@@ -143,6 +143,7 @@ export class Scene {
       if (wallBau && wallBau.gebaeude !== this.mauer) zeichneUmfassung(c, wallBau.gebaeude, teil, 0.08 + 0.92 * Math.max(0, Math.min(1, wallBau.fortschritt || 0)));
     };
     mauern('hinten');
+    this.brett = zeichneBrett(c);
     for (const s of order) {
       const tmp = document.createElement('canvas'); tmp.width = s.w; tmp.height = s.h;
       tmp.getContext('2d').putImageData(new ImageData(s.data, s.w, s.h), 0, 0);
@@ -273,6 +274,8 @@ export class Scene {
     const [wx, wy] = this.toWorld(e.clientX, e.clientY);
     const s = this.spriteAt(wx, wy);
     if (!this.showPlots) {
+      const bt = this.brett;
+      if (bt && wx > bt.x - 4 && wx < bt.x + bt.w + 4 && wy > bt.y - 4 && wy < bt.y + bt.h + 2) { this.hooks.onBrett?.(); return; }
       const v = this.village.hit(wx, wy);
       if (v) return this.select({ kind: 'villager', person: v });
       if (s) return this.select({ kind: 'building', sprite: s });
@@ -569,4 +572,19 @@ export class Scene {
       for (let i = 0; i < 7; i++) { const q = ((t / 5200) + i / 7) % 1; c.fillStyle = `rgba(200,200,205,${(0.35 * (1 - q)).toFixed(2)})`; c.fillRect(Math.round(fx + q * 10 + Math.sin(q * 6 + i) * 2), Math.round(fy - 16 - q * 40), q > 0.4 ? 2 : 1, q > 0.4 ? 2 : 1); }
     }
   }
+}
+
+// Schwarzes Brett am Dorfplatz (klickbar: Neuigkeiten oder Quests)
+function zeichneBrett(c) {
+  const s = depthScale(PLAZA.y), x0 = Math.round(PLAZA.x + 44 * s), y1 = Math.round(PLAZA.y + 4 * s);
+  const w = Math.round(22 * s), h = Math.round(15 * s), post = Math.round(13 * s), x = x0, y = y1 - post - h;
+  c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x - 1, y1 - 1, w + 4, 3);
+  c.fillStyle = '#3a2618'; c.fillRect(x + 2, y + h - 2, 3, post + 2); c.fillRect(x + w - 5, y + h - 2, 3, post + 2);
+  c.fillStyle = '#2a1a10'; c.fillRect(x - 1, y - 1, w + 2, h + 2);
+  c.fillStyle = '#6b4a2e'; c.fillRect(x, y, w, h);
+  c.fillStyle = '#5a3c24'; for (let i = 3; i < h; i += 4) c.fillRect(x, y + i, w, 1);
+  c.fillStyle = '#3a2618'; c.fillRect(x - 2, y - 3, w + 4, 2);
+  const zet = [[2, 2, 6, 6, '#efe3c2'], [9, 3, 5, 7, '#e6d6ae'], [15, 2, 5, 5, '#f2e8cc'], [4, 9, 7, 4, '#e9dcb8'], [13, 8, 6, 5, '#efe3c2']];
+  for (const [zx, zy, zw, zh, col] of zet) { c.fillStyle = col; c.fillRect(x + Math.round(zx * s), y + Math.round(zy * s), Math.max(2, Math.round(zw * s)), Math.max(2, Math.round(zh * s))); c.fillStyle = '#b04a32'; c.fillRect(x + Math.round((zx + zw / 2) * s), y + Math.round(zy * s), 1, 1); }
+  return { x, y: y - 3, w, h: h + post + 3 };
 }
