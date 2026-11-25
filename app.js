@@ -712,9 +712,10 @@ async function heuteHinweis() {
   try { localStorage.setItem(key, '1'); } catch { /* egal */ }
 }
 /* ───────────── Weltgeschichte: gemeinsame Ereignisse und Nachrichten ───────────── */
-let newsOffen = false;
-function showNachrichten(liste) {
-  if (newsOffen || questWin) return; newsOffen = true;
+let newsOffen = false; const newsGezeigt = new Set();
+function showNachrichten(alle) {
+  const liste = (alle || []).filter((n) => !newsGezeigt.has(n.id));
+  if (!liste.length || newsOffen || questWin) return; newsOffen = true; liste.forEach((n) => newsGezeigt.add(n.id));
   const { box, close } = amtOverlay(); box.classList.add('abschluss', 'nachrichten');
   box.innerHTML = `<span class="amt-label">Neuigkeiten erreichen dich</span><h2>Was man sich erzählt</h2>
     <ul class="abs-ertrag">${liste.map((n) => `<li><b>${esc(n.titel)}</b>${n.von ? ` <span class="small muted">· aus ${esc(n.von)}</span>` : ''}<br>${esc(n.text)}${n.ich ? '<br><span class="small ok">Das warst du.</span>' : ''}</li>`).join('')}</ul>
