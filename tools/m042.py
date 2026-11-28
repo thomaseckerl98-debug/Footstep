@@ -10,6 +10,7 @@ _p.clear(); A = _p.append
 
 A(r"""
 alter table public.profiles add column if not exists dorf_id bigint references public.villages(id);
+alter table public.villages alter column owner_id drop not null;  -- KI-Dörfer, in die jemand zieht, haben keinen Gründer
 update public.profiles p set dorf_id = (select v.id from public.villages v where v.owner_id = p.id order by v.id limit 1) where p.dorf_id is null;
 create index if not exists profiles_dorf_idx on public.profiles (dorf_id);
 
