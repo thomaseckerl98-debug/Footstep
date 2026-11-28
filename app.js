@@ -946,6 +946,27 @@ async function openOrt() {
       box.append(z);
     }
   }
+  // Hier wohnen? (nur in Dörfern)
+  const ein = document.createElement('div'); ein.className = 'ort-einzug'; box.append(ein);
+  db.rpc('dorf_einzug_info').then(({ data: e }) => {
+    if (!e || !ein.isConnected) return;
+    if (!e.kann) { if (e.grund) ein.append(h3('Hier wohnen?'), p(e.grund, 'small muted')); return; }
+    ein.append(h3('Hier wohnen?'));
+    const folgen = [
+      e.zurueck ? 'Du kehrst zurück: Dein altes Ansehen hier gilt wieder.' : 'Hier kennt dich noch kaum jemand – dein Ansehen beginnt bei null.',
+      'Die sieben Tage bis zur Wahl beginnen von vorn. Gewählt wird jeden Sonntag um 18 Uhr.',
+      e.spieler?.length ? `Hier wohnt schon ${liste(e.spieler)}. Ihr wärt Nachbarn – und Konkurrenten um das Amt des Jarls.` : '',
+      e.jarl ? 'Du bist Jarl in deinem Dorf. Wenn du gehst, legst du das Amt nieder.' : '',
+      'Dein bisheriges Dorf lebt ohne dich weiter.'].filter(Boolean);
+    ein.append(p(folgen.join(' '), 'small'));
+    const msg = p('', 'small error');
+    ein.append(row(btn(`In ${e.name} einziehen`, false, async () => {
+      if (!(await bestaetige({ titel: `Nach ${e.name} ziehen?`, text: folgen.join(' '), ja: 'Ja, hier wohne ich jetzt' }))) return;
+      const { data: r, error: er } = await db.rpc('dorf_einziehen');
+      if (er) { msg.textContent = er.message; return; }
+      close(); toast(`<b>Willkommen in ${esc(r.dorf)}.</b> Ab heute ist das dein Zuhause.`, 6000); setTimeout(() => location.reload(), 1800);
+    })), msg);
+  });
   box.append(h3('Weiterreisen'));
   const wl = document.createElement('div'); wl.className = 'ort-weiter'; box.append(wl);
   reiseZiele(true).then((z) => {
@@ -1403,7 +1424,7 @@ function showWahl(w) {
     ja.append(row(btn('Den Eid leisten', true, () => antworten(true)))); nein.append(row(btn('Ablehnen', false, () => antworten(false))));
     wahl.append(ja, nein); box.append(wahl, msg);
   } else {
-    box.append(p(`Die Versammlung stimmte ${w.nein} zu ${w.ja}. Die meisten Stimmen gingen an ${w.gegner || 'den Vorsteher'} – die Leute vertrauen dir noch nicht genug. In sieben Tagen wird wieder gewählt.`, ''));
+    box.append(p(`Die Versammlung stimmte ${w.nein} zu ${w.ja}. Die meisten Stimmen gingen an ${w.gegner || 'den Vorsteher'} – die Leute vertrauen dir noch nicht genug. Am nächsten Sonntag um 18 Uhr wird wieder gewählt.`, ''));
     box.append(row(btn('Verstanden', true, async () => { await db.rpc('amt_gesehen', { p_wahl: w.id }); close(); loadAmt(false); })));
   }
 }
