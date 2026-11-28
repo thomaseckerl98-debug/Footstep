@@ -79,7 +79,7 @@ begin
   end loop;
   nv := (select count(*) from npcs where village_id = p_v and tot_at is null) + (select count(*) from dorf_spieler(p_v));
   select sum(power((e->>'score')::numeric, 2)) into tot from jsonb_array_elements(r) e;
-  return coalesce((select jsonb_agg(e || jsonb_build_object('stimmen', round(nv * power((e->>'score')::numeric, 2) / greatest(tot, 1)))) order by (e->>'score')::numeric desc)
+  return coalesce((select jsonb_agg(e || jsonb_build_object('stimmen', round(nv * power((e->>'score')::numeric, 2) / greatest(tot, 1))) order by (e->>'score')::numeric desc)
                    from jsonb_array_elements(r) e), '[]'::jsonb);
 end $$;
 
