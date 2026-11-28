@@ -241,7 +241,7 @@ end $$;
 
 -- ───────── Beitreten (Dritte) ─────────
 create or replace function public.schlacht_beitreten(p_id bigint, p_seite text, p_modus text, p_npcs bigint[], p_geheim text) returns json language plpgsql security definer set search_path = public as $$
-declare uid uuid := auth.uid(); s schlachten; l json; von text; m int := 0; an timestamptz; nm text; n record; gid bigint; ch numeric; ok boolean; gpp numeric := 0; gtxt text; gr gilden; feind text;
+declare uid uuid := auth.uid(); s schlachten; l json; von text; m int := 0; v_an timestamptz; nm text; n record; gid bigint; ch numeric; ok boolean; gpp numeric := 0; gtxt text; gr gilden; feind text;
 begin
   select * into s from schlachten where id = p_id for update;
   if s.status in ('kampf', 'vorbei') then raise exception 'Der Kampf ist schon entschieden oder in vollem Gange.'; end if;
@@ -253,8 +253,8 @@ begin
   if l->>'zustand' not in ('daheim', 'ort') then raise exception 'Du bist gerade unterwegs.'; end if;
   von := l->>'ort'; select character_name into nm from profiles where id = uid;
   if von <> s.ort then m := reise_minuten(von, s.ort); end if;
-  an := now() + make_interval(mins => m);
-  if an > coalesce(s.prep_bis, now() + interval '12 hours') then raise exception 'Du kämest zu spät – bis % braucht man ca. % Min.', ort_name(s.ort), m; end if;
+  v_an := now() + make_interval(mins => m);
+  if v_an > coalesce(s.prep_bis, now() + interval '12 hours') then raise exception 'Du kämest zu spät – bis % braucht man ca. % Min.', ort_name(s.ort), m; end if;
   if p_modus = 'geheim' then
     gid := gilde_von(uid);
     if gid is null then raise exception 'Im Geheimen zu handeln braucht eine Gilde.'; end if;
@@ -277,15 +277,15 @@ begin
     if not ok and random() < 0.4 then perform dipl_aendern(heim_ort(uid), coalesce(case when p_seite = 'V' then s.a_ort else s.v_ort end, s.ort), -6); gtxt := gtxt || ' Man hat jemanden erkannt.'; end if;
   end if;
   insert into schlacht_teilnehmer (schlacht_id, seite, typ, player_id, name, herkunft, kaempfer, modus, ankunft, geheim_pp, geheim_text)
-    values (p_id, p_seite, 'spieler', uid, nm, ort_name(heim_ort(uid)), 1, p_modus, an, gpp, gtxt);
+    values (p_id, p_seite, 'spieler', uid, nm, ort_name(heim_ort(uid)), 1, p_modus, v_an, gpp, gtxt);
   for n in select x.id, x.name, coalesce(v.name, 'der Fremde') vn from npcs x join npc_relations r on r.npc_id = x.id and r.player_id = uid left join villages v on v.id = x.village_id
            where x.id = any(coalesce(p_npcs, '{}')) and x.tot_at is null and (dipl_stufe(r.sympathy) >= 7 or r.lebensretter) loop
-    insert into schlacht_teilnehmer (schlacht_id, seite, typ, npc_id, name, herkunft, kaempfer, modus, ankunft) values (p_id, p_seite, 'npc', n.id, n.name, n.vn, 1, case when p_modus = 'geheim' then 'geheim' else p_modus end, an) on conflict do nothing;
+    insert into schlacht_teilnehmer (schlacht_id, seite, typ, npc_id, name, herkunft, kaempfer, modus, ankunft) values (p_id, p_seite, 'npc', n.id, n.name, n.vn, 1, case when p_modus = 'geheim' then 'geheim' else p_modus end, v_an) on conflict do nothing;
   end loop;
-  if m > 0 then update profiles set aufenthalt = case when s.ort = heim_ort(uid) then null else s.ort end, weg_von = von, weg_ab = now(), weg_bis = an, weg_pos = null where id = uid; end if;
+  if m > 0 then update profiles set aufenthalt = case when s.ort = heim_ort(uid) then null else s.ort end, weg_von = von, weg_ab = now(), weg_bis = v_an, weg_pos = null where id = uid; end if;
   if p_modus = 'offen' then perform dipl_aendern(heim_ort(uid), case when p_seite = 'V' then s.a_ort else s.v_ort end, -3); end if;
   update schlacht_hilfe set status = 'zugesagt' where schlacht_id = p_id and an = uid;
-  return json_build_object('ok', true, 'minuten', m, 'ankunft', an, 'geheim', gtxt);
+  return json_build_object('ok', true, 'minuten', m, 'ankunft', v_an, 'geheim', gtxt);
 end $$;
 
 -- ───────── Angriff / Herausforderung durch Spieler ─────────
