@@ -168,6 +168,10 @@ patch('amt_antwort(boolean)', [
 
 # ───────── Einziehen ─────────
 A(r"""
+-- Dörfer ohne Gründer gehören zu einem bestehenden Ort der Karte – keinen neuen Ort anlegen
+create or replace function public.trg_welt_neues_dorf() returns trigger language plpgsql security definer set search_path = public as $$
+begin if new.owner_id is not null then perform welt_ort_fuer_dorf(new.id); end if; return new; end $$;
+
 -- Ein KI-Dorf bekommt beim ersten Zuzug ein echtes Dorf mit Bewohnern
 create or replace function public.dorf_anlegen(p_ort text) returns bigint language plpgsql security definer set search_path = public as $$
 declare o welt_orte; vid bigint; tries int := 0; r record; i int;
