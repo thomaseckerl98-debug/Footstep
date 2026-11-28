@@ -369,7 +369,7 @@ begin
   select * into g from gilden where id = a.gilde_id; adef := gilde_art(a.art); zielname := ort_name(a.ziel); zeichen := gilde_zeichen_name(g.zeichen);
   select array_agg(mitglied_id) into ms from gilde_teilnahme where auftrag_id = a.id and antwort;
   if ms is null then
-    update gilde_auftraege set status = 'abgesagt', ergebnis = jsonb_build_object('text', 'Niemand ist der Brieftaube gefolgt. Der Auftrag fällt ausg.') where id = a.id; return;
+    update gilde_auftraege set status = 'abgesagt', ergebnis = jsonb_build_object('text', 'Niemand ist der Brieftaube gefolgt. Der Auftrag fällt aus.') where id = a.id; return;
   end if;
   select string_agg(coalesce(p.character_name, n.name), ', ') into namen from gilde_mitglieder m left join profiles p on p.id = m.player_id left join npcs n on n.id = m.npc_id where m.id = any(ms);
   ch := gilde_chance(a.art, a.ziel, ms);
@@ -395,7 +395,7 @@ begin
   if enttarnt or (not g.geheim and a.art <> 'auskundschaften') then perform dipl_aendern(heim, a.ziel, case when enttarnt then -8 else -3 end); end if;
   -- Verletzungen und Erfahrung
   for t in select m.*, coalesce(p.character_name, n.name) nm from gilde_mitglieder m left join profiles p on p.id = m.player_id left join npcs n on n.id = m.npc_id where m.id = any(ms) loop
-    if random() < (adef->>'risiko')::numeric * case ausg when 'fehl' then 2 when 'teil' then 1 else 0.4 end then
+    if random() < (adef->>'risiko')::numeric * (case ausg when 'fehl' then 2 when 'teil' then 1 else 0.4 end) then
       update gilde_mitglieder set verletzt_bis = now() + make_interval(days => 1 + floor(random() * 3)::int) where id = t.id;
       if t.npc_id is not null then update npcs set zustand = 'verletzt', zustand_bis = now() + interval '2 days' where id = t.npc_id; end if;
       verletzt := verletzt || t.nm;
