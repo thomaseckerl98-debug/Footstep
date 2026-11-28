@@ -205,7 +205,7 @@ Stand: 28.11.2026. Dieses Dokument beschreibt, wie die großen Systeme zusammens
 |---|---|---|
 | 1 | Fehler, kürzere Wege (ganze Karte ≈ 4 Std.), Position auf der Karte, Rangliste, Diplomatie-Stufen, Kontextmenü | live seit 28.11. |
 | 2 | Wohnen und Wahl: Einziehen, mehrere Spieler pro Dorf, Wahl sonntags 18 Uhr, Ansehen pro Dorf | live seit 28.11. (erste Wahl 29.11. 18 Uhr) |
-| 3 | Gilde: Reiter, Mitglieder, Brieftauben, geheim/öffentlich, Gildenaufträge | |
+| 3 | Gilde: Reiter, Mitglieder, Brieftauben, geheim/öffentlich, Gildenaufträge (Auskundschaften, Einschüchtern, Sabotage, Diebstahl) | live seit 28.11. |
 | 4 | Schlachten: Belagerung, offene Schlacht, Zweikampf, Vorbereitung, Beitreten, Würfel und Erzählungen | |
 | 5 | Eroberung, Nebendörfer, Statthalter, Konflikt-Hinweise | |
 
@@ -215,6 +215,7 @@ Stand: 28.11.2026. Dieses Dokument beschreibt, wie die großen Systeme zusammens
 - PvP: alles erlaubt, auch Eroberung von Spielerdörfern.
 - Bleibt der Angegriffene offline, beginnt die Vorbereitung spätestens nach 48 Stunden.
 - Moritz spielt als Maycer (Heidrun).
+- Gilde zuerst, dann Schlachten. Gründen ab Ruhm 30 oder Ansehen 100. NPC-Tod nur selten und mit Vorwarnung.
 
 ## 9. Technik (Stand Phase 2)
 
@@ -242,3 +243,20 @@ Stand: 28.11.2026. Dieses Dokument beschreibt, wie die großen Systeme zusammens
 
 **Rangliste**
 - `dorf_staerke(ort)` liefert die Stärke eines Ortes, `dorf_rangliste()` vergleicht die Dörfer paarweise nach Bradley-Terry mit Exponent 1,5.
+
+**Gilde (Migration 043)**
+- Tabellen: `gilden`, `gilde_mitglieder` (je Person höchstens eine Gilde), `gilde_einladungen`, `gilde_auftraege`, `gilde_teilnahme`, `gilde_angebote`, `ort_effekte`.
+- Fertigkeiten:
+  - Spieler: `gilde_fert` liest die Fertigkeiten (kampf, flink, heilkunde, ueberreden, spuren).
+  - NPCs: Grundwert aus Wesenszügen und Beruf, dazu Erfahrung.
+- Chance: `gilde_chance` rechnet das Team (der Beste zählt voll, die anderen abnehmend) gegen die Schwierigkeit 2 + √Stärke × 0,8. Ergebnis zwischen 8 % und 92 %.
+- Ablauf:
+  - NPCs antworten nach 5 bis 245 Minuten.
+  - Ausgeführt wird bei Fristende oder wenn alle geantwortet haben, über `gilde_pruefen`. Das läuft stündlich in `amt_tick_all` und bei jedem Aufruf von `gilde_status`.
+- Sabotage schwächt den Ort 3 Tage lang über `ort_effekte`; `dorf_staerke` rechnet das ein.
+- Lebensretter:
+  - Spalte `npc_relations.lebensretter`, gesetzt über die Quest-Folge `"gerettet": ["A"]`.
+  - Eingebaut in „Vermisst im Nebel“ und „Kräuter vor dem Frost“.
+
+**Fortsetzung (Migration 044)**
+- „Rauch über dem Ostkamm“ (`g_ostkamm`, Hauptquest) wird freigeschaltet, wenn die Armbrust-Geschichte mit „Wache“ oder „nichts tun“ endet.
