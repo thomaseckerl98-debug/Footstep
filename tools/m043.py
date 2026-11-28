@@ -167,8 +167,8 @@ begin
   for s in select v from unnest(sc) v order by v desc loop
     tot := tot + s * (array[1, 0.6, 0.4, 0.3, 0.2, 0.15, 0.1])[least(7, i + 1)]; i := i + 1;
   end loop;
-  d := 4 + sqrt(greatest(1, dorf_staerke(p_ziel))) * 1.2;
-  return least(0.92, greatest(0.08, 0.5 + (tot - d) / 12));
+  d := 2 + sqrt(greatest(1, dorf_staerke(p_ziel))) * 0.8;
+  return least(0.92, greatest(0.08, 0.5 + (tot - d) / 10));
 end $$;
 """)
 
@@ -196,7 +196,7 @@ create or replace function public.gilde_kandidaten() returns json language sql s
   select coalesce(json_agg(json_build_object('id', n.id, 'name', n.name, 'beruf', n.job, 'look', n.look, 'wohnort', coalesce(v.name, 'unterwegs'),
       'stufe', dipl_stufe(r.sympathy), 'lebensretter', r.lebensretter) order by r.lebensretter desc, r.sympathy desc), '[]'::json)
   from npc_relations r join npcs n on n.id = r.npc_id left join villages v on v.id = n.village_id
-  where r.player_id = auth.uid() and n.tot_at is null and not n.namenlos and (dipl_stufe(r.sympathy) >= 7 or r.lebensretter)
+  where r.player_id = auth.uid() and n.tot_at is null and (dipl_stufe(r.sympathy) >= 7 or r.lebensretter)
     and not exists (select 1 from gilde_mitglieder m where m.npc_id = n.id);
 $$;
 
