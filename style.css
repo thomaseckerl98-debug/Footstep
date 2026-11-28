@@ -682,3 +682,40 @@ body.unterwegs #besch-banner, body.im-dialog #besch-banner { display: none; }
 .rang-pips i { display: inline-block; width: 8px; height: 8px; margin-left: 2px; background: #3a2c1c; border: 1px solid #6a5232; }
 .rang-pips i.on { background: #e0b050; }
 .rang-6 .rang-st { color: #ff9a6a; } .rang-5 .rang-st { color: #f0c060; }
+
+/* Gilde */
+.g-siegel { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; color: #f0e0b0; font-size: 16px; border: 2px solid #c8a060; box-shadow: inset 0 0 0 2px rgba(0,0,0,.35); vertical-align: middle; flex: none; }
+.g-siegel.gross { width: 54px; height: 54px; font-size: 28px; }
+.g-kopf { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+.g-kopf h3 { margin: 0 0 2px; }
+.g-badge { display: inline-block; font-size: 12px; padding: 1px 7px; border: 1px solid #8a6a3a; }
+.g-badge.geheim { background: #1e1e28; color: #c8c0e0; } .g-badge.offen { background: #3a5a2a; color: #e8f0c0; }
+.g-badge.leben { border-color: #a03030; color: #ff8a8a; padding: 0 4px; }
+.g-ruf { height: 6px; background: #2a2018; border: 1px solid #5a4428; margin-top: 5px; max-width: 260px; }
+.g-ruf i { display: block; height: 100%; background: linear-gradient(90deg, #6a4a8a, #b080d0); }
+.g-karte, .g-auftrag, .g-art { border: 1px solid #5a4428; background: rgba(0,0,0,.18); padding: 8px 10px; margin: 6px 0; }
+.g-karte.bote { border-color: #c8a060; }
+.g-auftrag.werbung { border-color: #b080d0; }
+.g-aus { font-size: 12px; padding: 1px 6px; margin-left: 4px; }
+.g-aus.erfolg { background: #3a6a2a; } .g-aus.teil { background: #6a5a2a; } .g-aus.fehl, .g-aus.abgesagt { background: #6a2a2a; }
+.g-mitglieder { display: flex; flex-direction: column; gap: 4px; }
+.g-mitglied { display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px dashed #4a3828; }
+.g-mitglied.verletzt { opacity: .6; }
+.g-minfo { flex: 1; min-width: 0; }
+.g-fert { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; color: #cdbf9f; }
+.g-fert i { font-style: normal; color: #b080d0; letter-spacing: -1px; }
+.g-rangwahl { max-width: 110px; }
+.g-form label { display: block; margin: 6px 0; }
+.g-form input[type=text], .g-form select { width: 100%; }
+.g-farben { display: flex; gap: 6px; margin: 6px 0; }
+.g-farbe { width: 26px; height: 26px; border: 2px solid #5a4428; cursor: pointer; }
+.g-farbe.on { border-color: #f0d890; }
+.g-modus { font-size: 14px; }
+.g-plan .g-arten { display: grid; gap: 8px; }
+/* Handy: Menüleiste in zwei Reihen, damit alle 10 Reiter passen */
+@media (max-width: 640px) {
+  .dock { display: grid; grid-template-columns: repeat(5, 1fr); row-gap: 2px; }
+  .dock-btn { min-width: 0; padding: 3px 1px 2px; }
+  .dock-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dock-btn.active::after { left: 22%; right: 22%; }
+}

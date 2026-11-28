@@ -10,7 +10,7 @@ import { landFor, LAND_IDS, LAND_NAMES } from './game/lands.js?v=1';
 import { POSES, POSE_NAMES } from './game/hero.js?v=1';
 import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
-import { drawIcon } from './game/icons.js?v=4';
+import { drawIcon } from './game/icons.js?v=5';
 import { SW, SH } from './game/chars.js?v=4';
 import { openQuest, ortBildCanvas, dauerText } from './game/questui.js?v=15';
 import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=4';
@@ -106,7 +106,8 @@ const MENUS = [
   { id: 'quests', name: 'Quests', tip: 'Abenteuer: täglich Leicht, Mittel, Schwer – und dein eigenes, von der KI erzähltes Abenteuer.' },
   { id: 'quest', name: 'Tagebuch', tip: 'Gerüchte, Hinweise und Aufträge aus deinen Gesprächen.' },
   { id: 'karte', name: 'Karte', tip: 'Die Weltkarte mit allen Dörfern.' },
-  { id: 'diplomatie', name: 'Diplomatie', tip: 'Dein Notizbuch über die Menschen im Tal: Eindrücke, Erlebtes, Gefallen.' },
+  { id: 'diplomatie', name: 'Diplomatie', tip: 'Menschen, Dörfer und Städte – wie sie zu dir stehen. Dazu die Rangliste der Dörfer.' },
+  { id: 'gilde', name: 'Gilde', tip: 'Deine Gilde: Gefährten aus allen Dörfern, Ränge, Fertigkeiten und Aufträge – geheim oder offen.' },
 ];
 const TIME_NAMES = { morgen: 'Morgen', mittag: 'Mittag', abend: 'Abend', nacht: 'Nacht' };
 const SEASON_NAMES = { fruehling: 'Frühling', sommer: 'Sommer', herbst: 'Herbst', winter: 'Winter' };
@@ -187,6 +188,8 @@ function renderPanel(id) {
       db.rpc('beschaeftigung_status').then(({ data }) => { if (data) fb.append(fertigkeitenListe(data.fertigkeiten || {})); });
     }
     body.append(row(btn('Aussehen ändern', false, () => showCreator(false))));
+  } else if (id === 'gilde') {
+    renderGilde(body);
   } else if (id === 'training') {
     renderBeschaeftigung(body);
   } else if (id === 'quests') {
@@ -445,6 +448,9 @@ async function karteKontext(o, x, y) {
     else if (ziel) out.push({ text: ziel.heim ? 'Heimreisen' : 'Hinreisen', sub: 'ca. ' + dauerText(ziel.minuten), disabled: !['daheim', 'ort'].includes(z.zustand), onclick: () => reisen(ziel, z) });
     if (ziel && !ziel.hier && !['daheim', 'ort'].includes(z?.zustand)) out.push({ text: z.zustand === 'quest' ? 'Gerade bist du auf einer Reise.' : 'Du bist schon zu Fuß unterwegs.' });
     for (const k of kampf) out.push(k.geholfen ? { text: `⚔ ${k.text} – du hast hier schon gekämpft.` } : k.hier ? { text: '⚔ Mitkämpfen', sub: k.text, onclick: () => kartenKampf(k) } : { text: `⚔ ${k.text} – mitkämpfen kannst du nur vor Ort.` });
+    const gs = gildeCache || (await gildeStatus());
+    if (gs?.gilde && ['meister', 'gildenmeister'].includes(gs.ich?.rang) && !ziel?.hier && !(gs.auftraege || []).some((a) => a.status === 'werbung'))
+      out.push({ text: `${(ZEICHEN[gs.gilde.zeichen] || ZEICHEN.feder)[1]} Gildenauftrag planen`, sub: gs.gilde.name, onclick: () => { weltkarte?.schliessen?.(); gildeAuftragDialog(o); } });
     out.push({ text: 'Alles über den Ort', onclick: () => weltkarte?.karte?.(o) });
     return out;
   })());
@@ -1574,6 +1580,149 @@ function renderRangliste(body) {
   });
 }
 
+// ───────── Gilde ─────────
+const ZEICHEN = { feder: ['Schwarze Feder', '✒'], dolch: ['Gekreuzte Dolche', '⚔'], auge: ['Offenes Auge', '◉'], rabe: ['Rabe', '♠'], mond: ['Mondsichel', '☾'], wolf: ['Wolfskopf', '▼'] };
+const GFARBEN = ['#1e1e28', '#5a1a1a', '#1a3a2a', '#2a2a5a', '#5a4a1a', '#4a1a4a'];
+const RANG = { gildenmeister: 'Gildenmeister', meister: 'Meister', klinge: 'Klinge', anwaerter: 'Anwärter' };
+const FERT = { kampf: 'Kampf', schleichen: 'Schleichen', gift: 'Gift', ueberzeugen: 'Überzeugen', spuren: 'Spuren' };
+const RUF_STUFEN = [0, 15, 40, 80, 140];
+function siegel(z, farbe, gross) { const d = document.createElement('span'); d.className = 'g-siegel' + (gross ? ' gross' : ''); d.style.background = farbe || '#1e1e28'; d.textContent = (ZEICHEN[z] || ZEICHEN.feder)[1]; d.title = (ZEICHEN[z] || ZEICHEN.feder)[0]; return d; }
+let gildeCache = null;
+async function gildeStatus() { const { data, error } = await db.rpc('gilde_status'); if (error) { console.warn('Gilde:', error.message); return null; } gildeCache = data; return data; }
+async function renderGilde(body) {
+  body.append(p('…', 'muted small'));
+  const g = await gildeStatus(); if (active !== 'gilde') return; body.innerHTML = '';
+  if (!g) { body.append(p('Die Gilde ist gerade nicht erreichbar.', 'error')); return; }
+  const fehler = p('', 'small error');
+  const rpc = async (name, args, nachher) => { fehler.textContent = ''; const { data, error } = await db.rpc(name, args); if (error) { fehler.textContent = error.message; return null; } if (data?.text) toast(esc(data.text), 7000); if (nachher !== false) renderPanel('gilde'); return data; };
+  if (!g.gilde) {
+    body.append(p('Eine Gilde ist ein Bund von Menschen, die einander bedingungslos vertrauen – aus deinem Dorf und aus anderen. Gemeinsam übernehmt ihr Aufträge, die einer allein nicht schafft. Offen getragen bringt das Ruhm. Im Geheimen bringt es Furcht – und niemand weiß, wer dahintersteckt.', 'small'));
+    for (const e of g.einladungen || []) {
+      const z = document.createElement('div'); z.className = 'g-karte';
+      z.append(siegel(e.zeichen, e.farbe), document.createTextNode(' '));
+      z.insertAdjacentHTML('beforeend', `<b>Eine Brieftaube von ${esc(e.von || 'jemandem')}</b><p class="small">Einladung in die Gilde „${esc(e.gilde)}“ (${e.geheim ? 'geheim' : 'öffentlich'}). Gilt bis ${clock(e.bis)} Uhr am ${new Date(e.bis).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}.</p>`);
+      z.append(row(btn('Beitreten', true, () => rpc('gilde_einladung_antwort', { p_id: e.id, p_ja: true })), btn('Ablehnen', false, () => rpc('gilde_einladung_antwort', { p_id: e.id, p_ja: false }))));
+      body.append(z);
+    }
+    if (!g.kann_gruenden) { body.append(p(`Um eine eigene Gilde zu gründen, muss man dich kennen: Ruhm im Land ab 30 (du hast ${g.ruhm}) oder Ansehen im Dorf ab 100 (du hast ${g.ansehen}).`, 'muted small')); return; }
+    body.append(h3('Eine Gilde gründen'));
+    const f = document.createElement('div'); f.className = 'g-form';
+    f.innerHTML = `<label>Name<input type="text" maxlength="40" placeholder="z. B. Die Stillen Klingen"></label><label>Zeichen<select>${Object.entries(ZEICHEN).map(([k, v]) => `<option value="${k}">${v[1]} ${v[0]}</option>`).join('')}</select></label>
+      <div class="g-farben">${GFARBEN.map((c, i) => `<button type="button" class="g-farbe${i ? '' : ' on'}" data-c="${c}" style="background:${c}"></button>`).join('')}</div>
+      <label class="g-modus"><input type="radio" name="gmod" value="1" checked> <b>Geheim</b> – die Leute hören nur Gerüchte über euer Zeichen. Ihr gewinnt Furcht, aber keinen persönlichen Ruhm.</label>
+      <label class="g-modus"><input type="radio" name="gmod" value="0"> <b>Öffentlich</b> – jeder weiß, wer zu euch gehört. Erfolge bringen allen Mitgliedern Ruhm.</label>`;
+    let farbe = GFARBEN[0]; f.querySelectorAll('.g-farbe').forEach((b) => { b.onclick = () => { farbe = b.dataset.c; f.querySelectorAll('.g-farbe').forEach((x) => x.classList.toggle('on', x === b)); }; });
+    f.append(row(btn('Gilde gründen', true, () => rpc('gilde_gruenden', { p_name: f.querySelector('input[type=text]').value, p_zeichen: f.querySelector('select').value, p_farbe: farbe, p_geheim: f.querySelector('input[name=gmod]:checked').value === '1' }))));
+    body.append(f, fehler);
+    return;
+  }
+  const G = g.gilde, ich = g.ich || {}, gm = ich.rang === 'gildenmeister', meister = gm || ich.rang === 'meister';
+  const kopf = document.createElement('div'); kopf.className = 'g-kopf'; kopf.append(siegel(G.zeichen, G.farbe, true));
+  const naechste = RUF_STUFEN.find((x) => x > G.ruf), vorige = [...RUF_STUFEN].reverse().find((x) => x <= G.ruf) || 0;
+  const t = document.createElement('div'); t.innerHTML = `<h3>${esc(G.name)}</h3><span class="g-badge ${G.geheim ? 'geheim' : 'offen'}">${G.geheim ? 'Geheim' : 'Öffentlich'}</span> <span class="small">Ruf: <b>${esc(G.ruf_wort)}</b> · ${g.mitglieder.length}/${G.max} Mitglieder · du bist ${esc(RANG[ich.rang] || '')}</span>
+    <div class="g-ruf"><i style="width:${naechste ? Math.round(((G.ruf - vorige) / (naechste - vorige)) * 100) : 100}%"></i></div>`;
+  kopf.append(t); body.append(kopf, fehler);
+  for (const an of g.angebote || []) {
+    const z = document.createElement('div'); z.className = 'g-karte bote'; z.innerHTML = `<b>Ein Bote</b><p class="small">${esc(an.text)}</p>`;
+    if (gm) z.append(row(btn('Bündnis annehmen', true, () => rpc('gilde_angebot_antwort', { p_id: an.id, p_ja: true })), btn('Ablehnen', false, () => rpc('gilde_angebot_antwort', { p_id: an.id, p_ja: false }))));
+    else z.append(p('Darüber entscheidet der Gildenmeister.', 'small muted'));
+    body.append(z);
+  }
+  body.append(h3('Aufträge'));
+  const offenerAuftrag = (g.auftraege || []).some((a) => a.status === 'werbung');
+  if (meister && !offenerAuftrag) body.append(p('Neuen Auftrag planen: Rechtsklick (am Handy: lange drücken) auf einen Ort der Weltkarte → „Gildenauftrag planen“.', 'small muted'), row(btn('Zur Karte', false, () => openMenu('karte'))));
+  if (!(g.auftraege || []).length) body.append(p('Noch keine Aufträge.', 'small muted'));
+  for (const a of g.auftraege || []) {
+    const z = document.createElement('div'); z.className = 'g-auftrag ' + a.status;
+    const e = a.ergebnis || {};
+    if (a.status === 'werbung') {
+      z.innerHTML = `<b>${esc(a.art_name)} in ${esc(a.ziel)}</b> <span class="small muted">· Zusagen bis ${clock(a.frist)} Uhr</span><p class="small">${a.zusagen} dabei · ${a.absagen} abgesagt · ${a.offen} noch ohne Antwort · Verletzungsrisiko ca. ${a.risiko} %</p>`;
+      if (a.eingeladen && a.meine == null) z.append(row(btn('Ich bin dabei', true, () => rpc('gilde_auftrag_antwort', { p_auftrag: a.id, p_ja: true })), btn('Diesmal nicht', false, () => rpc('gilde_auftrag_antwort', { p_auftrag: a.id, p_ja: false }))));
+      else if (a.meine != null) z.append(p(a.meine ? 'Du hast zugesagt.' : 'Du hast abgesagt.', 'small muted'));
+    } else {
+      const aus = { erfolg: 'Erfolg', teil: 'Halber Erfolg', fehl: 'Fehlschlag' }[e.ausgang] || 'Abgesagt';
+      z.innerHTML = `<b>${esc(a.art_name)} in ${esc(a.ziel)}</b> <span class="g-aus ${e.ausgang || 'abgesagt'}">${aus}</span><p class="small">${esc(e.text || '')}</p>`;
+      const info = e.info || {};
+      if (info.staerke) z.append(p(`Erkundet: Rang ${info.rang} · ${info.staerke} · etwa ${info.kaempfer} Kämpfer · ${['keine Mauer', 'Palisade', 'Steinmauer', 'starke Mauern'][info.mauer || 0] || ''}`, 'small'));
+      if (e.ruf) z.append(p(`Ruf der Gilde +${e.ruf}`, 'small muted'));
+    }
+    body.append(z);
+  }
+  body.append(h3('Mitglieder'));
+  const ml = document.createElement('div'); ml.className = 'g-mitglieder'; body.append(ml);
+  for (const m of g.mitglieder) {
+    const r = document.createElement('div'); r.className = 'g-mitglied' + (m.verletzt_bis ? ' verletzt' : '');
+    r.append(portraitCanvas(planFromLook(m.look, m.name), 40));
+    const info = document.createElement('div'); info.className = 'g-minfo';
+    info.innerHTML = `<b>${esc(m.name)}</b>${m.spieler ? ' <span class="tag-spieler">Spieler</span>' : ''}${m.lebensretter ? ' <span class="g-badge leben" title="verdankt dir das Leben">❤</span>' : ''} <span class="small muted">· ${esc(RANG[m.rang])} · ${esc(m.wohnort || '')}${m.verletzt_bis ? ' · verletzt bis ' + clock(m.verletzt_bis) + ' Uhr' : ''}</span>
+      <div class="g-fert">${Object.entries(FERT).map(([k, n]) => `<span title="${n}: ${m.fert?.[k] || 1}">${n.slice(0, 3)} <i>${'●'.repeat(Math.min(10, m.fert?.[k] || 1))}</i></span>`).join('')}</div>`;
+    r.append(info);
+    if (gm && !m.ich) {
+      const sel = document.createElement('select'); sel.className = 'g-rangwahl';
+      sel.innerHTML = ['anwaerter', 'klinge', 'meister'].map((x) => `<option value="${x}"${x === m.rang ? ' selected' : ''}>${RANG[x]}</option>`).join('') + '<option value="entlassen">Entlassen</option>';
+      sel.onchange = () => rpc('gilde_rang', { p_mitglied: m.id, p_rang: sel.value });
+      r.append(sel);
+    }
+    ml.append(r);
+  }
+  if (meister) {
+    body.append(h3('Einladen'));
+    if ((g.kandidaten || []).length) {
+      body.append(p('Nur wer dir sehr vertraut (Stufe +7 oder mehr) oder dir das Leben verdankt, folgt deinem Ruf.', 'small muted'));
+      for (const k of g.kandidaten) {
+        const r = document.createElement('div'); r.className = 'g-mitglied';
+        r.append(portraitCanvas(planFromLook(k.look, k.name), 34));
+        const i = document.createElement('div'); i.className = 'g-minfo'; i.innerHTML = `<b>${esc(k.name)}</b> <span class="small muted">· ${esc(k.beruf || '')} · ${esc(k.wohnort)} · ${k.lebensretter ? 'verdankt dir das Leben' : 'Stufe +' + k.stufe}</span>`;
+        r.append(i, btn('Brieftaube schicken', false, () => rpc('gilde_einladen_npc', { p_npc: k.id })));
+        body.append(r);
+      }
+    } else body.append(p('Gerade vertraut dir niemand außerhalb der Gilde genug. Hilf den Leuten, rette ihnen auf Reisen das Leben – dann folgen sie dir.', 'small muted'));
+    const sp = document.createElement('div'); sp.className = 'g-spieler'; body.append(sp);
+    db.rpc('gilde_spieler_liste').then(({ data }) => {
+      const frei = (data || []).filter((x) => !x.in_gilde); if (!frei.length || !sp.isConnected) return;
+      const sel = document.createElement('select'); sel.innerHTML = frei.map((x) => `<option value="${x.id}">${esc(x.name)} (${esc(x.wohnort || '?')})</option>`).join('');
+      sp.append(p('Mitspieler per Brieftaube einladen – egal, in welchem Dorf sie wohnen:', 'small'), row(sel, btn('Brieftaube schicken', false, () => rpc('gilde_einladen_spieler', { p_player: sel.value }))));
+    });
+  }
+  body.append(h3('Gilde'));
+  if (gm) {
+    const kann = new Date(G.modus_ab) <= new Date();
+    body.append(p(G.geheim ? 'Ihr arbeitet im Verborgenen. Wird ein Mitglied bei einem Auftrag erkannt, ist es mit der Heimlichkeit vorbei – zumindest dort.' : 'Ihr tretet offen auf. Erfolge bringen allen Mitgliedern Ruhm, Feinde wissen aber auch, wen sie suchen müssen.', 'small'));
+    const b = btn(G.geheim ? 'Offen auftreten' : 'In den Schatten gehen', false, () => rpc('gilde_modus', { p_geheim: !G.geheim })); b.disabled = !kann;
+    body.append(row(b));
+    if (!kann) body.append(p(`Wechseln geht wieder ab ${new Date(G.modus_ab).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}.`, 'small muted'));
+  }
+  const vb = btn('Gilde verlassen', false, async () => { if (await bestaetige({ titel: 'Die Gilde verlassen?', text: gm ? 'Du bist Gildenmeister. Ein anderer Spieler übernimmt – gibt es keinen, löst sich die Gilde auf.' : 'Du verlässt die Gilde. Zurückkommen geht nur mit neuer Einladung.', ja: 'Verlassen' })) rpc('gilde_verlassen', {}); });
+  body.append(row(vb));
+}
+// Auftrag über das Kontextmenü der Karte planen
+async function gildeAuftragDialog(o) {
+  const { box, close } = amtOverlay(); box.classList.add('g-plan');
+  box.innerHTML = `<span class="amt-label">Gildenauftrag</span><h2>${esc(o.name)}</h2><p class="small">Wähle, was ihr dort tun wollt. Alle Mitglieder bekommen eine Brieftaube und haben 24 Stunden Zeit, zuzusagen. Je mehr mitmachen und je besser sie darin sind, desto besser die Chancen.</p>`;
+  const liste = document.createElement('div'); liste.className = 'g-arten'; box.append(liste);
+  const msg = p('', 'small error');
+  for (const art of ['auskundschaften', 'einschuechtern', 'sabotage', 'diebstahl']) {
+    const k = document.createElement('div'); k.className = 'g-art'; k.innerHTML = '…'; liste.append(k);
+    db.rpc('gilde_auftrag_vorschau', { p_ziel: o.id, p_art: art }).then(({ data: v }) => {
+      if (!v) { k.remove(); return; }
+      k.innerHTML = `<b>${esc(v.art.name)}</b><p class="small">${esc(v.art.text)}</p><p class="small">Chance mit allen ${v.verfuegbar} Verfügbaren: <b>${v.chance_alle} %</b> · allein: ${v.chance_du} % · Verletzungsrisiko ca. ${Math.round(v.art.risiko * 100)} % · ${dauerText(v.minuten)} entfernt</p>`;
+      k.append(row(btn('Diesen Auftrag planen', true, async () => {
+        const { data, error } = await db.rpc('gilde_auftrag_planen', { p_ziel: o.id, p_art: art });
+        if (error) { msg.textContent = error.message; return; }
+        close(); toast(esc(data.text), 7000);
+      })));
+    });
+  }
+  box.append(msg, row(btn('Abbrechen', false, close)));
+}
+// Brieftauben beim Einloggen: Einladungen und Aufträge, auf die man antworten soll
+let gildeGemeldet = new Set();
+async function gildeCheck() {
+  const g = await gildeStatus(); if (!g) return;
+  for (const e of g.einladungen || []) if (!gildeGemeldet.has('e' + e.id)) { gildeGemeldet.add('e' + e.id); toast(`<b>Eine Brieftaube:</b> ${esc(e.von || 'Jemand')} lädt dich in die Gilde „${esc(e.gilde)}“ ein. Schau im Reiter <b>Gilde</b> nach.`, 10000); }
+  for (const a of g.auftraege || []) if (a.status === 'werbung' && a.eingeladen && a.meine == null && !gildeGemeldet.has('a' + a.id)) { gildeGemeldet.add('a' + a.id); toast(`<b>Eine Brieftaube deiner Gilde:</b> ${esc(a.art_name)} in ${esc(a.ziel)}. Bist du dabei? Antwort im Reiter <b>Gilde</b>.`, 10000); }
+}
+
 function renderPeople(body) {
   body.append(p('Was ich über die Menschen im Tal weiß. Ich schreibe auf, was wir erlebt haben – und was ich von ihnen halte.', 'muted small'));
   const rep = document.createElement('div'); rep.className = 'rep'; body.append(rep);
@@ -1640,7 +1789,7 @@ async function startGame() {
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
     if (me.look) { refreshHero(true); if (!me.startpaket) setTimeout(() => showCreator(false, true), 800); } else showCreator(true);
   });
-  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); beschCheck(); }, 120000); beschCheck();
+  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); beschCheck(); gildeCheck(); }, 120000); beschCheck(); setTimeout(gildeCheck, 4000);
   setTimeout(async () => { await checkAmtPopups(); if (amt?.offen?.length && !document.querySelector('.amt-overlay')) toast(`<b>Am Brett:</b> ${amt.offen.length === 1 ? 'Ein Aushang wartet' : amt.offen.length + ' Aushänge warten'} auf deine Entscheidung als Dorfmeister.`, 9000); }, 3000);
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
