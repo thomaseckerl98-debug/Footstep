@@ -13,7 +13,7 @@ import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
 import { drawIcon } from './game/icons.js?v=5';
 import { SW, SH } from './game/chars.js?v=4';
 import { openQuest, ortBildCanvas, dauerText } from './game/questui.js?v=15';
-import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=4';
+import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=5';
 let weltkarte = null;
 import { playMinigame } from './game/minigames.js?v=2';
 import { playBattle } from './game/horde.js?v=8';
@@ -399,6 +399,138 @@ function abbruchFolge(d) {
   loadAmt(false);
 }
 window.__abbruchFolge = abbruchFolge;
+// ───────── Schlachten ─────────
+const SCH_ART = { belagerung: 'Belagerung', feldschlacht: 'Offene Schlacht', zweikampf: 'Zweikampf' };
+let schlachtCache = [], schlachtGezeigt = new Set();
+async function schlachtLaden() { const { data, error } = await db.rpc('schlacht_status'); if (error) { console.warn('Schlacht:', error.message); return schlachtCache; } schlachtCache = Array.isArray(data) ? data : []; return schlachtCache; }
+const restText = (iso) => { const m = Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} Std. ${m % 60} Min.` : `${m} Min.`; };
+const aussicht = (p) => (p >= 70 ? 'sehr gut' : p >= 55 ? 'gut' : p >= 45 ? 'ausgeglichen' : p >= 30 ? 'schlecht' : 'sehr schlecht');
+async function schlachtCheck() {
+  const list = await schlachtLaden();
+  let b = $('schlacht-banner');
+  const meine = list.find((x) => x.meine && x.status !== 'vorbei') || list.find((x) => x.betroffen && x.status !== 'vorbei');
+  if (!meine) { b?.remove(); } else {
+    if (!b) { b = document.createElement('div'); b.id = 'schlacht-banner'; b.className = 'ui'; document.body.append(b); }
+    const txt = meine.status === 'angekuendigt' ? `${SCH_ART[meine.art]}: ${meine.a_name} gegen ${meine.v_name}` : meine.status === 'vorbereitung' ? `${SCH_ART[meine.art]}! Noch ${restText(meine.prep_bis)} Vorbereitung` : meine.mein_kampf == null ? 'Der Kampf beginnt – du wirst gebraucht!' : 'Der Kampf läuft – warte auf die anderen';
+    b.innerHTML = `<span>⚔ ${esc(txt)}</span>`; b.onclick = () => showSchlacht(meine.id);
+  }
+  for (const x of list) {
+    const key = x.id + ':' + x.status;
+    if ((x.betroffen || x.meine) && ['vorbereitung', 'kampf'].includes(x.status) && !schlachtGezeigt.has(key)) { schlachtGezeigt.add(key); showSchlacht(x.id); break; }
+    if (x.hilfe_von && !x.meine && !schlachtGezeigt.has('h' + x.id)) { schlachtGezeigt.add('h' + x.id); toast(`<b>Eine Brieftaube von ${esc(x.hilfe_von)}:</b> „Hilf uns bei ${esc(x.ort_name)}!“ – ${esc(x.a_name)} gegen ${esc(x.v_name)}. Auf der Karte kannst du beitreten.`, 12000); }
+    if (x.status === 'vorbei' && x.meine && !schlachtGezeigt.has('e' + x.id)) { schlachtGezeigt.add('e' + x.id); if (!sessionStorage.getItem('sch_e' + x.id)) { sessionStorage.setItem('sch_e' + x.id, '1'); showSchlacht(x.id); } }
+  }
+}
+async function showSchlacht(id) {
+  await schlachtLaden(); const s = schlachtCache.find((x) => x.id === id); if (!s) { toast('Diesen Kampf gibt es nicht mehr.'); return; }
+  document.querySelector('.sch-overlay')?.remove();
+  const { ov, box, close } = amtOverlay(); ov.classList.add('sch-overlay'); box.classList.add('sch-box');
+  const neu = () => { close(); setTimeout(() => showSchlacht(id), 150); schlachtCheck(); };
+  const meineSeite = s.seite, wir = meineSeite === 'A' ? s.a_name : s.v_name, die = meineSeite === 'A' ? s.v_name : s.a_name;
+  box.insertAdjacentHTML('beforeend', `<span class="amt-label">${esc(SCH_ART[s.art])} · ${esc(s.ort_name)}</span><h2>${esc(s.a_name)} gegen ${esc(s.v_name)}</h2>${s.grund ? `<p class="small">${esc(s.grund)}</p>` : ''}`);
+  const msg = p('', 'small error');
+  const rpc = async (n, a) => { msg.textContent = ''; const { data, error } = await db.rpc(n, a); if (error) { msg.textContent = error.message; return null; } if (data?.text) toast(esc(data.text), 7000); return data || true; };
+  // Ergebnis
+  if (s.status === 'vorbei' && s.ergebnis) {
+    const e = s.ergebnis, gewonnen = meineSeite ? (meineSeite === 'V') === e.v_sieg : null;
+    box.append(h3(gewonnen === null ? `${e.sieger} gewinnt` : gewonnen ? 'Sieg!' : 'Niederlage'), p(e.text, ''), p(`Aussichten vor dem Würfeln: ${e.p} % – gewürfelt: ${e.wurf}`, 'small muted'));
+    box.append(row(btn('Schließen', true, close))); return;
+  }
+  // Kräfteverhältnis
+  const c = s.chance, kr = s.kraefte || {};
+  const anteil = c ? (meineSeite === 'A' ? 100 - c.anteil_v : c.anteil_v) : Math.round(100 * kr.schaetzung_v / Math.max(1, kr.schaetzung_v + kr.schaetzung_a));
+  const bar = document.createElement('div'); bar.className = 'sch-bar'; bar.innerHTML = `<i style="width:${anteil}%"></i><span>${esc(meineSeite ? wir : s.v_name)}</span><span>${esc(meineSeite ? die : s.a_name)}</span>`;
+  box.append(h3('Kräfteverhältnis'), bar);
+  const gegnerZahl = meineSeite === 'A' ? kr.schaetzung_v : kr.schaetzung_a;
+  if (meineSeite) box.append(p(`${kr.genau ? 'Die Kundschafter zählen' : 'Vom Blick über die Mauer: etwa'} ${gegnerZahl} Kämpfer auf der Gegenseite.${c ? ' Aussichten: ' + aussicht(meineSeite === 'A' ? 100 - c.p : c.p) + '.' : ''}`, 'small'));
+  const seiten = document.createElement('div'); seiten.className = 'sch-seiten';
+  const liste = (titel, arr) => { const d = document.createElement('div'); d.innerHTML = `<b>${esc(titel)}</b>`; const ul = document.createElement('ul'); ul.className = 'small';
+    for (const t of arr || []) { const li = document.createElement('li'); li.textContent = `${t.name}${t.herkunft && t.typ !== 'ort' ? ' aus ' + t.herkunft : ''}${t.kaempfer > 1 ? ' (' + t.kaempfer + ')' : ''}${t.unterwegs ? ' – unterwegs' : ''}${t.modus === 'hinterhalt' ? ' – im Hinterhalt' : t.modus === 'geheim' ? ' – im Geheimen' : ''}`; ul.append(li); }
+    if (!ul.children.length) ul.innerHTML = '<li class="muted">Noch keine Verstärkung</li>'; d.append(ul); return d; };
+  seiten.append(liste(s.v_name, kr.v), liste(s.a_name, kr.a)); box.append(seiten);
+  if (c && meineSeite) {
+    const f = (c.faktoren || []).map((x) => ({ ...x, pp: meineSeite === 'A' ? -x.pp : x.pp }));
+    const plus = f.filter((x) => x.pp > 0), minus = f.filter((x) => x.pp < 0);
+    const vn = document.createElement('div'); vn.className = 'sch-faktoren';
+    vn.innerHTML = `<div class="plus">${plus.map((x) => `<div>+ ${esc(x.text)}</div>`).join('') || '<div class="muted">Noch keine Vorteile</div>'}</div><div class="minus">${minus.map((x) => `<div>− ${esc(x.text)}</div>`).join('') || '<div class="muted">Keine Nachteile</div>'}</div>`;
+    box.append(h3('Vor- und Nachteile'), vn);
+    if (s.gefahr && meineSeite === 'V' && s.art === 'belagerung') box.append(p('Lebensgefahr: Geht dieser Kampf schlecht aus, könnten Dorfbewohner sterben. Wer Kinder und Alte in Sicherheit bringt, verringert das.', 'small sch-gefahr'));
+  }
+  // Vorbereitung
+  if (meineSeite && s.status === 'angekuendigt') box.append(p('Die Vorbereitung beginnt, sobald die Verteidiger davon erfahren – spätestens nach zwei Tagen.', 'small muted'));
+  if (meineSeite && s.status === 'vorbereitung') {
+    box.append(h3(`Vorbereitung – noch ${restText(s.prep_bis)}`), p('Jede Aufgabe kostet echte Zeit. Alles schaffst du nicht – wähle, was am meisten hilft. Andere Abenteuer ruhen so lange.', 'small muted'));
+    const laeuft = (s.aufgaben || []).find((a) => !a.fertig);
+    if (laeuft) box.append(p(`Gerade dabei: ${(s.katalog.find((k) => k.id === laeuft.aufgabe) || {}).name} – fertig um ${clock(laeuft.bis)} Uhr.`, 'small'));
+    const kat = document.createElement('div'); kat.className = 'sch-katalog';
+    const restMin = (Date.parse(s.prep_bis) - Date.now()) / 60000;
+    for (const k of s.katalog || []) {
+      const fertig = (s.aufgaben || []).find((a) => a.aufgabe === k.id && a.fertig);
+      const d = document.createElement('div'); d.className = 'sch-aufgabe' + (k.erledigt ? ' erledigt' : '');
+      d.innerHTML = `<b>${esc(k.name)}</b> <span class="small muted">· ${dauerText(k.min)}${k.risiko >= 0.25 ? ' · riskant' : k.risiko >= 0.1 ? ' · etwas Risiko' : ''}${k.andere ? ' · schon von ' + esc(k.andere) : ''}</span><div class="small">${esc(fertig ? fertig.text : k.text)}</div>`;
+      if (!k.erledigt) { const b2 = btn('Angehen', false, async () => { if (await rpc('schlacht_aufgabe', { p_id: s.id, p_aufgabe: k.id })) neu(); }); b2.disabled = !!laeuft || k.min > restMin || !s.angekommen; d.append(b2); }
+      kat.append(d);
+    }
+    box.append(kat);
+    // Brieftauben an Mitspieler
+    const sp = document.createElement('div'); box.append(sp);
+    db.rpc('gilde_spieler_liste').then(({ data }) => {
+      if (!data?.length || !sp.isConnected) return;
+      const sel = document.createElement('select'); sel.innerHTML = data.map((x) => `<option value="${x.id}">${esc(x.name)} (${esc(x.wohnort || '?')})</option>`).join('');
+      sp.append(p('Mitspieler per Brieftaube um Hilfe bitten:', 'small'), row(sel, btn('Brieftaube schicken', false, () => rpc('schlacht_hilfe_rufen', { p_id: s.id, p_an: sel.value }))));
+    });
+  }
+  // Kampf
+  if (meineSeite && s.status === 'kampf') {
+    if (s.mein_kampf != null) box.append(p(`Du hast gekämpft (${s.mein_kampf >= 0 ? '+' : ''}${Math.round(s.mein_kampf)} auf die Aussichten). Sobald alle gekämpft haben, fällt die Entscheidung.`, 'small'));
+    else if (!s.angekommen) box.append(p('Du bist noch nicht angekommen.', 'small muted'));
+    else box.append(p('Je länger du durchhältst, desto besser stehen die Aussichten: Überlebst du die ganze Zeit, hilft das stark – fällst du früh, schadet es. Entschieden wird am Ende trotzdem mit einem Würfel.', 'small'),
+      row(btn(`In den Kampf (${s.art === 'zweikampf' ? 10 : 15} Min.)`, true, async () => {
+        close(); const dauer = s.art === 'zweikampf' ? 600 : 900; const { data: kw } = await db.rpc('kampf_werte');
+        const res = await playBattle({ titel: `${SCH_ART[s.art]} bei ${s.ort_name}`, text: s.grund || '', dauer, schwer: anteil >= 60 ? 1 : anteil >= 40 ? 2 : 3, gegner: s.gegner || 'banditen', ort: 'wald', heroPlan: heroPlan(), meta: kw || {} });
+        const { data, error } = await db.rpc('schlacht_kampf_ende', { p_id: s.id, p_zeit: Math.round(res?.zeit || 0), p_dauer: dauer, p_sieg: !!res?.sieg });
+        if (error) toast(esc(error.message)); else toast(`<b>${data.mod >= 0 ? 'Gut gekämpft!' : 'Hart getroffen.'}</b> ${data.mod >= 0 ? '+' : ''}${Math.round(data.mod)} auf die Aussichten.`, 8000);
+        refreshHero(true); setTimeout(() => showSchlacht(s.id), 400);
+      })));
+  }
+  // Beitreten
+  if (!meineSeite && ['angekuendigt', 'vorbereitung'].includes(s.status) && s.art !== 'zweikampf') {
+    box.append(h3('Mitmachen?'), p(`Bis ${s.ort_name} sind es ca. ${dauerText(s.minuten || 0)} zu Fuß.${s.prep_bis ? ' Du musst vor ' + clock(s.prep_bis) + ' Uhr dort sein.' : ''}`, 'small'));
+    const form = document.createElement('div'); form.className = 'sch-join'; box.append(form);
+    const verb = (await db.rpc('schlacht_verbuendete')).data || [];
+    form.innerHTML = `<div class="sch-schritt"><b>1. Allein oder mit Verbündeten?</b>${verb.length ? verb.map((v) => `<label class="small"><input type="checkbox" value="${v.id}"> ${esc(v.name)} (${esc(v.wohnort)}${v.lebensretter ? ', verdankt dir das Leben' : ''})</label>`).join('') : '<p class="small muted">Gerade vertraut dir niemand genug, um mitzukommen. Du gehst allein.</p>'}</div>
+      <div class="sch-schritt"><b>2. Für wen?</b><label><input type="radio" name="sseite" value="V" checked> ${esc(s.v_name)}</label><label><input type="radio" name="sseite" value="A"> ${esc(s.a_name)}</label></div>
+      <div class="sch-schritt"><b>3. Wie?</b>
+        <label class="small"><input type="radio" name="smod" value="offen" checked> <b>Öffentlich</b> – alle sehen, auf wessen Seite du stehst. Bei einem Sieg viel Ruhm.</label>
+        <label class="small"><input type="radio" name="smod" value="hinterhalt"> <b>Hinterhalt</b> – keiner weiß vorher, dass du kommst. Gleicher Ruhm, dazu ein Überraschungsvorteil.</label>
+        <label class="small"><input type="radio" name="smod" value="geheim"> <b>Im Geheimen</b> (nur mit Gilde) – du kämpfst nicht, sondern schlägst vorher zu. Nur die unterstützte Seite erfährt davon.</label>
+        <select class="sch-geheim"><option value="vergiften">Wasservorräte vergiften</option><option value="waffen">Waffen stehlen</option><option value="lager">Lager anzünden</option><option value="meucheln">Den Heerführer meucheln (gefürchtete Gilde)</option></select></div>`;
+    form.append(row(btn('Beitreten und losgehen', true, async () => {
+      const npcs = [...form.querySelectorAll('input[type=checkbox]:checked')].map((x) => +x.value);
+      const r = await rpc('schlacht_beitreten', { p_id: s.id, p_seite: form.querySelector('input[name=sseite]:checked').value, p_modus: form.querySelector('input[name=smod]:checked').value, p_npcs: npcs, p_geheim: form.querySelector('.sch-geheim').value });
+      if (!r) return;
+      toast(r.geheim ? esc(r.geheim) : r.minuten ? `Du brichst auf – Ankunft gegen ${clock(r.ankunft)} Uhr.` : 'Du bist dabei.', 9000); loadAmt(false); neu();
+    })));
+  }
+  box.append(msg, row(btn('Schließen', false, close)));
+}
+async function angriffPlanen(o) {
+  const d = (await diplOrte()).find((x) => x.id === o.id);
+  const ohne = d && d.stufe >= 0;
+  if (!(await bestaetige({ titel: `Angriff auf ${o.name}?`, text: `Deine Leute ziehen mit dir gegen ${o.name}. Beide Seiten haben 12 Stunden zur Vorbereitung, dann wird gekämpft.${ohne ? ` Ihr steht mit ${o.name} nicht in Feindschaft (${d.name_stufe}) – ein Überfall ohne Grund kostet dich Ansehen und das Vertrauen der Nachbarn.` : ''}`, ja: 'Angreifen' }))) return;
+  const { data, error } = await db.rpc('schlacht_angriff_planen', { p_ziel: o.id });
+  if (error) { toast(esc(error.message)); return; }
+  toast(esc(data.text), 8000); await schlachtCheck(); showSchlacht(data.id);
+}
+async function zweikampfFordern(o) {
+  const { data } = await db.rpc('gilde_spieler_liste'); const dort = (data || []).filter((x) => x.wohnort === o.name);
+  if (!dort.length) { toast('Hier wohnt niemand, den du fordern könntest.'); return; }
+  const g = dort[0];
+  if (!(await bestaetige({ titel: `${g.name} herausfordern?`, text: `Ein Zweikampf vor allen Leuten. Beide habt ihr 12 Stunden zur Vorbereitung, dann kämpft jeder seinen Kampf. Wer verliert, verliert vor allem an Ansehen.`, ja: 'Herausfordern' }))) return;
+  const { data: r, error } = await db.rpc('schlacht_fordern', { p_gegner: g.id });
+  if (error) { toast(esc(error.message)); return; }
+  toast(esc(r.text), 8000); schlachtCheck();
+}
 // Rechtsklick / langes Drücken: kleines Menü mit allem, was man hier tun könnte
 function kontextMenu(x, y, titel, items) {
   document.querySelector('.kmenu')?.remove();
@@ -451,6 +583,9 @@ async function karteKontext(o, x, y) {
     const gs = gildeCache || (await gildeStatus());
     if (gs?.gilde && ['meister', 'gildenmeister'].includes(gs.ich?.rang) && !ziel?.hier && !(gs.auftraege || []).some((a) => a.status === 'werbung'))
       out.push({ text: `${(ZEICHEN[gs.gilde.zeichen] || ZEICHEN.feder)[1]} Gildenauftrag planen`, sub: gs.gilde.name, onclick: () => { weltkarte?.schliessen?.(); gildeAuftragDialog(o); } });
+    for (const sc of (await schlachtLaden()).filter((x) => x.ort === o.id && x.status !== 'vorbei')) out.push({ text: `⚔ ${SCH_ART[sc.art]}: ${sc.a_name} gegen ${sc.v_name}`, sub: sc.meine ? 'du bist dabei' : 'ansehen / beitreten', onclick: () => { weltkarte?.schliessen?.(); showSchlacht(sc.id); } });
+    if (!ziel?.hier && ['dorf', 'burg', 'stadt'].includes(o.art) && o.id !== z?.heim) out.push({ text: '⚔ Angriff planen', sub: 'Belagerung', onclick: () => { weltkarte?.schliessen?.(); angriffPlanen(o); } });
+    if (!ziel?.hier && o.spieler && !o.spieler.ich) out.push({ text: '⚔ Zum Zweikampf fordern', onclick: () => { weltkarte?.schliessen?.(); zweikampfFordern(o); } });
     out.push({ text: 'Alles über den Ort', onclick: () => weltkarte?.karte?.(o) });
     return out;
   })());
@@ -1789,7 +1924,7 @@ async function startGame() {
     me = data && typeof data === 'object' ? data : { name: 'Du', look: null };
     if (me.look) { refreshHero(true); if (!me.startpaket) setTimeout(() => showCreator(false, true), 800); } else showCreator(true);
   });
-  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); beschCheck(); gildeCheck(); }, 120000); beschCheck(); setTimeout(gildeCheck, 4000);
+  loadVillageState(); clearInterval(window.__villageTimer); window.__villageTimer = setInterval(() => { loadVillageState(); loadAmt(); beschCheck(); gildeCheck(); schlachtCheck(); }, 120000); beschCheck(); setTimeout(gildeCheck, 4000); setTimeout(schlachtCheck, 2500);
   setTimeout(async () => { await checkAmtPopups(); if (amt?.offen?.length && !document.querySelector('.amt-overlay')) toast(`<b>Am Brett:</b> ${amt.offen.length === 1 ? 'Ein Aushang wartet' : amt.offen.length + ' Aushänge warten'} auf deine Entscheidung als Dorfmeister.`, 9000); }, 3000);
   const { data } = await db.rpc('get_my_village');
   village = Array.isArray(data) ? data[0] : data;
