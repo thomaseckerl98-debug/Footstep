@@ -235,5 +235,26 @@ revoke execute on function public.dorf_einzug_info(), public.dorf_einziehen() fr
 grant execute on function public.dorf_einzug_info(), public.dorf_einziehen() to authenticated;
 grant execute on function public.mein_dorf(uuid) to authenticated;
 """)
+# Anzeigen: Bewohner statt Gründer
+patch('get_my_village()', [("join profiles p on p.id = v.owner_id", "join profiles p on p.id = auth.uid()")])
+patch('get_world_map()', [("join profiles p on p.id = v.owner_id", "join profiles p on mein_dorf(p.id) = v.id"), ("(v.id = mein_dorf(auth.uid()))", "(p.id = auth.uid())")])
+patch('welt_karte()', [
+    ("'spieler', (select coalesce(json_agg(welt_spieler(v.owner_id, o.id, v.id = mein_dorf(me))), '[]'::json) from welt_orte o join villages v on v.id = o.village_id)",
+     "'spieler', (select coalesce(json_agg(welt_spieler(pl.id, o.id, pl.id = me)), '[]'::json) from profiles pl join welt_orte o on o.village_id = mein_dorf(pl.id))"),
+    ("from villages v join profiles p on p.id = v.owner_id where v.id = o.village_id) end)",
+     "from villages v join profiles p on p.id = (select x from dorf_spieler(v.id) x order by x = me desc, x limit 1) where v.id = o.village_id) end)"),
+    ("(select json_build_object('name', p.character_name, 'ich', v.id = mein_dorf(me),",
+     "(select json_build_object('name', (select string_agg(pq.character_name, ' & ') from profiles pq where pq.id in (select dorf_spieler(v.id))), 'ich', v.id = mein_dorf(me),"),
+])
+_SP_ALT = "(select string_agg(pp.character_name, ', ') from villages v join profiles pp on pp.id = v.owner_id where v.id = o.village_id)"
+_SP_NEU = "(select string_agg(pp.character_name, ', ') from profiles pp where o.village_id is not null and pp.id in (select dorf_spieler(o.village_id)))"
+patch('dipl_orte()', [(_SP_ALT, _SP_NEU)])
+patch('dorf_rangliste()', [(_SP_ALT, _SP_NEU)])
+patch('dorf_staerke(text)', [("from profiles p where p.id = v.owner_id loop", "from profiles p where p.id in (select dorf_spieler(v.id)) loop")])
+patch('ort_besuch()', [
+    ("'hausherr', p.id = owner", "'hausherr', vid is not null and p.id in (select dorf_spieler(vid))"),
+    ("(t.fundort = 'spielerdorf' and owner is not null and owner <> uid)", "(t.fundort = 'spielerdorf' and vid is not null and exists (select 1 from dorf_spieler(vid) x where x <> uid))"),
+])
+
 OUT.write_text('-- 042: Wohnen (Einziehen, mein_dorf), Ansehen pro Dorf, Wahl des Jarls jeden Sonntag 18 Uhr (erzeugt von tools/m042.py)\n' + '\n'.join(_p))
 print(OUT, OUT.stat().st_size)

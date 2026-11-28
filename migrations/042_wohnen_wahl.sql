@@ -231,3 +231,82 @@ revoke execute on function public.mein_dorf(uuid), public.dorf_spieler(bigint), 
 revoke execute on function public.dorf_einzug_info(), public.dorf_einziehen() from public, anon;
 grant execute on function public.dorf_einzug_info(), public.dorf_einziehen() to authenticated;
 grant execute on function public.mein_dorf(uuid) to authenticated;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.get_my_village()'::regprocedure);
+  if position($n0$join profiles p on p.id = auth.uid()$n0$ in d) = 0 then
+    if position($o0$join profiles p on p.id = v.owner_id$o0$ in d) = 0 then raise exception 'Patch get_my_village(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$join profiles p on p.id = v.owner_id$o0$, $n0$join profiles p on p.id = auth.uid()$n0$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.get_world_map()'::regprocedure);
+  if position($n0$join profiles p on mein_dorf(p.id) = v.id$n0$ in d) = 0 then
+    if position($o0$join profiles p on p.id = v.owner_id$o0$ in d) = 0 then raise exception 'Patch get_world_map(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$join profiles p on p.id = v.owner_id$o0$, $n0$join profiles p on mein_dorf(p.id) = v.id$n0$);
+  end if;
+  if position($n1$(p.id = auth.uid())$n1$ in d) = 0 then
+    if position($o1$(v.id = mein_dorf(auth.uid()))$o1$ in d) = 0 then raise exception 'Patch get_world_map(): Ziel 1 fehlt'; end if;
+    d := replace(d, $o1$(v.id = mein_dorf(auth.uid()))$o1$, $n1$(p.id = auth.uid())$n1$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.welt_karte()'::regprocedure);
+  if position($n0$'spieler', (select coalesce(json_agg(welt_spieler(pl.id, o.id, pl.id = me)), '[]'::json) from profiles pl join welt_orte o on o.village_id = mein_dorf(pl.id))$n0$ in d) = 0 then
+    if position($o0$'spieler', (select coalesce(json_agg(welt_spieler(v.owner_id, o.id, v.id = mein_dorf(me))), '[]'::json) from welt_orte o join villages v on v.id = o.village_id)$o0$ in d) = 0 then raise exception 'Patch welt_karte(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$'spieler', (select coalesce(json_agg(welt_spieler(v.owner_id, o.id, v.id = mein_dorf(me))), '[]'::json) from welt_orte o join villages v on v.id = o.village_id)$o0$, $n0$'spieler', (select coalesce(json_agg(welt_spieler(pl.id, o.id, pl.id = me)), '[]'::json) from profiles pl join welt_orte o on o.village_id = mein_dorf(pl.id))$n0$);
+  end if;
+  if position($n1$from villages v join profiles p on p.id = (select x from dorf_spieler(v.id) x order by x = me desc, x limit 1) where v.id = o.village_id) end)$n1$ in d) = 0 then
+    if position($o1$from villages v join profiles p on p.id = v.owner_id where v.id = o.village_id) end)$o1$ in d) = 0 then raise exception 'Patch welt_karte(): Ziel 1 fehlt'; end if;
+    d := replace(d, $o1$from villages v join profiles p on p.id = v.owner_id where v.id = o.village_id) end)$o1$, $n1$from villages v join profiles p on p.id = (select x from dorf_spieler(v.id) x order by x = me desc, x limit 1) where v.id = o.village_id) end)$n1$);
+  end if;
+  if position($n2$(select json_build_object('name', (select string_agg(pq.character_name, ' & ') from profiles pq where pq.id in (select dorf_spieler(v.id))), 'ich', v.id = mein_dorf(me),$n2$ in d) = 0 then
+    if position($o2$(select json_build_object('name', p.character_name, 'ich', v.id = mein_dorf(me),$o2$ in d) = 0 then raise exception 'Patch welt_karte(): Ziel 2 fehlt'; end if;
+    d := replace(d, $o2$(select json_build_object('name', p.character_name, 'ich', v.id = mein_dorf(me),$o2$, $n2$(select json_build_object('name', (select string_agg(pq.character_name, ' & ') from profiles pq where pq.id in (select dorf_spieler(v.id))), 'ich', v.id = mein_dorf(me),$n2$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.dipl_orte()'::regprocedure);
+  if position($n0$(select string_agg(pp.character_name, ', ') from profiles pp where o.village_id is not null and pp.id in (select dorf_spieler(o.village_id)))$n0$ in d) = 0 then
+    if position($o0$(select string_agg(pp.character_name, ', ') from villages v join profiles pp on pp.id = v.owner_id where v.id = o.village_id)$o0$ in d) = 0 then raise exception 'Patch dipl_orte(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$(select string_agg(pp.character_name, ', ') from villages v join profiles pp on pp.id = v.owner_id where v.id = o.village_id)$o0$, $n0$(select string_agg(pp.character_name, ', ') from profiles pp where o.village_id is not null and pp.id in (select dorf_spieler(o.village_id)))$n0$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.dorf_rangliste()'::regprocedure);
+  if position($n0$(select string_agg(pp.character_name, ', ') from profiles pp where o.village_id is not null and pp.id in (select dorf_spieler(o.village_id)))$n0$ in d) = 0 then
+    if position($o0$(select string_agg(pp.character_name, ', ') from villages v join profiles pp on pp.id = v.owner_id where v.id = o.village_id)$o0$ in d) = 0 then raise exception 'Patch dorf_rangliste(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$(select string_agg(pp.character_name, ', ') from villages v join profiles pp on pp.id = v.owner_id where v.id = o.village_id)$o0$, $n0$(select string_agg(pp.character_name, ', ') from profiles pp where o.village_id is not null and pp.id in (select dorf_spieler(o.village_id)))$n0$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.dorf_staerke(text)'::regprocedure);
+  if position($n0$from profiles p where p.id in (select dorf_spieler(v.id)) loop$n0$ in d) = 0 then
+    if position($o0$from profiles p where p.id = v.owner_id loop$o0$ in d) = 0 then raise exception 'Patch dorf_staerke(text): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$from profiles p where p.id = v.owner_id loop$o0$, $n0$from profiles p where p.id in (select dorf_spieler(v.id)) loop$n0$);
+  end if;
+  execute d;
+end $p$;
+
+do $p$ declare d text; begin
+  d := pg_get_functiondef('public.ort_besuch()'::regprocedure);
+  if position($n0$'hausherr', vid is not null and p.id in (select dorf_spieler(vid))$n0$ in d) = 0 then
+    if position($o0$'hausherr', p.id = owner$o0$ in d) = 0 then raise exception 'Patch ort_besuch(): Ziel 0 fehlt'; end if;
+    d := replace(d, $o0$'hausherr', p.id = owner$o0$, $n0$'hausherr', vid is not null and p.id in (select dorf_spieler(vid))$n0$);
+  end if;
+  if position($n1$(t.fundort = 'spielerdorf' and vid is not null and exists (select 1 from dorf_spieler(vid) x where x <> uid))$n1$ in d) = 0 then
+    if position($o1$(t.fundort = 'spielerdorf' and owner is not null and owner <> uid)$o1$ in d) = 0 then raise exception 'Patch ort_besuch(): Ziel 1 fehlt'; end if;
+    d := replace(d, $o1$(t.fundort = 'spielerdorf' and owner is not null and owner <> uid)$o1$, $n1$(t.fundort = 'spielerdorf' and vid is not null and exists (select 1 from dorf_spieler(vid) x where x <> uid))$n1$);
+  end if;
+  execute d;
+end $p$;
