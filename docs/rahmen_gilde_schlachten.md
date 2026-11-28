@@ -206,7 +206,7 @@ Stand: 28.11.2026. Dieses Dokument beschreibt, wie die großen Systeme zusammens
 | 1 | Fehler, kürzere Wege (ganze Karte ≈ 4 Std.), Position auf der Karte, Rangliste, Diplomatie-Stufen, Kontextmenü | live seit 28.11. |
 | 2 | Wohnen und Wahl: Einziehen, mehrere Spieler pro Dorf, Wahl sonntags 18 Uhr, Ansehen pro Dorf | live seit 28.11. (erste Wahl 29.11. 18 Uhr) |
 | 3 | Gilde: Reiter, Mitglieder, Brieftauben, geheim/öffentlich, Gildenaufträge (Auskundschaften, Einschüchtern, Sabotage, Diebstahl) | live seit 28.11. |
-| 4 | Schlachten: Belagerung, offene Schlacht, Zweikampf, Vorbereitung, Beitreten, Würfel und Erzählungen | |
+| 4 | Schlachten: Belagerung, offene Schlacht, Zweikampf, Vorbereitung, Beitreten, Würfel und Erzählungen | live seit 28.11. |
 | 5 | Eroberung, Nebendörfer, Statthalter, Konflikt-Hinweise | |
 
 ## 8. Entscheidungen von Tommi (28.11.)
@@ -260,3 +260,16 @@ Stand: 28.11.2026. Dieses Dokument beschreibt, wie die großen Systeme zusammens
 
 **Fortsetzung (Migration 044)**
 - „Rauch über dem Ostkamm“ (`g_ostkamm`, Hauptquest) wird freigeschaltet, wenn die Armbrust-Geschichte mit „Wache“ oder „nichts tun“ endet.
+
+**Schlachten (Migration 046)**
+- Tabellen: `schlachten`, `schlacht_teilnehmer`, `schlacht_aufgaben`, `schlacht_hilfe`. Auf der Karte erscheinen sie als `welt_ereignisse` mit art `schlacht`.
+- Ablauf: `angekuendigt` → `vorbereitung` (12 Std., startet beim Login der Verteidiger über `schlacht_status`, spätestens nach 48 Std.) → `kampf` (bis alle beteiligten Spieler gekämpft haben, höchstens 24 Std.) → `vorbei`.
+- Chance (`sch_chance`):
+  - Grundlage: Bradley-Terry der Stärken plus Vor- und Nachteile, begrenzt auf 10 bis 90 %.
+  - Kampf: Durchschnitt der Kämpfe der Seite V minus Seite A, begrenzt auf ±20.
+  - Ergebnis begrenzt auf 3 bis 97 %.
+- KI-Überfälle: im stündlichen Takt mit 1,5 % Chance je Spielerdorf, nicht vor drei Tagen nach Gründung, 5 Tage Pause zwischen zwei Überfällen. Hat das Dorf einen Feind (Stufe ≤ −4), kommt der Angriff von dort.
+- Feldschlachten zwischen verfeindeten Reichen: 1 % pro Stunde, immer höchstens eine gleichzeitig.
+- Während der Vorbereitung sperrt `pruefe_frei` andere Abenteuer.
+- NPCs können nur sterben, wenn alles drei zutrifft: Chance unter 25 %, verloren, und niemand hat Kinder und Alte in Sicherheit gebracht. Auch dann höchstens einer, mit 35 % Wahrscheinlichkeit.
+- Halber Heimweg nach Abbruch oder Scheitern und auf dem Heimweg von einem Besuch: Migration 045 (`heim_halb`, `q_misserfolg`).
