@@ -169,6 +169,10 @@ export function playBattle(opts = {}) {
     const modal = el('div', 'hb-modal'); modal.hidden = true;
     root.append(cv, hud, joy, modal); document.body.append(root);
     const g = cv.getContext('2d');
+    // Radien nie negativ/NaN: ein einziger Fehler in draw() würde sonst das Bild einfrieren
+    const rr = (v) => (v > 0 ? v : 0);
+    const ell = (x, y, a, b, rot, s0, s1) => g.ellipse(x, y, rr(a), rr(b), rot, s0, s1);
+    const arcS = (x, y, r, s0, s1, ccw) => g.arc(x, y, rr(r), s0, s1, ccw);
     let VW = 300, VH = 300, S = 2;
     function resize() {
       const w = root.clientWidth || innerWidth, h = root.clientHeight || innerHeight;
@@ -915,19 +919,19 @@ export function playBattle(opts = {}) {
       }
       // Zonen
       for (const z of zones) {
-        if (z.kind === 'wirbel') { const r = z.r; for (let i = 0; i < 6; i++) { const a = t * 9 + i * 1.05, rr = r * (0.3 + 0.12 * i); g.fillStyle = i % 2 ? '#ff9a3a' : '#ffd060'; g.globalAlpha = 0.75; g.fillRect(z.x + Math.cos(a) * rr - 2, z.y - i * 3 + Math.sin(a) * rr * 0.4 - 2, 4, 4); } g.globalAlpha = 0.25; g.fillStyle = '#ff7a2a'; g.beginPath(); g.ellipse(z.x, z.y, r, r * 0.5, 0, 0, TAU); g.fill(); g.globalAlpha = 1; continue; }
+        if (z.kind === 'wirbel') { const r = z.r; for (let i = 0; i < 6; i++) { const a = t * 9 + i * 1.05, rr = r * (0.3 + 0.12 * i); g.fillStyle = i % 2 ? '#ff9a3a' : '#ffd060'; g.globalAlpha = 0.75; g.fillRect(z.x + Math.cos(a) * rr - 2, z.y - i * 3 + Math.sin(a) * rr * 0.4 - 2, 4, 4); } g.globalAlpha = 0.25; g.fillStyle = '#ff7a2a'; g.beginPath(); ell(z.x, z.y, r, r * 0.5, 0, 0, TAU); g.fill(); g.globalAlpha = 1; continue; }
         if (z.kind === 'pilz') { const k2 = Math.min(1, z.t / 1.1); g.fillStyle = '#e8dcc0'; g.fillRect(z.x - 1, z.y - 3 * k2, 2, 3 * k2); g.fillStyle = '#d04a3a'; g.fillRect(z.x - 3 * k2, z.y - 5 * k2, 6 * k2, 3 * k2); g.fillStyle = '#fff'; g.fillRect(z.x - 1, z.y - 5 * k2, 1, 1); continue; }
-        if (z.kind === 'gift') { g.globalAlpha = 0.35 * Math.min(1, z.life); g.fillStyle = '#7ab83a'; g.beginPath(); g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, TAU); g.fill(); g.globalAlpha = 1; }
+        if (z.kind === 'gift') { g.globalAlpha = 0.35 * Math.min(1, z.life); g.fillStyle = '#7ab83a'; g.beginPath(); ell(z.x, z.y, z.r, z.r * 0.6, 0, 0, TAU); g.fill(); g.globalAlpha = 1; }
         else if (z.kind === 'rune') { g.fillStyle = (Math.floor(z.t * 4) % 2) ? '#c8b0ff' : '#8a70d0'; g.fillRect(z.x - 3, z.y - 3, 6, 6); g.fillStyle = '#2a2048'; g.fillRect(z.x - 1, z.y - 2, 2, 4); }
       }
-      if (owned.has('kraeuterbeutel')) { const r = owned.get('kraeuterbeutel').st.area; g.globalAlpha = 0.13 + Math.sin(t * 3) * 0.03; g.fillStyle = '#9ad070'; g.beginPath(); g.ellipse(P.x, P.y, r, r * 0.7, 0, 0, TAU); g.fill(); g.globalAlpha = 1; }
-      if (legends.has('seuchenwind')) { g.globalAlpha = 0.18; g.fillStyle = '#9ae04a'; g.beginPath(); g.ellipse(P.x, P.y, 120 * ST.area, 84 * ST.area, 0, 0, TAU); g.fill(); g.globalAlpha = 1; }
-      for (const h of hazards) { const k2 = Math.min(1, h.t / h.delay); g.globalAlpha = 0.28 + 0.2 * Math.sin(t * 20); g.fillStyle = '#ff3020'; g.beginPath(); g.ellipse(h.x, h.y, h.r * k2, h.r * 0.75 * k2, 0, 0, TAU); g.fill(); g.globalAlpha = 0.9; g.strokeStyle = '#ff6a50'; g.lineWidth = 1; g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.75, 0, 0, TAU); g.stroke(); g.globalAlpha = 1; }
+      if (owned.has('kraeuterbeutel')) { const r = owned.get('kraeuterbeutel').st.area; g.globalAlpha = 0.13 + Math.sin(t * 3) * 0.03; g.fillStyle = '#9ad070'; g.beginPath(); ell(P.x, P.y, r, r * 0.7, 0, 0, TAU); g.fill(); g.globalAlpha = 1; }
+      if (legends.has('seuchenwind')) { g.globalAlpha = 0.18; g.fillStyle = '#9ae04a'; g.beginPath(); ell(P.x, P.y, 120 * ST.area, 84 * ST.area, 0, 0, TAU); g.fill(); g.globalAlpha = 1; }
+      for (const h of hazards) { const k2 = Math.min(1, h.t / h.delay); g.globalAlpha = 0.28 + 0.2 * Math.sin(t * 20); g.fillStyle = '#ff3020'; g.beginPath(); ell(h.x, h.y, h.r * k2, h.r * 0.75 * k2, 0, 0, TAU); g.fill(); g.globalAlpha = 0.9; g.strokeStyle = '#ff6a50'; g.lineWidth = 1; g.beginPath(); ell(h.x, h.y, h.r, h.r * 0.75, 0, 0, TAU); g.stroke(); g.globalAlpha = 1; }
       // Erfahrung & Fundstücke
       for (const gm of gems) { if (!onScreen(gm.x, gm.y)) continue; g.fillStyle = gm.v >= 20 ? '#ff70d0' : gm.v >= 3 ? '#60e0ff' : '#70a0ff'; const s = gm.v >= 20 ? 3 : 2; g.fillRect(gm.x - s / 2, gm.y - s, s, s * 2); g.fillStyle = '#ffffff'; g.fillRect(gm.x - s / 2, gm.y - s, 1, 1); }
       for (const pu of pickups) {
         const bob = Math.sin(t * 4) * 2, k3 = pu.k === 'truhe' ? (pu.boss ? 'truhegold' : 'truhe') : pu.k === 'magnet' ? 'mondstein' : 'herz', im = bild(k3), sz = pu.k === 'truhe' ? 24 : 16;
-        g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 5); g.fillStyle = pu.k === 'truhe' ? '#ffd070' : pu.k === 'herz' ? '#ff6060' : '#c8b0ff'; g.beginPath(); g.ellipse(pu.x, pu.y + 2, sz * 0.6, sz * 0.25, 0, 0, TAU); g.fill(); g.globalAlpha = 1;
+        g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 5); g.fillStyle = pu.k === 'truhe' ? '#ffd070' : pu.k === 'herz' ? '#ff6060' : '#c8b0ff'; g.beginPath(); ell(pu.x, pu.y + 2, sz * 0.6, sz * 0.25, 0, 0, TAU); g.fill(); g.globalAlpha = 1;
         if (im && im.complete) g.drawImage(im, Math.round(pu.x - sz / 2), Math.round(pu.y - sz + bob), sz, sz);
         if (pu.k === 'truhe' && Math.random() < 0.3) fx.push({ k: 'funke', x: pu.x + rnd(-10, 10), y: pu.y - rnd(4, 20), t: 0, life: 0.5, col: '#fff0a0' });
       }
@@ -959,7 +963,7 @@ export function playBattle(opts = {}) {
       g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(P.x - 5, P.y + 3, 10, 2);
       g.drawImage(heroCv, fr * SW, row * SH, SW, SH, Math.round(P.x - SW / 2), Math.round(P.y - SH + 4), SW, SH);
       g.globalAlpha = 1;
-      if (P.shield > 0) { g.strokeStyle = '#9fd8ff'; g.globalAlpha = 0.6; g.beginPath(); g.arc(P.x, P.y - 6, 11, 0, TAU); g.stroke(); g.globalAlpha = 1; }
+      if (P.shield > 0) { g.strokeStyle = '#9fd8ff'; g.globalAlpha = 0.6; g.beginPath(); arcS(P.x, P.y - 6, 11, 0, TAU); g.stroke(); g.globalAlpha = 1; }
       // Leben unter der Figur
       g.fillStyle = '#300'; g.fillRect(P.x - 9, P.y + 6, 18, 2); g.fillStyle = P.hp / P.maxhp < 0.3 ? '#ff5040' : '#60d060'; g.fillRect(P.x - 9, P.y + 6, 18 * Math.max(0, P.hp / P.maxhp), 2);
       // Geschosse
@@ -997,10 +1001,10 @@ export function playBattle(opts = {}) {
       for (const f of fx) {
         const k = f.t / f.life;
         g.globalAlpha = Math.max(0, 1 - k);
-        if (f.k === 'ring' || f.k === 'welle' || f.k === 'rune' || f.k === 'eis') { g.strokeStyle = f.col; g.lineWidth = f.k === 'welle' ? 3 : 1.5; g.beginPath(); g.ellipse(f.x, f.y, f.r * (f.k === 'welle' ? k : 0.6 + k * 0.4), f.r * 0.7 * (f.k === 'welle' ? k : 0.6 + k * 0.4), 0, 0, TAU); g.stroke(); g.lineWidth = 1; }
-        else if (f.k === 'beben') { g.fillStyle = f.col; g.globalAlpha *= 0.35; g.beginPath(); g.ellipse(f.x, f.y, f.r * (0.4 + k * 0.6), f.r * 0.6 * (0.4 + k * 0.6), 0, 0, TAU); g.fill(); }
+        if (f.k === 'ring' || f.k === 'welle' || f.k === 'rune' || f.k === 'eis') { g.strokeStyle = f.col; g.lineWidth = f.k === 'welle' ? 3 : 1.5; g.beginPath(); ell(f.x, f.y, f.r * (f.k === 'welle' ? k : 0.6 + k * 0.4), f.r * 0.7 * (f.k === 'welle' ? k : 0.6 + k * 0.4), 0, 0, TAU); g.stroke(); g.lineWidth = 1; }
+        else if (f.k === 'beben') { g.fillStyle = f.col; g.globalAlpha *= 0.35; g.beginPath(); ell(f.x, f.y, f.r * (0.4 + k * 0.6), f.r * 0.6 * (0.4 + k * 0.6), 0, 0, TAU); g.fill(); }
         else if (f.k === 'wurzel') { g.fillStyle = '#7a5a2a'; for (let i = 0; i < 5; i++) { const a = i * 1.26, l = f.r * (0.3 + 0.7 * Math.min(1, k * 3)); g.fillRect(f.x + Math.cos(a) * l * 0.5 - 1, f.y + Math.sin(a) * l * 0.35 - 4, 2, 6); } }
-        else if (f.k === 'hieb') { g.strokeStyle = f.col; g.lineWidth = 2; g.beginPath(); g.arc(f.x, f.y - 4, f.r * 0.85, f.a - f.s * (1 - k * 0.3), f.a + f.s * (k * 1.6 - 0.6)); g.stroke(); g.lineWidth = 1; }
+        else if (f.k === 'hieb') { g.strokeStyle = f.col; g.lineWidth = 2; g.beginPath(); arcS(f.x, f.y - 4, f.r * 0.85, f.a - f.s * (1 - k * 0.3), f.a + f.s * (k * 1.6 - 0.6)); g.stroke(); g.lineWidth = 1; }
         else if (f.k === 'stoss' || f.k === 'strahl' || f.k === 'dornen') { g.strokeStyle = f.col; g.lineWidth = f.k === 'strahl' ? 3 : 2; g.beginPath(); g.moveTo(f.x, f.y - 4); g.lineTo(f.x2, f.y2 - 4); g.stroke(); if (f.k === 'dornen') { g.fillStyle = f.col; for (let i = 1; i < 6; i++) { const px = f.x + (f.x2 - f.x) * i / 6, py = f.y + (f.y2 - f.y) * i / 6; g.fillRect(px - 1, py - 6, 2, 5); } } g.lineWidth = 1; }
         else if (f.k === 'blitz') { g.strokeStyle = '#fff6a0'; g.beginPath(); g.moveTo(f.x, f.y); const mx2 = (f.x + f.x2) / 2 + rnd(-5, 5), my2 = (f.y + f.y2) / 2 + rnd(-5, 5); g.lineTo(mx2, my2); g.lineTo(f.x2, f.y2); g.stroke(); }
         else if (f.k === 'einschlag') { g.strokeStyle = '#fff6a0'; g.lineWidth = 2; g.beginPath(); g.moveTo(f.x + rnd(-6, 6), f.y - 120); g.lineTo(f.x + rnd(-6, 6), f.y - 60); g.lineTo(f.x + rnd(-4, 4), f.y - 30); g.lineTo(f.x, f.y); g.stroke(); g.lineWidth = 1; g.fillStyle = '#ffffa0'; g.fillRect(f.x - 3, f.y - 2, 6, 3); }
@@ -1009,11 +1013,11 @@ export function playBattle(opts = {}) {
         else if (f.k === 'puff') { g.fillStyle = f.col; const r = f.r * (0.5 + k); g.fillRect(f.x - r, f.y - 1, 2, 2); g.fillRect(f.x + r - 2, f.y - 1, 2, 2); g.fillRect(f.x - 1, f.y - r, 2, 2); g.fillRect(f.x - 1, f.y + r - 2, 2, 2); }
         else if (f.k === 'funke') { g.fillStyle = f.col; g.fillRect(f.x, f.y - k * 6, 1, 1); }
         else if (f.k === 'glitzer') { g.fillStyle = f.col; const px = f.x + f.vx * f.t, py = f.y + f.vy * f.t + 60 * f.t * f.t; g.fillRect(px - 1, py - 1, 2, 2); }
-        else if (f.k === 'lvlup') { g.globalAlpha = Math.max(0, 1 - k); g.strokeStyle = '#ffe070'; g.lineWidth = 3; g.beginPath(); g.ellipse(f.x, f.y - 4, 10 + k * 70, (10 + k * 70) * 0.6, 0, 0, TAU); g.stroke(); g.strokeStyle = '#fff6c0'; g.lineWidth = 1; g.beginPath(); g.ellipse(f.x, f.y - 4, 4 + k * 45, (4 + k * 45) * 0.6, 0, 0, TAU); g.stroke(); for (let i = 0; i < 8; i++) { const aa = i * 0.785 + k * 2; g.fillStyle = '#ffe070'; g.fillRect(f.x + Math.cos(aa) * k * 50 - 1, f.y - 4 + Math.sin(aa) * k * 30 - 6 * k - 1, 2, 2); } g.lineWidth = 1; }
-        else if (f.k === 'einschlagrot') { g.fillStyle = '#ff6a40'; g.globalAlpha = Math.max(0, 1 - k) * 0.8; g.beginPath(); g.ellipse(f.x, f.y, f.r * (0.8 + k * 0.4), f.r * 0.75 * (0.8 + k * 0.4), 0, 0, TAU); g.fill(); }
+        else if (f.k === 'lvlup') { g.globalAlpha = Math.max(0, 1 - k); g.strokeStyle = '#ffe070'; g.lineWidth = 3; g.beginPath(); ell(f.x, f.y - 4, 10 + k * 70, (10 + k * 70) * 0.6, 0, 0, TAU); g.stroke(); g.strokeStyle = '#fff6c0'; g.lineWidth = 1; g.beginPath(); ell(f.x, f.y - 4, 4 + k * 45, (4 + k * 45) * 0.6, 0, 0, TAU); g.stroke(); for (let i = 0; i < 8; i++) { const aa = i * 0.785 + k * 2; g.fillStyle = '#ffe070'; g.fillRect(f.x + Math.cos(aa) * k * 50 - 1, f.y - 4 + Math.sin(aa) * k * 30 - 6 * k - 1, 2, 2); } g.lineWidth = 1; }
+        else if (f.k === 'einschlagrot') { g.fillStyle = '#ff6a40'; g.globalAlpha = Math.max(0, 1 - k) * 0.8; g.beginPath(); ell(f.x, f.y, f.r * (0.8 + k * 0.4), f.r * 0.75 * (0.8 + k * 0.4), 0, 0, TAU); g.fill(); }
         else if (f.k === 'fels') { if (f.t >= 0) { const y = f.y - 90 * (1 - Math.min(1, f.t / f.life)); g.globalAlpha = 1; g.fillStyle = '#7a6a5a'; g.fillRect(f.x - 3, y - 6, 6, 6); g.fillStyle = '#a89888'; g.fillRect(f.x - 2, y - 6, 2, 2); } }
-        else if (f.k === 'staub' || f.k === 'sporen' || f.k === 'krater') { g.fillStyle = f.col; g.globalAlpha = Math.max(0, 1 - k) * 0.6; for (let i = 0; i < 8; i++) { const aa = i * 0.785, rr = f.r * (0.3 + k * 0.7); g.fillRect(f.x + Math.cos(aa) * rr - 2, f.y + Math.sin(aa) * rr * 0.6 - 2, 4, 4); } if (f.k === 'krater') { g.globalAlpha = Math.max(0, 1 - k); g.strokeStyle = '#fff8c0'; g.lineWidth = 2; g.beginPath(); g.ellipse(f.x, f.y, f.r * k, f.r * 0.6 * k, 0, 0, TAU); g.stroke(); g.lineWidth = 1; } }
-        else if (f.k === 'stern') { const y = f.y - 140 * (1 - k), x = f.x - 60 * (1 - k); g.fillStyle = '#fff8c0'; g.fillRect(x - 2, y - 2, 4, 4); g.globalAlpha = 0.5; g.fillRect(x - 8 * 1.5, y - 8 * 2.3, 8, 2); g.globalAlpha = 0.35; g.fillStyle = '#ffd060'; g.beginPath(); g.ellipse(f.x, f.y, 14 * k, 9 * k, 0, 0, TAU); g.fill(); }
+        else if (f.k === 'staub' || f.k === 'sporen' || f.k === 'krater') { g.fillStyle = f.col; g.globalAlpha = Math.max(0, 1 - k) * 0.6; for (let i = 0; i < 8; i++) { const aa = i * 0.785, rr = f.r * (0.3 + k * 0.7); g.fillRect(f.x + Math.cos(aa) * rr - 2, f.y + Math.sin(aa) * rr * 0.6 - 2, 4, 4); } if (f.k === 'krater') { g.globalAlpha = Math.max(0, 1 - k); g.strokeStyle = '#fff8c0'; g.lineWidth = 2; g.beginPath(); ell(f.x, f.y, f.r * k, f.r * 0.6 * k, 0, 0, TAU); g.stroke(); g.lineWidth = 1; } }
+        else if (f.k === 'stern') { const y = f.y - 140 * (1 - k), x = f.x - 60 * (1 - k); g.fillStyle = '#fff8c0'; g.fillRect(x - 2, y - 2, 4, 4); g.globalAlpha = 0.5; g.fillRect(x - 8 * 1.5, y - 8 * 2.3, 8, 2); g.globalAlpha = 0.35; g.fillStyle = '#ffd060'; g.beginPath(); ell(f.x, f.y, 14 * k, 9 * k, 0, 0, TAU); g.fill(); }
         else if (f.k === 'peitsche') { g.strokeStyle = f.col; g.lineWidth = 2; g.beginPath(); g.moveTo(f.x, f.y - 4); const mx3 = (f.x + f.x2) / 2, my3 = f.y - 14 * (1 - k); g.quadraticCurveTo(mx3, my3, f.x2, f.y2 - 4); g.stroke(); g.lineWidth = 1; }
       }
       g.globalAlpha = 1;
@@ -1033,14 +1037,14 @@ export function playBattle(opts = {}) {
     }
 
     /* ───────── Start / Schleife / Ende ───────── */
-    let last = performance.now(), raf = 0;
+    let last = performance.now(), raf = 0, drawFehler = false;
     function loop(now) {
       if (over) return;
       raf = requestAnimationFrame(loop);
-      let dt = Math.min(0.05, (now - last) / 1000); last = now;
+      let dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = Math.max(last, now); // rAF-Zeit kann vor performance.now() liegen → nie negativ
       if (opts.speedup) dt *= opts.speedup;
-      if (!paused) { const steps = dt > 0.034 ? 2 : 1; for (let i = 0; i < steps && !over && !paused; i++) update(dt / steps); }
-      draw();
+      if (!paused) { const steps = dt > 0.034 ? 2 : 1; for (let i = 0; i < steps && !over && !paused; i++) { try { update(dt / steps); } catch (err) { if (!drawFehler) { drawFehler = true; console.error('Kampf-Fehler', err); } } } }
+      try { draw(); } catch (err) { if (!drawFehler) { drawFehler = true; console.error('Kampf-Zeichenfehler', err); } }
     }
     function ende(sieg, aufgegeben = false) {
       if (over) return; over = true; cancelAnimationFrame(raf);
