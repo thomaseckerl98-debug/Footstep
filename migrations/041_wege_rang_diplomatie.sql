@@ -257,12 +257,37 @@ do $p$ declare d text; begin
     if position($o0$ct := ct + coalesce((sz->cur->'reise'->>'minuten')::numeric, 0)::int;$o0$ in d) = 0 then raise exception 'Patch quest_dauer(text): Ziel 0 fehlt'; end if;
     d := replace(d, $o0$ct := ct + coalesce((sz->cur->'reise'->>'minuten')::numeric, 0)::int;$o0$, $n0$ct := ct + q_reise_min(coalesce((sz->cur->'reise'->>'minuten')::numeric, 0));$n0$);
   end if;
-  if position($n1$when mx >= 10 then round(mx * 0.5)::int else 0 end;$n1$ in d) = 0 then
+  if position($n1$when offen and mx >= 10 then round(mx * 0.5)::int else 0 end;$n1$ in d) = 0 then
     if position($o1$when mx >= 30 then round(mx * 0.5)::int else 0 end;$o1$ in d) = 0 then raise exception 'Patch quest_dauer(text): Ziel 1 fehlt'; end if;
-    d := replace(d, $o1$when mx >= 30 then round(mx * 0.5)::int else 0 end;$o1$, $n1$when mx >= 10 then round(mx * 0.5)::int else 0 end;$n1$);
+    d := replace(d, $o1$when mx >= 30 then round(mx * 0.5)::int else 0 end;$o1$, $n1$when offen and mx >= 10 then round(mx * 0.5)::int else 0 end;$n1$);
+  end if;
+  if position($n2$declare offen boolean := false; t quest_templates;$n2$ in d) = 0 then
+    if position($o2$declare t quest_templates;$o2$ in d) = 0 then raise exception 'Patch quest_dauer(text): Ziel 2 fehlt'; end if;
+    d := replace(d, $o2$declare t quest_templates;$o2$, $n2$declare offen boolean := false; t quest_templates;$n2$);
+  end if;
+  if position($n3$if coalesce((sz->cur->>'ende')::boolean, false) and coalesce(sz->cur->>'ort', '') <> 'dorf' then offen := true; end if;
+    if coalesce((sz->cur->>'ende')::boolean, false) then mn :=$n3$ in d) = 0 then
+    if position($o3$if coalesce((sz->cur->>'ende')::boolean, false) then mn :=$o3$ in d) = 0 then raise exception 'Patch quest_dauer(text): Ziel 3 fehlt'; end if;
+    d := replace(d, $o3$if coalesce((sz->cur->>'ende')::boolean, false) then mn :=$o3$, $n3$if coalesce((sz->cur->>'ende')::boolean, false) and coalesce(sz->cur->>'ort', '') <> 'dorf' then offen := true; end if;
+    if coalesce((sz->cur->>'ende')::boolean, false) then mn :=$n3$);
   end if;
   execute d;
 end $p$;
+
+
+create or replace function public.trg_sym_daempfen() returns trigger language plpgsql as $$
+begin
+  if new.sympathy is distinct from old.sympathy and old.sympathy is not null then
+    if new.sympathy > old.sympathy and old.sympathy > 0 then
+      new.sympathy := old.sympathy + (new.sympathy - old.sympathy) * greatest(0.25, 1 - old.sympathy / 125.0);
+    elsif new.sympathy < old.sympathy and old.sympathy < 0 then
+      new.sympathy := old.sympathy + (new.sympathy - old.sympathy) * greatest(0.25, 1 + old.sympathy / 125.0);
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists sym_daempfen on public.npc_relations;
+create trigger sym_daempfen before update of sympathy on public.npc_relations for each row execute function public.trg_sym_daempfen();
 
 
 create or replace function public.welt_spieler(p_uid uuid, p_ort text, p_ich boolean) returns json language plpgsql stable security definer set search_path = public as $$

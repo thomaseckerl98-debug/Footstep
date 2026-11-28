@@ -254,8 +254,27 @@ patch('quest_view(bigint)', [
 ])
 patch('quest_dauer(text)', [
     ("ct := ct + coalesce((sz->cur->'reise'->>'minuten')::numeric, 0)::int;", "ct := ct + q_reise_min(coalesce((sz->cur->'reise'->>'minuten')::numeric, 0));"),
-    ("when mx >= 30 then round(mx * 0.5)::int else 0 end;", "when mx >= 10 then round(mx * 0.5)::int else 0 end;"),
+    ("when mx >= 30 then round(mx * 0.5)::int else 0 end;", "when offen and mx >= 10 then round(mx * 0.5)::int else 0 end;"),
+    ("declare t quest_templates;", "declare offen boolean := false; t quest_templates;"),
+    ("if coalesce((sz->cur->>'ende')::boolean, false) then mn :=", "if coalesce((sz->cur->>'ende')::boolean, false) and coalesce(sz->cur->>'ort', '') <> 'dorf' then offen := true; end if;\n    if coalesce((sz->cur->>'ende')::boolean, false) then mn :="),
 ])
+
+# Beziehungen wachsen nahe der Extreme langsamer (Schritt für Schritt statt im Eiltempo)
+A(r"""
+create or replace function public.trg_sym_daempfen() returns trigger language plpgsql as $$
+begin
+  if new.sympathy is distinct from old.sympathy and old.sympathy is not null then
+    if new.sympathy > old.sympathy and old.sympathy > 0 then
+      new.sympathy := old.sympathy + (new.sympathy - old.sympathy) * greatest(0.25, 1 - old.sympathy / 125.0);
+    elsif new.sympathy < old.sympathy and old.sympathy < 0 then
+      new.sympathy := old.sympathy + (new.sympathy - old.sympathy) * greatest(0.25, 1 + old.sympathy / 125.0);
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists sym_daempfen on public.npc_relations;
+create trigger sym_daempfen before update of sympathy on public.npc_relations for each row execute function public.trg_sym_daempfen();
+""")
 
 # ───────── Kartenposition während Quests ─────────
 A(r"""
