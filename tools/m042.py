@@ -174,7 +174,7 @@ begin if new.owner_id is not null then perform welt_ort_fuer_dorf(new.id); end i
 
 -- Ein KI-Dorf bekommt beim ersten Zuzug ein echtes Dorf mit Bewohnern
 create or replace function public.dorf_anlegen(p_ort text) returns bigint language plpgsql security definer set search_path = public as $$
-declare o welt_orte; vid bigint; tries int := 0; r record; i int;
+declare o welt_orte; vid bigint; tries int := 0; r record; i int; j int;
 begin
   select * into o from welt_orte where id = p_ort for update;
   if o.village_id is not null then return o.village_id; end if;
@@ -189,7 +189,9 @@ begin
   for r in select id from npcs where village_id is null and travel_to is null and tot_at is null and not namenlos and not reserviert order by tier, random() limit 2 for update skip locked loop
     update npcs set village_id = vid where id = r.id;
   end loop;
-  for i in 1 .. least(10, greatest(5, coalesce(o.einwohner, 10) / 3)) loop perform npc_neu_namenlos(vid); end loop;
+  for i in 1 .. least(10, greatest(5, coalesce(o.einwohner, 10) / 3)) loop
+    for j in 1 .. 8 loop begin perform npc_neu_namenlos(vid); exit; exception when unique_violation then null; end; end loop;  -- Namensliste ist begrenzt
+  end loop;
   insert into npc_bonds (npc_a, npc_b, sympathy)
     select a.id, b.id, (floor(random() * 100) - 40)::int from npcs a join npcs b on a.id < b.id where a.village_id = vid and b.village_id = vid on conflict do nothing;
   perform amt_init(vid);
