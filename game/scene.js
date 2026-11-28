@@ -48,6 +48,12 @@ export class Scene {
     root.addEventListener('pointermove', (e) => this.onMove(e));
     root.addEventListener('pointerleave', () => { this.mouse = [0, 0]; this.hooks.onHover?.(null); });
     root.addEventListener('click', (e) => this.onClick(e));
+    // Rechtsklick bzw. langes Drücken: Optionen für Bewohner, Gebäude und das Brett
+    root.addEventListener('contextmenu', (e) => { if (e.target.closest('.ui')) return; e.preventDefault(); this.kontext(e.clientX, e.clientY); });
+    { let lt = null, lp = null; const stop = () => { clearTimeout(lt); lt = null; };
+      root.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch' || e.target.closest('.ui')) return; lp = [e.clientX, e.clientY]; stop(); lt = setTimeout(() => { lt = null; this.dragMoved = true; this.kontext(lp[0], lp[1]); }, 550); });
+      root.addEventListener('pointermove', (e) => { if (lt && lp && Math.hypot(e.clientX - lp[0], e.clientY - lp[1]) > 10) stop(); });
+      root.addEventListener('pointerup', stop); root.addEventListener('pointercancel', stop); }
     this.initGestures();
     window.addEventListener('deviceorientation', (e) => { if (e.gamma != null) this.mouse = [Math.max(-1, Math.min(1, e.gamma / 25)), Math.max(-1, Math.min(1, (e.beta - 40) / 25))]; });
     requestAnimationFrame((t) => this.loop(t));
@@ -290,6 +296,13 @@ export class Scene {
         this.selected = null; this.saveLayout(); this.rebuildSprites(); this.hooks.onSelect?.(null);
       } else if (p) { this.selPlot = this.selPlot === p.id ? null : p.id; this.drawMarks(); this.hooks.onSelect?.(null); }
     }
+  }
+  kontext(cx, cy) {
+    if (!this.ready || this.showPlots) return;
+    const [wx, wy] = this.toWorld(cx, cy), bt = this.brett;
+    if (bt && wx > bt.x - 4 && wx < bt.x + bt.w + 4 && wy > bt.y - 4 && wy < bt.y + bt.h + 2) return this.hooks.onKontext?.({ kind: 'brett', x: cx, y: cy });
+    const v = this.village.hit(wx, wy); if (v) return this.hooks.onKontext?.({ kind: 'villager', person: v, x: cx, y: cy });
+    const s = this.spriteAt(wx, wy); if (s) return this.hooks.onKontext?.({ kind: 'building', sprite: s, x: cx, y: cy });
   }
   togglePlots(v) { this.showPlots = v ?? !this.showPlots; this.selected = null; this.selPlot = null; this.drawMarks(); this.hooks.onPlots?.(this.showPlots); }
   toggleRoads(v) { this.showRoads = v ?? !this.showRoads; this.cv.roads.style.opacity = this.showRoads ? 1 : 0; }

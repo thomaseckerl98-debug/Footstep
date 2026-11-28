@@ -180,8 +180,8 @@ function figur(c, x, y, t, farbe) {
 
 /* ───────── Die Karte ───────── */
 export class Weltkarte {
-  constructor({ db, onClose, aktion }) {
-    this.db = db; this.onClose = onClose; this.aktion = aktion; this.daten = null; this.bilder = new Map(); this.kacheln = new Map(); this.queue = []; this.busy = 0;
+  constructor({ db, onClose, aktion, kontext }) {
+    this.db = db; this.onClose = onClose; this.aktion = aktion; this.kontext = kontext; this.daten = null; this.bilder = new Map(); this.kacheln = new Map(); this.queue = []; this.busy = 0;
     this.zeige = { reiche: false, handel: false, spannung: true, ereignisse: true, spieler: true, wege: true };
     try { Object.assign(this.zeige, JSON.parse(localStorage.getItem('mh_karte_zeige') || '{}')); } catch { /* egal */ }
     this.cx = WELT.w / 2; this.cy = WELT.h / 2; this.s = 0.3; this.sel = null; this.offen = false; this.pointers = new Map();
@@ -205,7 +205,13 @@ export class Weltkarte {
     // Bedienung: ziehen, Mausrad, zwei Finger, tippen
     const cv = this.cv;
     cv.addEventListener('wheel', (e) => { e.preventDefault(); this.zoomUm(Math.exp(-e.deltaY * 0.0016), e.offsetX, e.offsetY); }, { passive: false });
-    cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY, x0: e.offsetX, y0: e.offsetY, t0: performance.now() }); });
+    // Rechtsklick bzw. langes Drücken auf einen Ort: Was könnte ich dort tun?
+    const kontextAuf = (sx, sy, cx, cy) => { const h = this.treffer(sx, sy); if (h?.ort && this.kontext) { this.sel = h.ort.id; this.kontext(h.ort, cx, cy); return true; } return false; };
+    cv.addEventListener('contextmenu', (e) => { e.preventDefault(); kontextAuf(e.offsetX, e.offsetY, e.clientX, e.clientY); });
+    cv.addEventListener('pointerdown', (e) => {
+      cv.setPointerCapture(e.pointerId); const p = { x: e.offsetX, y: e.offsetY, x0: e.offsetX, y0: e.offsetY, t0: performance.now() }; this.pointers.set(e.pointerId, p);
+      if (e.pointerType === 'touch') p.lt = setTimeout(() => { if (this.pointers.size === 1 && Math.hypot(p.x - p.x0, p.y - p.y0) < 8 && kontextAuf(p.x0, p.y0, e.clientX, e.clientY)) p.lang = true; }, 550);
+    });
     cv.addEventListener('pointermove', (e) => {
       const p = this.pointers.get(e.pointerId);
       if (!p) { this.hover(e.offsetX, e.offsetY); return; }
@@ -214,8 +220,8 @@ export class Weltkarte {
         const [a2, b2] = [...this.pointers.values()], d1 = Math.hypot(a2.x - b2.x, a2.y - b2.y); if (d0 > 0) this.zoomUm(d1 / d0, (a2.x + b2.x) / 2, (a2.y + b2.y) / 2);
       } else { this.cx -= (e.offsetX - p.x) / this.s; this.cy -= (e.offsetY - p.y) / this.s; p.x = e.offsetX; p.y = e.offsetY; this.klemmen(); }
     });
-    const up = (e) => { const p = this.pointers.get(e.pointerId); this.pointers.delete(e.pointerId); if (p && Math.hypot(e.offsetX - p.x0, e.offsetY - p.y0) < 6 && performance.now() - p.t0 < 500) this.tippen(e.offsetX, e.offsetY); };
-    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', (e) => this.pointers.delete(e.pointerId));
+    const up = (e) => { const p = this.pointers.get(e.pointerId); this.pointers.delete(e.pointerId); if (p) clearTimeout(p.lt); if (p?.lang || e.button === 2) return; if (p && Math.hypot(e.offsetX - p.x0, e.offsetY - p.y0) < 6 && performance.now() - p.t0 < 500) this.tippen(e.offsetX, e.offsetY); };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', (e) => { clearTimeout(this.pointers.get(e.pointerId)?.lt); this.pointers.delete(e.pointerId); });
     cv.addEventListener('dblclick', (e) => this.zoomUm(2, e.offsetX, e.offsetY));
     this.keys = (e) => { if (!this.offen) return; if (e.key === 'Escape') this.schliessen(); if (e.key === '+') this.zoomUm(1.4); if (e.key === '-') this.zoomUm(1 / 1.4); };
     window.addEventListener('keydown', this.keys);
@@ -457,9 +463,9 @@ export class Weltkarte {
     c.fillStyle = 'rgba(244,236,216,.65)'; c.beginPath(); c.arc(0, 0, 30, 0, 7); c.fill(); c.strokeStyle = '#4a3420'; c.lineWidth = 1; c.stroke();
     for (let k = 0; k < 4; k++) { c.rotate(Math.PI / 2); c.fillStyle = k === 3 ? '#a8301e' : '#4a3420'; c.beginPath(); c.moveTo(0, -26); c.lineTo(5, 0); c.lineTo(-5, 0); c.fill(); }
     c.globalAlpha = 1; c.restore(); this.sperrtext(c, 'N', x, y - 38, 12, 0, '#4a3420');
-    // Maßstab: ein Tagesmarsch ≈ 220 Einheiten
-    const L = 220 * this.s, bx = x + 50, by = this.H - 20; c.fillStyle = '#4a3420'; c.fillRect(bx, by, L, 3); c.fillStyle = '#f4ecd8'; c.fillRect(bx + L / 2, by, L / 2, 3);
-    c.font = '700 12px "Alegreya Sans", sans-serif'; c.textAlign = 'left'; c.fillStyle = '#3a2614'; c.fillText('ein Tagesmarsch', bx, by - 9);
+    // Maßstab: 500 Einheiten ≈ eine halbe Stunde zu Fuß (ganze Karte ≈ 4 Std.)
+    const L = 500 * this.s, bx = x + 50, by = this.H - 20; c.fillStyle = '#4a3420'; c.fillRect(bx, by, L, 3); c.fillStyle = '#f4ecd8'; c.fillRect(bx + L / 2, by, L / 2, 3);
+    c.font = '700 12px "Alegreya Sans", sans-serif'; c.textAlign = 'left'; c.fillStyle = '#3a2614'; c.fillText('½ Std. zu Fuß', bx, by - 9);
   }
 
   /* ───────── Bedienung ───────── */

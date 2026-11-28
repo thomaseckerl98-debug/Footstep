@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=7';
-import { Scene, realMood } from './game/scene.js?v=16';
+import { Scene, realMood } from './game/scene.js?v=17';
 import { openCreator } from './game/creator.js?v=4';
 import { buildTalk } from './game/dialog.js?v=8';
 import { CHECKS, ATTRS, HERKUNFT, charAttrs, checkOdds, oddsWord } from './game/rules.js?v=1';
@@ -12,11 +12,11 @@ import { setMood } from './game/core.js?v=1';
 import { CATALOG, KATEGORIEN, STUFEN, summary } from './game/buildings.js?v=3';
 import { drawIcon } from './game/icons.js?v=4';
 import { SW, SH } from './game/chars.js?v=4';
-import { openQuest, ortBildCanvas, dauerText } from './game/questui.js?v=14';
-import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=3';
+import { openQuest, ortBildCanvas, dauerText } from './game/questui.js?v=15';
+import { Weltkarte, reiseDaten, reiseZeichner } from './game/weltkarte.js?v=4';
 let weltkarte = null;
 import { playMinigame } from './game/minigames.js?v=2';
-import { playBattle } from './game/horde.js?v=7';
+import { playBattle } from './game/horde.js?v=8';
 import { iconURL } from './game/kampf_icons.js?v=3';
 const KAMPF = () => `<img class="q-kicon" src="${iconURL('kampf')}" alt="">`;
 
@@ -137,7 +137,7 @@ function showTip(html, anchorOrPoint) {
 function hideTip() { $('tooltip').hidden = true; }
 
 function openMenu(id) {
-  if (id === 'karte') { closePanel(); weltkarte ||= new Weltkarte({ db, aktion: karteAktion, onClose: () => document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === active)) }); weltkarte.oeffnen(); document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === 'karte')); return; }
+  if (id === 'karte') { closePanel(); weltkarte ||= new Weltkarte({ db, aktion: karteAktion, kontext: karteKontext, onClose: () => document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === active)) }); weltkarte.oeffnen(); document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === 'karte')); return; }
   const same = id === active && !$('panel').hidden;
   active = id;
   document.querySelectorAll('.dock-btn').forEach((b) => b.classList.toggle('active', b.dataset.menu === id));
@@ -160,7 +160,7 @@ function renderPanel(id) {
   if (id === 'dorf') {
     renderDorf(body);
   } else if (id === 'diplomatie') {
-    renderPeople(body);
+    renderDiplomatie(body);
   } else if (id === 'karte') {
     body.append(p('Die große Weltkarte folgt. Bisher bekannte Dörfer:', 'muted'));
     const ul = document.createElement('ul'); ul.className = 'chiefs'; body.append(ul);
@@ -389,6 +389,67 @@ const withArticle = (t) => (NEUTR.has(t) ? 'das ' : MASK.has(t) ? 'der ' : 'die 
 const withArticleAkk = (t) => (NEUTR.has(t) ? 'das ' : MASK.has(t) ? 'den ' : 'die ') + (CATALOG[t]?.name || t);
 let selTimer = 0;
 function portraitCanvas(plan, size = 96) { const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH; cv.style.width = cv.style.height = size + 'px'; cv.className = 'portrait'; cv.getContext('2d').putImageData(new ImageData(portraitSprite(plan).data, PW, PH), 0, 0); return cv; }
+// Nach einem Abbruch: wer draußen war, läuft jetzt heim
+function abbruchFolge(d) {
+  if (d?.weg) toast(`<b>Du machst dich auf den Heimweg nach ${esc(d.heim || 'Hause')}.</b> Ca. ${esc(dauerText(d.weg))} zu Fuß – Ankunft gegen ${clock(d.ankunft)} Uhr.`, 9000);
+  else if (d?.ort_name) toast(`Du bleibst vorerst in ${esc(d.ort_name)}.`, 6000);
+  loadAmt(false);
+}
+window.__abbruchFolge = abbruchFolge;
+// Rechtsklick / langes Drücken: kleines Menü mit allem, was man hier tun könnte
+function kontextMenu(x, y, titel, items) {
+  document.querySelector('.kmenu')?.remove();
+  const m = document.createElement('div'); m.className = 'kmenu ui'; document.body.append(m);
+  const h = document.createElement('div'); h.className = 'kmenu-h'; h.textContent = titel; m.append(h);
+  const fill = (list) => {
+    m.querySelectorAll('.kmenu-i, .kmenu-info').forEach((e) => e.remove());
+    for (const it of list) {
+      if (!it) continue;
+      if (!it.onclick) { const d = document.createElement('div'); d.className = 'kmenu-info'; d.innerHTML = it.html || esc(it.text); m.append(d); continue; }
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'kmenu-i'; b.innerHTML = `${esc(it.text)}${it.sub ? `<span>${esc(it.sub)}</span>` : ''}`; b.disabled = !!it.disabled;
+      b.onclick = () => { m.remove(); it.onclick(); }; m.append(b);
+    }
+    const r = m.getBoundingClientRect(); m.style.left = Math.max(6, Math.min(innerWidth - r.width - 6, x)) + 'px'; m.style.top = Math.max(6, Math.min(innerHeight - r.height - 6, y)) + 'px';
+  };
+  fill(Array.isArray(items) ? items : [{ text: '…' }]);
+  if (items && typeof items.then === 'function') items.then((l) => m.isConnected && fill(l));
+  const weg = (e) => { if (e.type === 'keydown' ? e.key === 'Escape' : !m.contains(e.target)) { m.remove(); removeEventListener('pointerdown', weg, true); removeEventListener('keydown', weg); } };
+  setTimeout(() => { addEventListener('pointerdown', weg, true); addEventListener('keydown', weg); }, 0);
+  return m;
+}
+let peopleCache = null, peopleAt = 0;
+async function personInfo(id) { if (!peopleCache || Date.now() - peopleAt > 60000) { const { data } = await db.rpc('get_people_notes'); peopleCache = Array.isArray(data) ? data : []; peopleAt = Date.now(); } return peopleCache.find((x) => +x.id === +id); }
+function szeneKontext(h) {
+  if (h.kind === 'brett') return kontextMenu(h.x, h.y, 'Schwarzes Brett', [{ text: 'Neuigkeiten lesen', onclick: () => showDorfLog(true) }, { text: 'Zu den Quests', onclick: () => openMenu('quests') }]);
+  if (h.kind === 'building') {
+    const bi = buildingInfo(h.sprite);
+    return kontextMenu(h.x, h.y, bi.name, [{ text: bi.stufe }, bi.workers.length ? { text: 'Hier arbeiten: ' + bi.workers.join(', ') } : null,
+      { text: 'Näher ansehen', onclick: () => scene.select({ kind: 'building', sprite: h.sprite }) }, { text: 'Dorf-Übersicht', onclick: () => openMenu('dorf') }]);
+  }
+  const pp = h.person;
+  if (pp.namenlos) return kontextMenu(h.x, h.y, pp.job, [{ text: 'Ihren Namen kennst du noch nicht.' }, { text: 'Kamera folgen', onclick: () => scene.select({ kind: 'villager', person: pp }) }]);
+  return kontextMenu(h.x, h.y, pp.name, personInfo(pp.id).then((x) => [
+    x ? { html: `${esc(pp.job || x.beruf || '')}<br>Beziehung: <b>${esc(x.stufe_name)}</b>${x.stufe != null ? ` (${x.stufe > 0 ? '+' : ''}${x.stufe})` : ''}` } : { text: pp.job || '' },
+    { text: 'Ansprechen', onclick: () => startTalk(pp) },
+    { text: 'Kamera folgen', onclick: () => scene.select({ kind: 'villager', person: pp }) },
+    { text: 'Im Notizbuch nachlesen', onclick: () => { diplReiter = 'leute'; openMenu('diplomatie'); } },
+  ]));
+}
+async function karteKontext(o, x, y) {
+  kontextMenu(x, y, o.name, (async () => {
+    const [z, kampf, dipl, rang] = await Promise.all([reiseZiele(), db.rpc('welt_kampf_info', { p_ort: o.id }).then((r) => r.data || []), diplOrte(), rangliste()]);
+    const ziel = (z?.ziele || []).find((q) => q.id === o.id), d = dipl.find((q) => q.id === o.id), rg = rang.find((q) => q.id === o.id), out = [];
+    if (rg) out.push({ html: `Rang <b>${rg.rang}.</b> · ${esc(rg.staerke)}` });
+    if (d) out.push({ html: `Zu deinem Dorf: <b>${esc(d.name_stufe)}</b> (${d.stufe > 0 ? '+' : ''}${d.stufe})` });
+    if (ziel?.hier) { out.push({ text: z.zustand === 'ort' ? 'Hier bist du gerade.' : 'Hier ist dein Zuhause.' }); if (z.zustand === 'ort') out.push({ text: 'Ort ansehen', onclick: () => { weltkarte?.schliessen?.(); openOrt(); } }); }
+    else if (ziel) out.push({ text: ziel.heim ? 'Heimreisen' : 'Hinreisen', sub: 'ca. ' + dauerText(ziel.minuten), disabled: !['daheim', 'ort'].includes(z.zustand), onclick: () => reisen(ziel, z) });
+    if (ziel && !ziel.hier && !['daheim', 'ort'].includes(z?.zustand)) out.push({ text: z.zustand === 'quest' ? 'Gerade bist du auf einer Reise.' : 'Du bist schon zu Fuß unterwegs.' });
+    for (const k of kampf) out.push(k.geholfen ? { text: `⚔ ${k.text} – du hast hier schon gekämpft.` } : k.hier ? { text: '⚔ Mitkämpfen', sub: k.text, onclick: () => kartenKampf(k) } : { text: `⚔ ${k.text} – mitkämpfen kannst du nur vor Ort.` });
+    out.push({ text: 'Alles über den Ort', onclick: () => weltkarte?.karte?.(o) });
+    return out;
+  })());
+}
+
 function showSelCard(obj) {
   const card = $('selcard'); clearInterval(selTimer);
   if (!obj) { card.hidden = true; return; }
@@ -1231,7 +1292,7 @@ function renderQuests(body) {
       const q = list.quests.find((x) => x.id === list.laufend.quest);
       const z = zettel('laufend', 0.6);
       z.innerHTML = `<b>Unterwegs: ${esc(list.laufend.titel || run?.titel || q?.titel || 'ein Abenteuer')}</b>`;
-      z.append(row(btn('Weiterspielen', true, () => resumeQuest(list.laufend.run)), btn('Abbrechen', false, async () => { await db.rpc('quest_abort', { p_run: list.laufend.run }); renderPanel('quests'); })));
+      z.append(row(btn('Weiterspielen', true, () => resumeQuest(list.laufend.run)), btn('Abbrechen', false, async () => { const { data } = await db.rpc('quest_abort', { p_run: list.laufend.run }); abbruchFolge(data); renderPanel('quests'); })));
       wrap.append(z);
     }
     renderAushaenge(wrap);
@@ -1443,6 +1504,55 @@ function renderInventory(body) {
   });
 }
 
+// Diplomatie: drei Reiter – Menschen, Orte, Rangliste der Dörfer
+let diplReiter = 'leute';
+function renderDiplomatie(body) {
+  const tabs = document.createElement('div'); tabs.className = 'dipl-tabs'; body.append(tabs);
+  const inhalt = document.createElement('div'); body.append(inhalt);
+  const R = [['leute', 'Dorfbewohner'], ['orte', 'Dörfer & Städte'], ['rang', 'Rangliste']];
+  const zeig = (id) => { diplReiter = id; tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.r === id)); inhalt.innerHTML = '';
+    if (id === 'leute') renderPeople(inhalt); else if (id === 'orte') renderOrteDipl(inhalt); else renderRangliste(inhalt); };
+  for (const [id, name] of R) { const b = btn(name, false, () => zeig(id)); b.dataset.r = id; tabs.append(b); }
+  zeig(diplReiter);
+}
+// Balken −10 … +10
+function diplBalken(stufe, name) {
+  const w = document.createElement('div'); w.className = 'dipl-bar' + (stufe == null ? ' leer' : ''); w.title = stufe == null ? 'Unbekannt' : `${name} (${stufe > 0 ? '+' : ''}${stufe})`;
+  const f = document.createElement('i'); const v = Math.max(-10, Math.min(10, stufe || 0));
+  f.style.left = v < 0 ? `${50 + v * 5}%` : '50%'; f.style.width = `${Math.abs(v) * 5}%`; f.className = v < 0 ? 'neg' : 'pos'; w.append(f);
+  const l = document.createElement('span'); l.textContent = stufe == null ? 'Unbekannt' : `${name} · ${stufe > 0 ? '+' : ''}${stufe}`; w.append(l);
+  return w;
+}
+let diplOrteCache = null, rangCache = null, rangAt = 0;
+async function diplOrte(neu = false) { if (!diplOrteCache || neu) { const { data } = await db.rpc('dipl_orte'); diplOrteCache = Array.isArray(data) ? data : []; } return diplOrteCache; }
+async function rangliste(neu = false) { if (!rangCache || neu || Date.now() - rangAt > 300000) { const { data } = await db.rpc('dorf_rangliste'); rangCache = Array.isArray(data) ? data : []; rangAt = Date.now(); } return rangCache; }
+function renderOrteDipl(body) {
+  body.append(p('Wie die anderen Orte zu deinem Dorf stehen – von −10 (Erzfeinde) bis +10 (Blutsbund). Das ändert sich langsam: durch Hilfe, Handel, Taten – und durch Streit.', 'muted small'));
+  const list = document.createElement('div'); list.className = 'dipl-liste'; body.append(list); list.append(p('…', 'muted small'));
+  diplOrte(true).then((data) => {
+    list.innerHTML = ''; if (!data.length) { list.append(p('Noch keine Beziehungen.', 'muted small')); return; }
+    for (const o of data) {
+      const r = document.createElement('div'); r.className = 'dipl-ort';
+      r.innerHTML = `<div><b>${esc(o.name)}</b> <span class="small muted">· ${esc(ART_ORT[o.art] || o.art)}${o.spieler ? ' · ' + esc(o.spieler) : ''} · ${esc(dauerText(o.minuten))}</span><br><span class="small"><span class="wk-dot" style="background:${esc(o.farbe || '#999')}"></span>${esc(o.reich || '')}</span></div>`;
+      r.append(diplBalken(o.stufe, o.name_stufe)); list.append(r);
+    }
+  });
+}
+const ART_ORT = { dorf: 'Dorf', stadt: 'Stadt', grossstadt: 'Große Stadt', burg: 'Burg', kloster: 'Kloster' };
+function renderRangliste(body) {
+  body.append(p('Wer würde einen Krieg gewinnen? Im Hintergrund wird jedes Dorf gegen jedes gerechnet – mit allen Bewohnern, Mauern und Waffen. Genaue Zahlen verrät dir keiner.', 'muted small'));
+  const ol = document.createElement('ol'); ol.className = 'rangliste'; body.append(ol); ol.append(p('…', 'muted small'));
+  rangliste(true).then((data) => {
+    ol.innerHTML = '';
+    for (const d of data) {
+      const li = document.createElement('li'); li.className = 'rang-' + d.stufe + (d.ich ? ' ich' : '');
+      const pips = '<span class="rang-pips">' + Array.from({ length: 6 }, (_, i) => `<i class="${i < d.stufe ? 'on' : ''}"></i>`).join('') + '</span>';
+      li.innerHTML = `<span class="rang-nr">${d.rang}.</span><span class="rang-name"><b>${esc(d.name)}</b>${d.ich ? ' (dein Dorf)' : ''}${d.spieler && !d.ich ? ` <span class="small muted">· ${esc(d.spieler)}</span>` : ''}<br><span class="small"><span class="wk-dot" style="background:${esc(d.farbe || '#999')}"></span>${esc(d.reich || '')}</span></span><span class="rang-st">${esc(d.staerke)}${pips}</span>`;
+      ol.append(li);
+    }
+  });
+}
+
 function renderPeople(body) {
   body.append(p('Was ich über die Menschen im Tal weiß. Ich schreibe auf, was wir erlebt haben – und was ich von ihnen halte.', 'muted small'));
   const rep = document.createElement('div'); rep.className = 'rep'; body.append(rep);
@@ -1464,7 +1574,7 @@ function renderPeople(body) {
         const sum = document.createElement('summary');
         const person = scene?.village.people.find((q) => q.id === x.id);
         if (person?.plan) sum.append(portraitCanvas(person.plan, 40));
-        const t = document.createElement('div'); t.innerHTML = `<b>${esc(x.name)}</b> <span class="muted small">· ${esc(x.beruf)}</span><br><span class="small eindruck">${esc(x.eindruck)}</span>`; sum.append(t); det.append(sum);
+        const t = document.createElement('div'); t.innerHTML = `<b>${esc(x.name)}</b> <span class="muted small">· ${esc(x.beruf)}</span><br><span class="small eindruck">${esc(x.eindruck)}</span>`; t.append(diplBalken(x.stufe, x.stufe_name)); sum.append(t); det.append(sum);
         const ul = document.createElement('ul'); ul.className = 'notes';
         for (const f of x.gefallen || []) { const li = document.createElement('li'); li.className = 'gefallen'; li.textContent = 'Offene Zusage: ' + f; ul.append(li); }
         for (const n of x.notizen || []) { const li = document.createElement('li'); li.className = n.art; li.innerHTML = `<span class="muted small">${new Date(n.am).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span> ${esc(n.text)}`; ul.append(li); }
@@ -1498,6 +1608,7 @@ async function startGame() {
       onPlots: (on) => $('game').classList.toggle('placing', on),
       onSelect: () => { if (!$('panel').hidden && active === 'dorf') renderPanel('dorf'); },
       onBrett: () => brettWahl(),
+      onKontext: (h) => szeneKontext(h),
       onLayout: () => {},
     });
     window.mossheart = scene; // für Tests in der Konsole

@@ -2,7 +2,7 @@
 // Gewürfelt und entschieden wird nur auf dem Server (quest_choose); hier wird nur gezeigt.
 import { sheetData, SW, SH } from './chars.js?v=4';
 import { playMinigame } from './minigames.js?v=2';
-import { playBattle } from './horde.js?v=7';
+import { playBattle } from './horde.js?v=8';
 import { iconURL } from './kampf_icons.js?v=3';
 
 const LW = 240, LH = 100, GROUND = 88;
@@ -264,7 +264,7 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
       li.append(b); opts.append(li);
     });
     const ab = document.createElement('button'); ab.type = 'button'; ab.className = 'px-btn small q-abort'; ab.textContent = 'Abenteuer abbrechen';
-    ab.onclick = async () => { if (!confirmAbort(ab)) return; await db.rpc('quest_abort', { p_run: v.run }); close(true); };
+    ab.onclick = async () => { if (!confirmAbort(ab)) return; const { data } = await db.rpc('quest_abort', { p_run: v.run }); close(true); window.__abbruchFolge?.(data); };
     foot.append(ab);
   }
   // Am Ende einer Reise: heimkehren, bleiben oder weiterziehen
@@ -290,7 +290,7 @@ export function openQuest({ db, box, view, heroPlan, companionCv, CHECKS, ATTRS,
     (h.weiter || []).slice(0, 6).forEach((o) => wahl(`Weiterziehen nach ${o.name}`, 'ca. ' + dauerText(o.minuten), o.id, o.minuten >= 60));
   }
   // zweistufig statt Browser-Dialog: erster Klick fragt, zweiter bestätigt
-  function confirmAbort(b) { if (b.dataset.sure) return true; b.dataset.sure = '1'; b.textContent = 'Wirklich abbrechen? Nochmal klicken.'; setTimeout(() => { if (!closed) { delete b.dataset.sure; b.textContent = 'Abenteuer abbrechen'; } }, 4000); return false; }
+  function confirmAbort(b) { if (b.dataset.sure) return true; b.dataset.sure = '1'; b.textContent = 'Wirklich abbrechen? Wer draußen ist, läuft dann heim. Nochmal klicken.'; setTimeout(() => { if (!closed) { delete b.dataset.sure; b.textContent = 'Abenteuer abbrechen'; } }, 4000); return false; }
 
   async function send(fn, args) {
     if (busy || closed) return; busy = true; opts.querySelectorAll('button,input').forEach((b) => (b.disabled = true));
