@@ -467,11 +467,11 @@ end $$;
 A(r"""
 -- ───────── Für die Oberfläche ─────────
 create or replace function public.schlacht_status() returns json language plpgsql security definer set search_path = public as $$
-declare uid uuid := auth.uid(); s record;
+declare uid uuid := auth.uid(); sr record;
 begin
   perform schlachten_pruefen(false);
   -- Die 12 Stunden beginnen, wenn die Verteidiger (oder der Geforderte) davon erfahren
-  for s in select id from schlachten where status = 'angekuendigt' and sch_seite(id, uid) = 'V' loop perform sch_start(s.id); end loop;
+  for sr in select id from schlachten where status = 'angekuendigt' and sch_seite(id, uid) = 'V' loop perform sch_start(sr.id); end loop;
   return (select coalesce(json_agg(x order by (x->>'meine')::boolean desc, x->>'erstellt' desc), '[]'::json) from (
     select json_build_object('id', s.id, 'art', s.art, 'ort', s.ort, 'ort_name', ort_name(s.ort), 'a_name', s.a_name, 'v_name', s.v_name, 'grund', s.grund, 'gegner', s.gegner,
       'status', s.status, 'erstellt', s.erstellt, 'prep_bis', s.prep_bis, 'ende_bis', s.ende_bis, 'ergebnis', s.ergebnis,
